@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/fechamento-mensal",
+      "schedule": "0 3 1 * *"
+    }
+  ]
+}
