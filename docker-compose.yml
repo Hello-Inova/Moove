@@ -1,0 +1,20 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: moove
+      POSTGRES_PASSWORD: moove
+      POSTGRES_DB: moove
+    ports:
+      - "5433:5432"
+    volumes:
+      - moove_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U moove -d moove"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  moove_db_data:

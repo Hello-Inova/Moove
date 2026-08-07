@@ -1,0 +1,243 @@
+// Moove — modelo de dados
+// Convenção: campos em camelCase no Prisma/TypeScript, mapeados para snake_case
+// no banco (@map / @@map) para bater exatamente com os nomes de coluna do
+// modelo de dados especificado no escopo do produto.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum StatusConta {
+  ATIVA
+  SUSPENSA
+
+  @@map("status_conta")
+}
+
+enum StatusConvite {
+  PENDENTE
+  USADO
+  EXPIRADO
+  REVOGADO
+
+  @@map("status_convite")
+}
+
+enum StatusVinculo {
+  ATIVO
+  REVOGADO
+
+  @@map("status_vinculo")
+}
+
+enum TipoPlano {
+  FREE
+  PAGO
+
+  @@map("tipo_plano")
+}
+
+enum StatusCobranca {
+  PENDENTE
+  PAGO
+  ATRASADO
+
+  @@map("status_cobranca")
+}
+
+// ---------------------------------------------------------------------------
+// Motorista
+// ---------------------------------------------------------------------------
+
+model Motorista {
+  id           String      @id @default(cuid())
+  nome         String
+  email        String      @unique
+  telefone     String
+  senhaHash    String      @map("senha_hash")
+  statusConta  StatusConta @default(ATIVA) @map("status_conta")
+
+  // LGPD: registro do aceite explícito no cadastro.
+  consentimentoLgpdAceitoEm DateTime @map("consentimento_lgpd_aceito_em")
+
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  veiculos    Veiculo[]
+  convites    Convite[]
+  vinculos    Vinculo[]
+  cobrancas   Cobranca[]
+  localizacao Localizacao?
+  plano       Plano?
+
+  @@map("motoristas")
+}
+
+// ---------------------------------------------------------------------------
+// Veiculo
+// ---------------------------------------------------------------------------
+
+model Veiculo {
+  id            String   @id @default(cuid())
+  motoristaId   String   @map("motorista_id")
+  placa         String
+  modelo        String
+  documentoUrl  String?  @map("documento_url")
+  criadoEm      DateTime @default(now()) @map("criado_em")
+
+  motorista Motorista @relation(fields: [motoristaId], references: [id], onDelete: Cascade)
+
+  // A busca do responsável é feita por placa; garantimos unicidade global
+  // (normalizada em maiúsculas/sem espaços na aplicação) e um índice de busca.
+  @@unique([placa])
+  @@index([motoristaId])
+  @@map("veiculos")
+}
+
+// ---------------------------------------------------------------------------
+// Responsavel
+// ---------------------------------------------------------------------------
+
+model Responsavel {
+  id        String   @id @default(cuid())
+  nome      String
+  email     String   @unique
+  telefone  String
+  senhaHash String   @map("senha_hash")
+
+  // LGPD: registro do aceite explícito no cadastro.
+  consentimentoLgpdAceitoEm DateTime @map("consentimento_lgpd_aceito_em")
+
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  vinculos        Vinculo[]
+  convitesUsados  Convite[] @relation("ConviteUsadoPor")
+
+  @@map("responsaveis")
+}
+
+// ---------------------------------------------------------------------------
+// Convite
+// ---------------------------------------------------------------------------
+
+model Convite {
+  id          String        @id @default(cuid())
+  codigo      String        @unique
+  motoristaId String        @map("motorista_id")
+  status      StatusConvite @default(PENDENTE)
+  criadoEm    DateTime      @default(now()) @map("criado_em")
+  expiraEm    DateTime      @map("expira_em")
+
+  usadoPorResponsavelId String?      @map("usado_por_responsavel_id")
+  usadoEm               DateTime?    @map("usado_em")
+
+  motorista        Motorista    @relation(fields: [motoristaId], references: [id], onDelete: Cascade)
+  usadoPorResponsavel Responsavel? @relation("ConviteUsadoPor", fields: [usadoPorResponsavelId], references: [id])
+  vinculo           Vinculo?
+
+  @@index([motoristaId])
+  @@map("convites")
+}
+
+// ---------------------------------------------------------------------------
+// Vinculo
+// ---------------------------------------------------------------------------
+
+model Vinculo {
+  id            String        @id @default(cuid())
+  motoristaId   String        @map("motorista_id")
+  responsavelId String        @map("responsavel_id")
+  conviteId     String        @unique @map("convite_id")
+  status        StatusVinculo @default(ATIVO)
+  criadoEm      DateTime      @default(now()) @map("criado_em")
+  revogadoEm    DateTime?     @map("revogado_em")
+
+  motorista   Motorista   @relation(fields: [motoristaId], references: [id], onDelete: Cascade)
+  responsavel Responsavel @relation(fields: [responsavelId], references: [id], onDelete: Cascade)
+  convite     Convite     @relation(fields: [conviteId], references: [id])
+
+  cobrancaItens CobrancaVinculo[]
+
+  // Índice usado pela checagem crítica de segurança: existe vínculo ATIVO
+  // entre este responsável e este motorista?
+  @@index([motoristaId, responsavelId, status])
+  @@index([responsavelId, status])
+  @@map("vinculos")
+}
+
+// ---------------------------------------------------------------------------
+// Localizacao (1:1 com Motorista)
+// ---------------------------------------------------------------------------
+
+model Localizacao {
+  motoristaId String   @id @map("motorista_id")
+  latitude    Float
+  longitude   Float
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  motorista Motorista @relation(fields: [motoristaId], references: [id], onDelete: Cascade)
+
+  @@map("localizacoes")
+}
+
+// ---------------------------------------------------------------------------
+// Plano (1:1 com Motorista)
+// ---------------------------------------------------------------------------
+
+model Plano {
+  motoristaId             String    @id @map("motorista_id")
+  tipo                    TipoPlano @default(FREE)
+  alunosIncluidosGratis   Int       @default(5) @map("alunos_incluidos_gratis")
+  valorPorAlunoExcedente  Decimal   @default(6.00) @db.Decimal(10, 2) @map("valor_por_aluno_excedente")
+  atualizadoEm            DateTime  @updatedAt @map("atualizado_em")
+
+  motorista Motorista @relation(fields: [motoristaId], references: [id], onDelete: Cascade)
+
+  @@map("planos")
+}
+
+// ---------------------------------------------------------------------------
+// Cobranca
+// ---------------------------------------------------------------------------
+
+model Cobranca {
+  id                String         @id @default(cuid())
+  motoristaId       String         @map("motorista_id")
+  referenciaMes     String         @map("referencia_mes") // formato "YYYY-MM"
+  qtdAlunosVinculados Int          @map("qtd_alunos_vinculados")
+  qtdAlunosCobrados  Int           @map("qtd_alunos_cobrados")
+  valorTotal         Decimal       @db.Decimal(10, 2) @map("valor_total")
+  status             StatusCobranca @default(PENDENTE)
+  geradoEm           DateTime      @default(now()) @map("gerado_em")
+  pagoEm             DateTime?     @map("pago_em")
+
+  motorista Motorista @relation(fields: [motoristaId], references: [id], onDelete: Cascade)
+  itens     CobrancaVinculo[]
+
+  @@unique([motoristaId, referenciaMes])
+  @@map("cobrancas")
+}
+
+// Tabela auxiliar: quais vínculos (alunos) compuseram o excedente cobrado em
+// uma dada Cobranca. Não faz parte do modelo mínimo pedido, mas evita que o
+// job de fechamento mensal precise recalcular/adivinhar quais alunos geraram
+// a cobrança depois do fato (auditoria).
+model CobrancaVinculo {
+  id         String @id @default(cuid())
+  cobrancaId String @map("cobranca_id")
+  vinculoId  String @map("vinculo_id")
+
+  cobranca Cobranca @relation(fields: [cobrancaId], references: [id], onDelete: Cascade)
+  vinculo  Vinculo  @relation(fields: [vinculoId], references: [id], onDelete: Cascade)
+
+  @@unique([cobrancaId, vinculoId])
+  @@map("cobranca_vinculos")
+}
