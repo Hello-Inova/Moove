@@ -50,7 +50,7 @@ export default async function MotoristaCobrancasPage() {
             </p>
           )}
           {cobrancas.map((c) => (
-            <div key={c.id} className="rounded-xl border border-neutral-200 bg-white p-4">
+            <div key={c.id} className="rounded-2xl border border-neutral-200 bg-white shadow-sm p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="font-medium">{c.referenciaMes}</p>
                 <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_CLASS[c.status]}`}>

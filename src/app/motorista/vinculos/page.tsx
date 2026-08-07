@@ -35,7 +35,7 @@ export default async function MotoristaVinculosPage() {
           {vinculos.map((v) => (
             <div
               key={v.id}
-              className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-neutral-200 bg-white p-4"
+              className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-neutral-200 bg-white shadow-sm p-4"
             >
               <div>
                 <p className="font-medium">{v.responsavel.nome}</p>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useLocationSharing } from "@/hooks/useLocationSharing";
+import { useLocationSharingContext } from "@/contexts/LocationSharingContext";
 import { primaryButtonClass, secondaryButtonClass } from "@/components/ui/form-elements";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -18,18 +18,17 @@ const STATUS_DOT: Record<string, string> = {
 };
 
 export function LocationSharingPanel() {
-  const { status, error, lastSentAt, start, stop } = useLocationSharing();
-  const isActive = status === "ativando" || status === "compartilhando";
+  const { status, error, lastSentAt, start, isSharing, confirmAndRun } = useLocationSharingContext();
 
   return (
-    <section className="rounded-xl border border-neutral-200 bg-white p-5">
+    <section className="rounded-2xl border border-neutral-200 bg-white shadow-sm p-5">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-2">
           <span className={`h-2.5 w-2.5 rounded-full ${STATUS_DOT[status]}`} />
           <p className="font-medium">{STATUS_LABEL[status]}</p>
         </div>
-        {isActive ? (
-          <button onClick={stop} className={secondaryButtonClass}>
+        {isSharing ? (
+          <button onClick={() => confirmAndRun(() => {})} className={secondaryButtonClass}>
             Parar
           </button>
         ) : (

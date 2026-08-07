@@ -54,7 +54,7 @@ export default async function MotoristaConvitesPage() {
           {convites.map((c) => (
             <div
               key={c.id}
-              className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-neutral-200 bg-white p-4"
+              className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-neutral-200 bg-white shadow-sm p-4"
             >
               <div className="flex items-center gap-3">
                 <CopyCodeButton codigo={c.codigo} />

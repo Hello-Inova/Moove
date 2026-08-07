@@ -17,7 +17,7 @@ export default async function ResponsavelVincularPage() {
             Insira o código recebido do motorista para criar o vínculo e acompanhar a localização dele.
           </p>
         </div>
-        <section className="max-w-sm rounded-xl border border-neutral-200 bg-white p-5">
+        <section className="max-w-sm rounded-2xl border border-neutral-200 bg-white shadow-sm p-5">
           <UsarConviteForm />
         </section>
       </div>

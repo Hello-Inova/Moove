@@ -85,7 +85,7 @@ export function BuscarPlacaClient({ placaInicial }: { placaInicial?: string }) {
 
       {data && (
         <div className="space-y-3">
-          <div className="rounded-xl border border-neutral-200 bg-white p-4">
+          <div className="rounded-2xl border border-neutral-200 bg-white shadow-sm p-4">
             <p className="font-medium">
               {data.veiculo.placa} · {data.veiculo.modelo}
             </p>

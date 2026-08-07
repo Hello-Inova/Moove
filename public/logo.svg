@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1550 520" role="img" aria-label="Moove">
+  <rect x="380" y="222" width="68" height="68" rx="16" fill="#f97316"/>
+  <rect x="395" y="80" width="600" height="215" rx="48" fill="#ffedd5"/>
+  <rect x="415" y="95" width="560" height="195" rx="42" fill="#fed7aa"/>
+  <rect x="475" y="133" width="165" height="76" rx="18" fill="#f97316"/>
+  <rect x="665" y="133" width="165" height="76" rx="18" fill="#f97316"/>
+  <line x1="415" y1="300" x2="975" y2="300" stroke="#f97316" stroke-width="16" stroke-linecap="round"/>
+  <circle cx="525" cy="300" r="96" fill="#1e293b" stroke="#f97316" stroke-width="18"/>
+  <circle cx="525" cy="300" r="22" fill="#f97316"/>
+  <circle cx="825" cy="300" r="96" fill="#1e293b" stroke="#f97316" stroke-width="18"/>
+  <circle cx="825" cy="300" r="22" fill="#f97316"/>
+  <text x="20" y="400" font-family="Arial, Helvetica, sans-serif" font-weight="800" font-size="420" fill="#1e293b">M</text>
+  <text x="1030" y="400" font-family="Arial, Helvetica, sans-serif" font-weight="800" font-size="420" fill="#1e293b">ve</text>
+</svg>

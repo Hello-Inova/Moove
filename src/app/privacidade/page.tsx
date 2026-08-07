@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { Logo } from "@/components/ui/Logo";
+
 export const metadata = {
   title: "Política de Privacidade — Moove",
 };
@@ -7,10 +9,10 @@ export const metadata = {
 export default function PrivacidadePage() {
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-12">
-      <Link href="/" className="text-sm text-neutral-500">
-        ← Moove
+      <Link href="/" className="inline-block">
+        <Logo height={22} />
       </Link>
-      <h1 className="mt-2 text-3xl font-bold">Política de Privacidade</h1>
+      <h1 className="mt-4 text-3xl font-bold text-brand-navy">Política de Privacidade</h1>
       <p className="mt-1 text-sm text-neutral-500">
         Como o Moove trata dados pessoais, de localização e de crianças, em conformidade com a
         Lei Geral de Proteção de Dados (LGPD — Lei nº 13.709/2018).

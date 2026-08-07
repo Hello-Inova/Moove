@@ -31,7 +31,7 @@ export default async function MotoristaVeiculosPage() {
           {veiculos.map((v) => (
             <div
               key={v.id}
-              className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-neutral-200 bg-white p-4"
+              className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-neutral-200 bg-white shadow-sm p-4"
             >
               <div>
                 <p className="font-medium">{v.placa}</p>
@@ -49,7 +49,7 @@ export default async function MotoristaVeiculosPage() {
           ))}
         </div>
 
-        <section className="rounded-xl border border-neutral-200 bg-white p-5">
+        <section className="rounded-2xl border border-neutral-200 bg-white shadow-sm p-5">
           <h2 className="mb-4 font-medium">Cadastrar novo veículo</h2>
           <VeiculoForm />
         </section>

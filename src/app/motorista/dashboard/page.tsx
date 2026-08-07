@@ -49,7 +49,7 @@ function StatCard({ label, value, href }: { label: string; value: number; href: 
   return (
     <Link
       href={href}
-      className="rounded-xl border border-neutral-200 bg-white p-4 transition hover:border-neutral-400"
+      className="rounded-2xl border border-neutral-200 bg-white shadow-sm p-4 transition hover:border-neutral-400"
     >
       <p className="text-sm text-neutral-500">{label}</p>
       <p className="text-2xl font-semibold">{value}</p>

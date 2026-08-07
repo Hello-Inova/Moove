@@ -35,7 +35,7 @@ export default async function ResponsavelDashboardPage() {
 
         <div className="space-y-3">
           {vinculos.map((v) => (
-            <div key={v.id} className="rounded-xl border border-neutral-200 bg-white p-4">
+            <div key={v.id} className="rounded-2xl border border-neutral-200 bg-white shadow-sm p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="font-medium">{v.motorista.nome}</p>
