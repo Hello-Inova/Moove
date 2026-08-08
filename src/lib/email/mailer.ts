@@ -66,6 +66,7 @@ class ResendMailer implements Mailer {
 
     if (!response.ok) {
       const body = await response.text().catch(() => "");
+      console.error(`[email] Resend recusou o envio (HTTP ${response.status}): ${body}`);
       throw new EmailSendError(`Falha ao enviar e-mail de verificação (HTTP ${response.status}): ${body}`);
     }
   }
