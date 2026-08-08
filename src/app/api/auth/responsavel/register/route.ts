@@ -5,7 +5,7 @@ import { hashPassword } from "@/lib/auth/password";
 import { responsavelRegisterSchema } from "@/lib/validation/schemas";
 import { jsonError, jsonValidationError } from "@/lib/http";
 import { issueVerificationCode, EmailSendError, ResendCooldownError } from "@/lib/email/verification";
-import { geocodeEndereco, montarEnderecoTexto } from "@/lib/geocoding";
+import { geocodeEndereco } from "@/lib/geocoding";
 
 /**
  * Não cria a conta ainda — só emite o código de verificação. A conta só
@@ -32,9 +32,9 @@ export async function POST(request: NextRequest) {
   // chamada só no envio do cadastro) — se falhar, a conta ainda é criada
   // normalmente; o responsável pode corrigir/tentar de novo depois em
   // "Meu endereço", e até lá esse vínculo simplesmente não entra na rota
-  // otimizada do motorista.
-  const enderecoTexto = montarEnderecoTexto({ logradouro, numero, bairro, cidade, estado });
-  const coordenadas = await geocodeEndereco(`${enderecoTexto}, ${cep}, Brasil`);
+  // otimizada do motorista. Passa o número separado (não embutido numa
+  // frase única) para o Nominatim localizar a casa certa, não só a rua.
+  const coordenadas = await geocodeEndereco({ logradouro, numero, bairro, cidade, estado, cep });
 
   try {
     await issueVerificationCode({

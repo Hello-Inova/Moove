@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getAuthenticatedResponsavel } from "@/lib/auth/guards";
 import { enderecoSchema } from "@/lib/validation/schemas";
 import { jsonError, jsonValidationError } from "@/lib/http";
-import { geocodeEndereco, montarEnderecoTexto } from "@/lib/geocoding";
+import { geocodeEndereco } from "@/lib/geocoding";
 
 export async function GET() {
   const responsavel = await getAuthenticatedResponsavel();
@@ -40,8 +40,7 @@ export async function PATCH(request: NextRequest) {
 
   const { cep, logradouro, numero, complemento, bairro, cidade, estado } = parsed.data;
 
-  const enderecoTexto = montarEnderecoTexto({ logradouro, numero, bairro, cidade, estado });
-  const coordenadas = await geocodeEndereco(`${enderecoTexto}, ${cep}, Brasil`);
+  const coordenadas = await geocodeEndereco({ logradouro, numero, bairro, cidade, estado, cep });
 
   const atualizado = await prisma.responsavel.update({
     where: { id: responsavel.id },
