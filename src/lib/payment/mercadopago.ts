@@ -76,6 +76,7 @@ export async function createMercadoPagoPreference(params: {
 
   if (!response.ok) {
     const body = await response.text().catch(() => "");
+    console.error(`[mercadopago] Falha ao criar preference (HTTP ${response.status}): ${body}`);
     throw new MercadoPagoApiError(`Falha ao criar checkout no Mercado Pago (HTTP ${response.status}): ${body}`);
   }
 
@@ -103,6 +104,7 @@ export async function getMercadoPagoPayment(paymentId: string): Promise<MercadoP
 
   if (!response.ok) {
     const body = await response.text().catch(() => "");
+    console.error(`[mercadopago] Falha ao consultar pagamento (HTTP ${response.status}): ${body}`);
     throw new MercadoPagoApiError(`Falha ao consultar pagamento no Mercado Pago (HTTP ${response.status}): ${body}`);
   }
 

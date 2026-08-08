@@ -4,7 +4,7 @@ import { getAuthenticatedMotorista } from "@/lib/auth/guards";
 import { jsonError, jsonValidationError } from "@/lib/http";
 import { criarCheckoutAssinaturaSchema } from "@/lib/validation/schemas";
 import { criarAssinaturaComCheckout } from "@/lib/subscription/service";
-import { MercadoPagoNotConfiguredError } from "@/lib/payment/mercadopago";
+import { MercadoPagoNotConfiguredError, MercadoPagoApiError } from "@/lib/payment/mercadopago";
 import { PLANOS } from "@/lib/subscription/plans";
 
 export async function POST(request: NextRequest) {
@@ -37,6 +37,9 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     if (err instanceof MercadoPagoNotConfiguredError) {
       return jsonError(503, err.message);
+    }
+    if (err instanceof MercadoPagoApiError) {
+      return jsonError(502, "Não foi possível criar o pagamento no Mercado Pago agora. Tente novamente em instantes.");
     }
     throw err;
   }
