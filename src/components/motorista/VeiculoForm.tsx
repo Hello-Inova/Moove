@@ -73,7 +73,7 @@ export function VeiculoForm() {
           accept="application/pdf,image/jpeg,image/png,image/webp"
           className={inputClass + " cursor-pointer file:mr-3 file:rounded-md file:border-0 file:bg-neutral-100 file:px-3 file:py-1.5"}
         />
-        <p className="mt-1 text-xs text-neutral-500">
+        <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
           O documento é apenas armazenado para consulta — não há etapa de aprovação manual.
         </p>
       </div>

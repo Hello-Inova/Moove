@@ -7,7 +7,7 @@ const VehicleMapInner = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="flex h-full w-full items-center justify-center bg-neutral-100 text-sm text-neutral-500">
+      <div className="flex h-full w-full items-center justify-center bg-neutral-100 text-sm text-neutral-500 dark:text-neutral-400 dark:bg-neutral-800">
         Carregando mapa…
       </div>
     ),

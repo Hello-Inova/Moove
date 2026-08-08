@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { apiPostJson } from "@/lib/api-client";
 import { inputClass, primaryButtonClass } from "@/components/ui/form-elements";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 import { VerifyCodeForm } from "@/components/auth/VerifyCodeForm";
 
 type Role = "motorista" | "responsavel";
@@ -50,7 +51,7 @@ export function LoginForm({ role }: { role: Role }) {
         <button
           type="button"
           onClick={() => setPendingEmail(null)}
-          className="w-full text-center text-sm text-neutral-500 underline underline-offset-2"
+          className="w-full text-center text-sm text-neutral-500 underline underline-offset-2 dark:text-neutral-400"
         >
           Voltar
         </button>
@@ -71,14 +72,7 @@ export function LoginForm({ role }: { role: Role }) {
         <label className="mb-1 block text-sm font-medium" htmlFor="senha">
           Senha
         </label>
-        <input
-          id="senha"
-          name="senha"
-          type="password"
-          required
-          className={inputClass}
-          autoComplete="current-password"
-        />
+        <PasswordInput id="senha" name="senha" required className={inputClass} autoComplete="current-password" />
       </div>
 
       {formError && <p className="text-sm text-red-600">{formError}</p>}

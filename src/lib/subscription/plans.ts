@@ -1,13 +1,20 @@
-// Definição dos planos + cálculo de preço. Módulo "puro" (sem acesso a
+// Moove — cálculo de preço de assinatura. Módulo "puro" (sem acesso a
 // banco/segredos) de propósito: é importado tanto por Server Components/API
 // routes quanto por Client Components (o formulário de assinatura usa a
 // mesma fórmula para mostrar o preview do valor/desconto em tempo real).
+//
+// O catálogo de planos em si (Basic/Pró/Max e quaisquer outros que o admin
+// criar) NÃO mora mais aqui — vive na tabela `planos_assinatura` e é lido
+// via `src/lib/subscription/planos-service.ts` (server-only). Este arquivo
+// só define o formato de um plano e a matemática pura em cima dele, para
+// que o mesmo cálculo funcione tanto no servidor (com o plano vindo do
+// banco) quanto no cliente (com o plano recebido por props/API).
 
-export type TipoPlano = "BASIC" | "PRO" | "MAX";
 export type CicloCobranca = "MENSAL" | "SEMESTRAL" | "ANUAL";
 
 export type PlanoDefinicao = {
-  tipo: TipoPlano;
+  id: string;
+  codigo: string;
   label: string;
   ciclo: CicloCobranca;
   cicloLabel: string;
@@ -16,60 +23,12 @@ export type PlanoDefinicao = {
   valorPorAlunoExcedente: number;
   recursos: string[];
   permiteAnosAdicionais: boolean;
-  destaque?: string;
+  destaque?: string | null;
+  ativo: boolean;
+  ordem: number;
 };
 
 export const TESTE_DIAS = 7;
-
-export const PLANOS: Record<TipoPlano, PlanoDefinicao> = {
-  BASIC: {
-    tipo: "BASIC",
-    label: "Basic",
-    ciclo: "MENSAL",
-    cicloLabel: "Cobrança mensal",
-    valorBase: 33.0,
-    alunosGratis: 0,
-    valorPorAlunoExcedente: 1.0,
-    recursos: ["Cobrança mensal", `${TESTE_DIAS} dias de teste`, "+ R$ 1,00 por aluno"],
-    permiteAnosAdicionais: false,
-  },
-  PRO: {
-    tipo: "PRO",
-    label: "Pró",
-    ciclo: "SEMESTRAL",
-    cicloLabel: "Cobrança semestral",
-    valorBase: 178.2,
-    alunosGratis: 5,
-    valorPorAlunoExcedente: 1.0,
-    recursos: [
-      "Cobrança semestral",
-      `${TESTE_DIAS} dias de teste`,
-      "10% de economia vs. Basic",
-      "5 alunos grátis",
-      "+ R$ 1,00 por aluno excedente",
-    ],
-    permiteAnosAdicionais: false,
-    destaque: "Mais popular",
-  },
-  MAX: {
-    tipo: "MAX",
-    label: "Max",
-    ciclo: "ANUAL",
-    cicloLabel: "Cobrança anual",
-    valorBase: 356.4,
-    alunosGratis: 10,
-    valorPorAlunoExcedente: 1.0,
-    recursos: [
-      "Cobrança anual",
-      `${TESTE_DIAS} dias de teste`,
-      "Acesso ao módulo de gestão de alunos",
-      "10 alunos grátis",
-      "10% de economia vs. Basic",
-      "+ R$ 1,00 por aluno excedente",
-    ],
-    permiteAnosAdicionais: true,
-  },
-};
 
 export type ResumoValorAssinatura = {
   valorPlano: number;
@@ -83,16 +42,15 @@ export type ResumoValorAssinatura = {
 };
 
 /**
- * Calcula o valor a cobrar. Sempre recalculado no servidor a partir dos
- * parâmetros brutos antes de criar a cobrança — nunca confiamos num total
- * vindo do cliente.
+ * Calcula o valor a cobrar. Sempre recalculado no servidor a partir do plano
+ * lido do banco (não confiamos num total vindo do cliente).
  */
 export function calcularValorAssinatura(params: {
-  tipoPlano: TipoPlano;
+  plano: Pick<PlanoDefinicao, "valorBase" | "alunosGratis" | "valorPorAlunoExcedente" | "permiteAnosAdicionais">;
   qtdAlunos: number;
   anosAdicionais?: number;
 }): ResumoValorAssinatura {
-  const plano = PLANOS[params.tipoPlano];
+  const { plano } = params;
   const alunosContratados = Math.max(0, Math.floor(params.qtdAlunos));
   const alunosCobrados = Math.max(0, alunosContratados - plano.alunosGratis);
   const valorAlunosExcedentes = alunosCobrados * plano.valorPorAlunoExcedente;

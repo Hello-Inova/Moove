@@ -21,7 +21,7 @@ export default async function ResponsavelDashboardPage() {
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-semibold">Olá, {responsavel.nome.split(" ")[0]}</h1>
-          <p className="text-neutral-500">Seus vínculos com motoristas</p>
+          <p className="text-neutral-500 dark:text-neutral-400">Seus vínculos com motoristas</p>
         </div>
 
         {vinculos.length === 0 && (
@@ -35,11 +35,11 @@ export default async function ResponsavelDashboardPage() {
 
         <div className="space-y-3">
           {vinculos.map((v) => (
-            <div key={v.id} className="rounded-2xl border border-neutral-200 bg-white shadow-sm p-4">
+            <div key={v.id} className="rounded-2xl border border-neutral-200 bg-white shadow-sm p-4 dark:bg-neutral-900 dark:border-neutral-700">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="font-medium">{v.motorista.nome}</p>
-                  <p className="text-sm text-neutral-500">
+                  <p className="text-sm text-neutral-500 dark:text-neutral-400">
                     {v.motorista.veiculos.map((ve) => `${ve.placa} · ${ve.modelo}`).join(", ") || "Sem veículo cadastrado"}
                   </p>
                 </div>

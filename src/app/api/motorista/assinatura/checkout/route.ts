@@ -3,9 +3,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedMotorista } from "@/lib/auth/guards";
 import { jsonError, jsonValidationError } from "@/lib/http";
 import { criarCheckoutAssinaturaSchema } from "@/lib/validation/schemas";
-import { criarAssinaturaComCheckout } from "@/lib/subscription/service";
+import { criarAssinaturaComCheckout, PlanoInexistenteError } from "@/lib/subscription/service";
+import { buscarPlanoPorCodigo } from "@/lib/subscription/planos-service";
 import { MercadoPagoNotConfiguredError, MercadoPagoApiError } from "@/lib/payment/mercadopago";
-import { PLANOS } from "@/lib/subscription/plans";
 
 export async function POST(request: NextRequest) {
   const motorista = await getAuthenticatedMotorista();
@@ -19,8 +19,11 @@ export async function POST(request: NextRequest) {
 
   const { tipoPlano, qtdAlunos, anosAdicionais } = parsed.data;
 
-  if (anosAdicionais && anosAdicionais > 0 && !PLANOS[tipoPlano].permiteAnosAdicionais) {
-    return jsonError(400, "Anos adicionais só estão disponíveis no plano Max.");
+  const plano = await buscarPlanoPorCodigo(tipoPlano);
+  if (!plano || !plano.ativo) return jsonError(404, "Plano não encontrado ou não está mais disponível.");
+
+  if (anosAdicionais && anosAdicionais > 0 && !plano.permiteAnosAdicionais) {
+    return jsonError(400, `Anos adicionais não estão disponíveis no plano ${plano.label}.`);
   }
 
   try {
@@ -40,6 +43,9 @@ export async function POST(request: NextRequest) {
     }
     if (err instanceof MercadoPagoApiError) {
       return jsonError(502, "Não foi possível criar o pagamento no Mercado Pago agora. Tente novamente em instantes.");
+    }
+    if (err instanceof PlanoInexistenteError) {
+      return jsonError(404, err.message);
     }
     throw err;
   }

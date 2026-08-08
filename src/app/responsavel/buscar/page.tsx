@@ -20,9 +20,9 @@ export default async function ResponsavelBuscarPage({
     <ResponsavelShell>
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-semibold">Buscar por placa</h1>
-          <p className="text-neutral-500">
-            A localização só é exibida se você tiver um vínculo ativo com o motorista do veículo.
+          <h1 className="text-2xl font-semibold">Ver localização</h1>
+          <p className="text-neutral-500 dark:text-neutral-400">
+            Escolha o motorista na lista — só aparecem aqui os motoristas com quem você tem um vínculo ativo.
           </p>
         </div>
         <BuscarPlacaClient placaInicial={placaInicial} />

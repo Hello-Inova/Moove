@@ -36,7 +36,7 @@ export function UploadDocumentoButton({ veiculoId }: { veiculoId: string }) {
         type="button"
         onClick={() => inputRef.current?.click()}
         disabled={loading}
-        className="text-sm font-medium text-neutral-700 underline"
+        className="text-sm font-medium text-neutral-700 underline dark:text-neutral-300"
       >
         {loading ? "Enviando…" : "Enviar documento"}
       </button>

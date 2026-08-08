@@ -22,7 +22,7 @@ export default async function MotoristaVinculosPage() {
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-semibold">Vínculos</h1>
-          <p className="text-neutral-500">
+          <p className="text-neutral-500 dark:text-neutral-400">
             {ativos} vínculo{ativos === 1 ? "" : "s"} ativo{ativos === 1 ? "" : "s"} — grátis até 5, cobrança a
             partir do 6º.
           </p>
@@ -30,16 +30,16 @@ export default async function MotoristaVinculosPage() {
 
         <div className="space-y-3">
           {vinculos.length === 0 && (
-            <p className="text-sm text-neutral-500">Nenhum responsável vinculado ainda.</p>
+            <p className="text-sm text-neutral-500 dark:text-neutral-400">Nenhum responsável vinculado ainda.</p>
           )}
           {vinculos.map((v) => (
             <div
               key={v.id}
-              className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-neutral-200 bg-white shadow-sm p-4"
+              className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-neutral-200 bg-white shadow-sm p-4 dark:bg-neutral-900 dark:border-neutral-700"
             >
               <div>
                 <p className="font-medium">{v.responsavel.nome}</p>
-                <p className="text-sm text-neutral-500">{v.responsavel.email}</p>
+                <p className="text-sm text-neutral-500 dark:text-neutral-400">{v.responsavel.email}</p>
               </div>
               {v.status === "ATIVO" ? (
                 <RevogarButton

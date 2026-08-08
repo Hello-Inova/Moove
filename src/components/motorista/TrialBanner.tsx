@@ -46,9 +46,9 @@ export function TrialBanner({
 }
 
 const TONE_CLASS: Record<"info" | "warning" | "danger", string> = {
-  info: "bg-brand-navy/5 text-brand-navy",
-  warning: "bg-amber-50 text-amber-800",
-  danger: "bg-red-50 text-red-700",
+  info: "bg-brand-navy/5 text-brand-navy dark:bg-brand-navy/20 dark:text-neutral-200",
+  warning: "bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300",
+  danger: "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-400",
 };
 
 function Banner({ tone, children }: { tone: "info" | "warning" | "danger"; children: React.ReactNode }) {

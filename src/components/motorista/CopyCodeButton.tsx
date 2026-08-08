@@ -18,7 +18,7 @@ export function CopyCodeButton({ codigo }: { codigo: string }) {
   return (
     <button
       onClick={handleClick}
-      className="rounded-md bg-neutral-100 px-2 py-1 font-mono text-sm tracking-wider hover:bg-neutral-200"
+      className="rounded-md bg-neutral-100 px-2 py-1 font-mono text-sm tracking-wider hover:bg-neutral-200 dark:bg-neutral-800"
       title="Copiar código"
     >
       {copied ? "Copiado!" : codigo}

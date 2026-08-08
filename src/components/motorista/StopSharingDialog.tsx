@@ -22,7 +22,7 @@ export function StopSharingDialog({
       aria-labelledby="stop-sharing-title"
       aria-describedby="stop-sharing-description"
     >
-      <div className="stop-sharing-alert w-full max-w-sm rounded-2xl bg-white p-6 text-center">
+      <div className="stop-sharing-alert w-full max-w-sm rounded-2xl bg-white p-6 text-center dark:bg-neutral-900">
         <Logo height={22} className="mx-auto" />
 
         <div className="mx-auto mt-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
@@ -40,7 +40,7 @@ export function StopSharingDialog({
         <h2 id="stop-sharing-title" className="mt-3 text-lg font-semibold text-brand-navy">
           Encerrar o compartilhamento da rota?
         </h2>
-        <p id="stop-sharing-description" className="mt-2 text-sm text-neutral-600">
+        <p id="stop-sharing-description" className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">
           Essa ação vai interromper o envio da sua localização em tempo real agora mesmo. Os
           responsáveis vinculados deixarão de ver onde você está até você iniciar a rota novamente.
         </p>

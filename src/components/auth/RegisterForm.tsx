@@ -6,6 +6,7 @@ import Link from "next/link";
 
 import { apiPostJson } from "@/lib/api-client";
 import { FieldError, inputClass, primaryButtonClass } from "@/components/ui/form-elements";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 import { VerifyCodeForm } from "@/components/auth/VerifyCodeForm";
 
 type Role = "motorista" | "responsavel";
@@ -25,16 +26,26 @@ export function RegisterForm({ role }: { role: Role }) {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setLoading(true);
     setFormError(null);
     setIssues({});
 
     const form = new FormData(event.currentTarget);
+    const senha = String(form.get("senha") ?? "");
+    const confirmarSenha = String(form.get("confirmarSenha") ?? "");
+
+    if (senha !== confirmarSenha) {
+      setIssues({ confirmarSenha: ["As senhas não coincidem."] });
+      return;
+    }
+
+    setLoading(true);
+
     const payload = {
       nome: form.get("nome"),
       email: form.get("email"),
       telefone: form.get("telefone"),
-      senha: form.get("senha"),
+      senha,
+      confirmarSenha,
       aceitaLgpd,
     };
 
@@ -66,7 +77,7 @@ export function RegisterForm({ role }: { role: Role }) {
         <button
           type="button"
           onClick={() => setPendingEmail(null)}
-          className="w-full text-center text-sm text-neutral-500 underline underline-offset-2"
+          className="w-full text-center text-sm text-neutral-500 underline underline-offset-2 dark:text-neutral-400"
         >
           Usar outro e-mail
         </button>
@@ -104,19 +115,26 @@ export function RegisterForm({ role }: { role: Role }) {
         <label className="mb-1 block text-sm font-medium" htmlFor="senha">
           Senha
         </label>
-        <input
-          id="senha"
-          name="senha"
-          type="password"
+        <PasswordInput id="senha" name="senha" required minLength={8} className={inputClass} autoComplete="new-password" />
+        <FieldError message={issues.senha?.[0]} />
+      </div>
+
+      <div>
+        <label className="mb-1 block text-sm font-medium" htmlFor="confirmarSenha">
+          Repetir senha
+        </label>
+        <PasswordInput
+          id="confirmarSenha"
+          name="confirmarSenha"
           required
           minLength={8}
           className={inputClass}
           autoComplete="new-password"
         />
-        <FieldError message={issues.senha?.[0]} />
+        <FieldError message={issues.confirmarSenha?.[0]} />
       </div>
 
-      <label className="flex items-start gap-2 text-sm text-neutral-700">
+      <label className="flex items-start gap-2 text-sm text-neutral-700 dark:text-neutral-300">
         <input
           type="checkbox"
           className="mt-1"

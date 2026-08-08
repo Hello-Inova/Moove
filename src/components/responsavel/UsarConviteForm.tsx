@@ -47,7 +47,7 @@ export function UsarConviteForm() {
           placeholder="ABCD1234"
           className={inputClass + " uppercase tracking-widest"}
         />
-        <p className="mt-1 text-xs text-neutral-500">Código recebido do motorista, válido por 7 dias.</p>
+        <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">Código recebido do motorista, válido por 7 dias.</p>
       </div>
 
       {formError && <p className="text-sm text-red-600">{formError}</p>}

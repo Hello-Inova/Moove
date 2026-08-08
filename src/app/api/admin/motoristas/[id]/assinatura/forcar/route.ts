@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isAdminAuthenticated } from "@/lib/auth/guards";
 import { jsonError, jsonValidationError } from "@/lib/http";
 import { forcarAssinaturaSchema } from "@/lib/validation/schemas";
-import { forcarAssinaturaAtiva } from "@/lib/subscription/service";
+import { forcarAssinaturaAtiva, PlanoInexistenteError } from "@/lib/subscription/service";
 import { prisma } from "@/lib/prisma";
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -20,7 +20,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const motorista = await prisma.motorista.findUnique({ where: { id } });
   if (!motorista) return jsonError(404, "Motorista não encontrado.");
 
-  await forcarAssinaturaAtiva(id, parsed.data.tipoPlano);
+  try {
+    await forcarAssinaturaAtiva(id, parsed.data.tipoPlano);
+  } catch (err) {
+    if (err instanceof PlanoInexistenteError) return jsonError(404, err.message);
+    throw err;
+  }
 
   return NextResponse.json({ ok: true });
 }

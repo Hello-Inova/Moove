@@ -54,14 +54,6 @@ enum StatusCobranca {
   @@map("status_cobranca")
 }
 
-enum TipoPlanoAssinatura {
-  BASIC
-  PRO
-  MAX
-
-  @@map("tipo_plano_assinatura")
-}
-
 enum CicloCobrancaAssinatura {
   MENSAL
   SEMESTRAL
@@ -275,20 +267,57 @@ model Cobranca {
 }
 
 // ---------------------------------------------------------------------------
-// Assinatura — plano pago pré-pago (Basic/Pró/Max) que o motorista escolhe.
-// Ao escolher um plano, entra em teste por 7 dias (TESTE); o pagamento via
-// Mercado Pago ativa o ciclo pago (ATIVA) até `expiraEm`. Cada motorista
-// pode ter várias linhas ao longo do tempo (histórico de trocas/renovações)
-// — a assinatura "atual" é sempre a mais recente por `criadoEm`.
+// PlanoAssinatura — catálogo de planos (Basic/Pró/Max, e quaisquer outros
+// que o admin criar) editável pelo painel administrativo. É a fonte de
+// verdade única: tanto o preview de preço no motorista quanto o cálculo no
+// servidor leem daqui (`src/lib/subscription/planos-service.ts`), então uma
+// alteração/criação/remoção feita pelo admin aparece imediatamente para os
+// motoristas. `ativo = false` esconde o plano da vitrine sem apagar
+// histórico; a remoção definitiva só é permitida quando nenhuma Assinatura
+// referencia o `codigo` (ver `excluirPlano`).
+// ---------------------------------------------------------------------------
+
+model PlanoAssinatura {
+  id                     String                  @id @default(cuid())
+  codigo                 String                  @unique
+  label                  String
+  cicloCobranca          CicloCobrancaAssinatura @map("ciclo_cobranca")
+  cicloLabel             String                  @map("ciclo_label")
+  valorBase              Decimal                 @db.Decimal(10, 2) @map("valor_base")
+  alunosGratis           Int                     @default(0) @map("alunos_gratis")
+  valorPorAlunoExcedente Decimal                 @default(0) @db.Decimal(10, 2) @map("valor_por_aluno_excedente")
+  recursos               Json                    @default("[]") // string[]
+  permiteAnosAdicionais  Boolean                 @default(false) @map("permite_anos_adicionais")
+  destaque               String?
+  ativo                  Boolean                 @default(true)
+  ordem                  Int                     @default(0)
+  criadoEm               DateTime                @default(now()) @map("criado_em")
+  atualizadoEm           DateTime                @updatedAt @map("atualizado_em")
+
+  @@map("planos_assinatura")
+}
+
+// ---------------------------------------------------------------------------
+// Assinatura — plano pago pré-pago que o motorista escolhe (catálogo em
+// PlanoAssinatura, mantido pelo admin). Ao escolher um plano, entra em teste
+// por 7 dias (TESTE); o pagamento via Mercado Pago ativa o ciclo pago
+// (ATIVA) até `expiraEm`. Cada motorista pode ter várias linhas ao longo do
+// tempo (histórico de trocas/renovações) — a assinatura "atual" é sempre a
+// mais recente por `criadoEm`.
 // ---------------------------------------------------------------------------
 
 model Assinatura {
   id                   String                  @id @default(cuid())
   motoristaId          String                  @map("motorista_id")
-  tipoPlano            TipoPlanoAssinatura     @map("tipo_plano")
+  // Snapshot do plano no momento da contratação: guardamos o código (livre,
+  // não é mais um enum fixo — planos são criados/editados/removidos pelo
+  // admin) e o rótulo, para que o histórico continue legível mesmo que o
+  // plano original seja renomeado ou excluído depois.
+  tipoPlano            String                  @map("tipo_plano")
+  planoLabel           String                  @default("") @map("plano_label")
   cicloCobranca        CicloCobrancaAssinatura @map("ciclo_cobranca")
   qtdAlunosContratados Int                     @map("qtd_alunos_contratados")
-  anosAdicionais       Int                     @default(0) @map("anos_adicionais") // só plano MAX
+  anosAdicionais       Int                     @default(0) @map("anos_adicionais") // só planos com permiteAnosAdicionais
 
   // Composição do valor cobrado — guardada explicitamente (não só o total)
   // para o histórico/recibo mostrar o desconto de alunos grátis aplicado.
@@ -307,6 +336,7 @@ model Assinatura {
   pagamentos Pagamento[]
 
   @@index([motoristaId, criadoEm])
+  @@index([tipoPlano])
   @@map("assinaturas")
 }
 

@@ -13,11 +13,11 @@ export default async function ResponsavelVincularPage() {
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-semibold">Usar convite</h1>
-          <p className="text-neutral-500">
+          <p className="text-neutral-500 dark:text-neutral-400">
             Insira o código recebido do motorista para criar o vínculo e acompanhar a localização dele.
           </p>
         </div>
-        <section className="max-w-sm rounded-2xl border border-neutral-200 bg-white shadow-sm p-5">
+        <section className="max-w-sm rounded-2xl border border-neutral-200 bg-white shadow-sm p-5 dark:bg-neutral-900 dark:border-neutral-700">
           <UsarConviteForm />
         </section>
       </div>

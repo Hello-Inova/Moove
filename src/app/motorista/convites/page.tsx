@@ -40,7 +40,7 @@ export default async function MotoristaConvitesPage() {
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold">Convites</h1>
-            <p className="text-neutral-500">
+            <p className="text-neutral-500 dark:text-neutral-400">
               Gere um código, válido por 7 dias e de uso único, para cada família se vincular.
             </p>
           </div>
@@ -49,12 +49,12 @@ export default async function MotoristaConvitesPage() {
 
         <div className="space-y-3">
           {convites.length === 0 && (
-            <p className="text-sm text-neutral-500">Nenhum convite gerado ainda.</p>
+            <p className="text-sm text-neutral-500 dark:text-neutral-400">Nenhum convite gerado ainda.</p>
           )}
           {convites.map((c) => (
             <div
               key={c.id}
-              className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-neutral-200 bg-white shadow-sm p-4"
+              className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-neutral-200 bg-white shadow-sm p-4 dark:bg-neutral-900 dark:border-neutral-700"
             >
               <div className="flex items-center gap-3">
                 <CopyCodeButton codigo={c.codigo} />
@@ -62,7 +62,7 @@ export default async function MotoristaConvitesPage() {
                   {STATUS_LABEL[c.status]}
                 </span>
               </div>
-              <div className="text-sm text-neutral-500">
+              <div className="text-sm text-neutral-500 dark:text-neutral-400">
                 {c.status === "PENDENTE" && <span>Expira em {c.expiraEm.toLocaleDateString("pt-BR")}</span>}
                 {c.status === "USADO" && <span>Usado por {c.usadoPorResponsavel?.nome}</span>}
               </div>

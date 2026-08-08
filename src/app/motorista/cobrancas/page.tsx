@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { getAuthenticatedMotorista } from "@/lib/auth/guards";
 import { prisma } from "@/lib/prisma";
 import { MotoristaShell } from "@/components/motorista/MotoristaShell";
-import { PLANOS, formatarBRL } from "@/lib/subscription/plans";
+import { formatarBRL } from "@/lib/subscription/plans";
 import { secondaryButtonClass } from "@/components/ui/form-elements";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -37,7 +37,7 @@ export default async function MotoristaCobrancasPage() {
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold">Cobranças</h1>
-            <p className="text-neutral-500">Histórico de pagamentos das suas assinaturas.</p>
+            <p className="text-neutral-500 dark:text-neutral-400">Histórico de pagamentos das suas assinaturas.</p>
           </div>
           <Link href="/motorista/planos" className={secondaryButtonClass + " w-auto px-4"}>
             Ver planos
@@ -46,17 +46,17 @@ export default async function MotoristaCobrancasPage() {
 
         <div className="space-y-3">
           {pagamentos.length === 0 && (
-            <p className="text-sm text-neutral-500">Nenhum pagamento gerado ainda.</p>
+            <p className="text-sm text-neutral-500 dark:text-neutral-400">Nenhum pagamento gerado ainda.</p>
           )}
           {pagamentos.map((p) => (
-            <div key={p.id} className="rounded-2xl border border-neutral-200 bg-white shadow-sm p-4">
+            <div key={p.id} className="rounded-2xl border border-neutral-200 bg-white shadow-sm p-4 dark:bg-neutral-900 dark:border-neutral-700">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="font-medium">Plano {PLANOS[p.assinatura.tipoPlano].label}</p>
+                <p className="font-medium">Plano {p.assinatura.planoLabel || p.assinatura.tipoPlano}</p>
                 <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_CLASS[p.status]}`}>
                   {STATUS_LABEL[p.status]}
                 </span>
               </div>
-              <p className="mt-1 text-sm text-neutral-500">
+              <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
                 {p.assinatura.qtdAlunosContratados} aluno(s) ·{" "}
                 {p.criadoEm.toLocaleDateString("pt-BR")}
                 {p.pagoEm && ` · pago em ${p.pagoEm.toLocaleDateString("pt-BR")}`}

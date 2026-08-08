@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { apiPostJson } from "@/lib/api-client";
 import { inputClass, primaryButtonClass } from "@/components/ui/form-elements";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 
 export function AdminLoginForm() {
   const router = useRouter();
@@ -44,14 +45,7 @@ export function AdminLoginForm() {
         <label className="mb-1 block text-sm font-medium" htmlFor="senha">
           Senha
         </label>
-        <input
-          id="senha"
-          name="senha"
-          type="password"
-          required
-          className={inputClass}
-          autoComplete="current-password"
-        />
+        <PasswordInput id="senha" name="senha" required className={inputClass} autoComplete="current-password" />
       </div>
 
       {formError && <p className="text-sm text-red-600">{formError}</p>}

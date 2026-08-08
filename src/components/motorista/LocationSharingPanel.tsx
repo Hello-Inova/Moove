@@ -21,7 +21,7 @@ export function LocationSharingPanel() {
   const { status, error, lastSentAt, start, isSharing, confirmAndRun } = useLocationSharingContext();
 
   return (
-    <section className="rounded-2xl border border-neutral-200 bg-white shadow-sm p-5">
+    <section className="rounded-2xl border border-neutral-200 bg-white shadow-sm p-5 dark:bg-neutral-900 dark:border-neutral-700">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-2">
           <span className={`h-2.5 w-2.5 rounded-full ${STATUS_DOT[status]}`} />
@@ -39,14 +39,14 @@ export function LocationSharingPanel() {
       </div>
 
       {lastSentAt && (
-        <p className="mt-2 text-xs text-neutral-500">
+        <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
           Última atualização enviada às {lastSentAt.toLocaleTimeString("pt-BR")}
         </p>
       )}
 
       {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
 
-      <p className="mt-4 text-sm text-neutral-500">
+      <p className="mt-4 text-sm text-neutral-500 dark:text-neutral-400">
         Você precisa habilitar o compartilhamento a cada nova sessão. Mantenha esta aba
         aberta e a tela do celular ligada durante a rota — navegadores mobile (principalmente
         iOS/Safari) podem pausar o envio de localização se a aba for minimizada ou o

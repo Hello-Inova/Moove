@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+/* Dark mode acionado manualmente (classe `.dark` na <html>), não só por
+   prefers-color-scheme — permite o toggle persistido em
+   `src/components/ui/ThemeToggle.tsx`. Ver `src/app/theme-script.tsx` para
+   o script inline que aplica a classe antes da primeira pintura (evita
+   flash de tema errado). */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -20,11 +27,9 @@
   --color-brand-orange-soft: #ffedd5;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #c9b617;
-  }
+.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
 }
 
 body {

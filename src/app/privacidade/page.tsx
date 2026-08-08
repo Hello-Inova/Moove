@@ -12,13 +12,13 @@ export default function PrivacidadePage() {
       <Link href="/" className="inline-block">
         <Logo height={22} />
       </Link>
-      <h1 className="mt-4 text-3xl font-bold text-brand-navy">Política de Privacidade</h1>
-      <p className="mt-1 text-sm text-neutral-500">
+      <h1 className="mt-4 text-3xl font-bold text-brand-navy dark:text-white">Política de Privacidade</h1>
+      <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
         Como o Moove trata dados pessoais, de localização e de crianças, em conformidade com a
         Lei Geral de Proteção de Dados (LGPD — Lei nº 13.709/2018).
       </p>
 
-      <div className="mt-8 space-y-6 text-neutral-800 [&_h2]:mb-2 [&_h2]:mt-0 [&_p]:leading-relaxed [&_ul]:leading-relaxed">
+      <div className="mt-8 space-y-6 text-neutral-800 dark:text-neutral-300 [&_h2]:mb-2 [&_h2]:mt-0 [&_p]:leading-relaxed [&_ul]:leading-relaxed dark:text-neutral-200">
         <section>
           <h2 className="text-xl font-semibold">1. Quais dados coletamos</h2>
           <ul className="list-disc space-y-1 pl-5">

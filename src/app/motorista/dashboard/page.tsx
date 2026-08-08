@@ -21,7 +21,7 @@ export default async function MotoristaDashboardPage() {
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-semibold">Olá, {motorista.nome.split(" ")[0]}</h1>
-          <p className="text-neutral-500">Painel do motorista</p>
+          <p className="text-neutral-500 dark:text-neutral-400">Painel do motorista</p>
         </div>
 
         {veiculosCount === 0 && (
@@ -49,9 +49,9 @@ function StatCard({ label, value, href }: { label: string; value: number; href: 
   return (
     <Link
       href={href}
-      className="rounded-2xl border border-neutral-200 bg-white shadow-sm p-4 transition hover:border-neutral-400"
+      className="rounded-2xl border border-neutral-200 bg-white shadow-sm p-4 transition hover:border-neutral-400 dark:bg-neutral-900 dark:border-neutral-700"
     >
-      <p className="text-sm text-neutral-500">{label}</p>
+      <p className="text-sm text-neutral-500 dark:text-neutral-400">{label}</p>
       <p className="text-2xl font-semibold">{value}</p>
     </Link>
   );

@@ -11,14 +11,14 @@ export default async function MotoristaPlanosPage() {
   if (!motorista) redirect("/motorista/login");
 
   const assinatura = await getAssinaturaAtual(motorista.id);
-  const tipoPlanoAtual = assinatura?.status === "ATIVA" ? assinatura.tipoPlano : null;
+  const tipoPlanoAtual: string | null = assinatura?.status === "ATIVA" ? assinatura.tipoPlano : null;
 
   return (
     <MotoristaShell>
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-semibold">Planos</h1>
-          <p className="text-neutral-500">
+          <p className="text-neutral-500 dark:text-neutral-400">
             Escolha um plano, informe a quantidade de alunos e finalize o pagamento com segurança.
           </p>
         </div>

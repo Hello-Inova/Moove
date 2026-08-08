@@ -1,15 +1,12 @@
 import "server-only";
 
 import { prisma } from "@/lib/prisma";
-import {
-  PLANOS,
-  calcularExpiraEmAssinatura,
-  calcularTesteExpiraEm,
-  calcularValorAssinatura,
-  type TipoPlano,
-} from "@/lib/subscription/plans";
+import { calcularExpiraEmAssinatura, calcularTesteExpiraEm, calcularValorAssinatura } from "@/lib/subscription/plans";
+import { buscarPlanoPorCodigo } from "@/lib/subscription/planos-service";
 import { createMercadoPagoPreference, getMercadoPagoPayment } from "@/lib/payment/mercadopago";
 import type { Assinatura } from "@prisma/client";
+
+export class PlanoInexistenteError extends Error {}
 
 /**
  * Assinatura "atual" de um motorista: a mais recente. Expira preguiçosamente
@@ -56,17 +53,22 @@ export async function criarAssinaturaComCheckout(params: {
   motoristaId: string;
   motoristaNome: string;
   motoristaEmail: string;
-  tipoPlano: TipoPlano;
+  tipoPlano: string;
   qtdAlunos: number;
   anosAdicionais?: number;
 }) {
-  const resumo = calcularValorAssinatura(params);
-  const plano = PLANOS[params.tipoPlano];
+  const plano = await buscarPlanoPorCodigo(params.tipoPlano);
+  if (!plano || !plano.ativo) {
+    throw new PlanoInexistenteError("Este plano não está mais disponível. Escolha outro plano.");
+  }
+
+  const resumo = calcularValorAssinatura({ plano, qtdAlunos: params.qtdAlunos, anosAdicionais: params.anosAdicionais });
 
   const assinatura = await prisma.assinatura.create({
     data: {
       motoristaId: params.motoristaId,
-      tipoPlano: params.tipoPlano,
+      tipoPlano: plano.codigo,
+      planoLabel: plano.label,
       cicloCobranca: plano.ciclo,
       qtdAlunosContratados: resumo.alunosContratados,
       anosAdicionais: resumo.anosAdicionais,
@@ -104,15 +106,18 @@ export async function criarAssinaturaComCheckout(params: {
  * como ATIVA (0 alunos excedentes, sem anos adicionais) e cancela qualquer
  * outra TESTE/ATIVA existente, no mesmo padrão da confirmação de pagamento.
  */
-export async function forcarAssinaturaAtiva(motoristaId: string, tipoPlano: TipoPlano): Promise<Assinatura> {
-  const plano = PLANOS[tipoPlano];
+export async function forcarAssinaturaAtiva(motoristaId: string, tipoPlano: string): Promise<Assinatura> {
+  const plano = await buscarPlanoPorCodigo(tipoPlano);
+  if (!plano) throw new PlanoInexistenteError("Plano não encontrado.");
+
   const expiraEm = calcularExpiraEmAssinatura(plano.ciclo, 0);
 
   return prisma.$transaction(async (tx) => {
     const assinatura = await tx.assinatura.create({
       data: {
         motoristaId,
-        tipoPlano,
+        tipoPlano: plano.codigo,
+        planoLabel: plano.label,
         cicloCobranca: plano.ciclo,
         qtdAlunosContratados: plano.alunosGratis,
         valorPlano: plano.valorBase,

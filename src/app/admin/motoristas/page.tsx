@@ -34,7 +34,7 @@ export default async function AdminMotoristasPage({
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-semibold">Motoristas</h1>
-          <p className="text-neutral-500">{motoristas.length} encontrado(s).</p>
+          <p className="text-neutral-500 dark:text-neutral-400">{motoristas.length} encontrado(s).</p>
         </div>
 
         <form className="max-w-sm">
@@ -42,17 +42,17 @@ export default async function AdminMotoristasPage({
         </form>
 
         <div className="space-y-3">
-          {motoristas.length === 0 && <p className="text-sm text-neutral-500">Nenhum motorista encontrado.</p>}
+          {motoristas.length === 0 && <p className="text-sm text-neutral-500 dark:text-neutral-400">Nenhum motorista encontrado.</p>}
           {motoristas.map((m) => (
             <div
               key={m.id}
-              className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm"
+              className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm dark:bg-neutral-900 dark:border-neutral-700"
             >
               <div>
                 <Link href={`/admin/motoristas/${m.id}`} className="font-medium text-brand-navy hover:underline">
                   {m.nome}
                 </Link>
-                <p className="text-sm text-neutral-500">{m.email}</p>
+                <p className="text-sm text-neutral-500 dark:text-neutral-400">{m.email}</p>
               </div>
               <div className="flex items-center gap-3">
                 <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_CLASS[m.statusConta]}`}>

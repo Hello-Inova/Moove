@@ -34,7 +34,7 @@ export default async function AdminResponsaveisPage({
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-semibold">Responsáveis</h1>
-          <p className="text-neutral-500">{responsaveis.length} encontrado(s).</p>
+          <p className="text-neutral-500 dark:text-neutral-400">{responsaveis.length} encontrado(s).</p>
         </div>
 
         <form className="max-w-sm">
@@ -42,15 +42,15 @@ export default async function AdminResponsaveisPage({
         </form>
 
         <div className="space-y-3">
-          {responsaveis.length === 0 && <p className="text-sm text-neutral-500">Nenhum responsável encontrado.</p>}
+          {responsaveis.length === 0 && <p className="text-sm text-neutral-500 dark:text-neutral-400">Nenhum responsável encontrado.</p>}
           {responsaveis.map((r) => (
             <div
               key={r.id}
-              className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm"
+              className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm dark:bg-neutral-900 dark:border-neutral-700"
             >
               <div>
                 <p className="font-medium text-brand-navy">{r.nome}</p>
-                <p className="text-sm text-neutral-500">{r.email}</p>
+                <p className="text-sm text-neutral-500 dark:text-neutral-400">{r.email}</p>
               </div>
               <div className="flex items-center gap-3">
                 <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_CLASS[r.statusConta]}`}>

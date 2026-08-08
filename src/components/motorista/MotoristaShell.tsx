@@ -24,7 +24,7 @@ export async function MotoristaShell({ children }: { children: ReactNode }) {
 
   return (
     <LocationSharingProvider>
-      <div className="flex min-h-full flex-1 flex-col bg-neutral-50">
+      <div className="flex min-h-full flex-1 flex-col bg-neutral-50 dark:bg-neutral-950">
         <AppHeader role="motorista" roleLabel="motorista" homeHref="/motorista/dashboard" nav={NAV} />
         <TrialBanner status={assinatura?.status ?? "SEM_ASSINATURA"} diasRestantes={diasRestantesTeste(assinatura)} />
         <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-6">{children}</main>

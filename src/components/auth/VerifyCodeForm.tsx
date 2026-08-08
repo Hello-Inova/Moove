@@ -60,7 +60,7 @@ export function VerifyCodeForm<T>({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-      <p className="text-sm text-neutral-600">
+      <p className="text-sm text-neutral-600 dark:text-neutral-300">
         Enviamos um código de 6 dígitos para <strong>{email}</strong>. Ele expira em 10 minutos.
       </p>
 
@@ -92,7 +92,7 @@ export function VerifyCodeForm<T>({
         type="button"
         onClick={handleResend}
         disabled={resending}
-        className="w-full text-center text-sm text-neutral-500 underline underline-offset-2 disabled:opacity-50"
+        className="w-full text-center text-sm text-neutral-500 underline underline-offset-2 disabled:opacity-50 dark:text-neutral-400"
       >
         {resending ? "Reenviando…" : "Reenviar código"}
       </button>
