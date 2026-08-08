@@ -3,7 +3,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { reenviarCodigoSchema } from "@/lib/validation/schemas";
 import { jsonError, jsonValidationError } from "@/lib/http";
-import { findPendingRegistration, issueVerificationCode, ResendCooldownError } from "@/lib/email/verification";
+import {
+  findPendingRegistration,
+  issueVerificationCode,
+  EmailSendError,
+  ResendCooldownError,
+} from "@/lib/email/verification";
 
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null);
@@ -34,6 +39,9 @@ export async function POST(request: NextRequest) {
     }
   } catch (err) {
     if (err instanceof ResendCooldownError) return jsonError(429, err.message);
+    if (err instanceof EmailSendError) {
+      return jsonError(502, "Não foi possível enviar o e-mail de verificação agora. Tente novamente em instantes.");
+    }
     throw err;
   }
 

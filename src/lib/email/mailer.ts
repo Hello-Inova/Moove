@@ -2,6 +2,8 @@ import "server-only";
 
 export type VerificationPurpose = "CADASTRO" | "LOGIN";
 
+export class EmailSendError extends Error {}
+
 export interface Mailer {
   sendVerificationEmail(params: {
     to: string;
@@ -64,7 +66,7 @@ class ResendMailer implements Mailer {
 
     if (!response.ok) {
       const body = await response.text().catch(() => "");
-      throw new Error(`Falha ao enviar e-mail de verificação (HTTP ${response.status}): ${body}`);
+      throw new EmailSendError(`Falha ao enviar e-mail de verificação (HTTP ${response.status}): ${body}`);
     }
   }
 }

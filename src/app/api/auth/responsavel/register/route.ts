@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/auth/password";
 import { responsavelRegisterSchema } from "@/lib/validation/schemas";
 import { jsonError, jsonValidationError } from "@/lib/http";
-import { issueVerificationCode, ResendCooldownError } from "@/lib/email/verification";
+import { issueVerificationCode, EmailSendError, ResendCooldownError } from "@/lib/email/verification";
 
 /**
  * Não cria a conta ainda — só emite o código de verificação. A conta só
@@ -42,6 +42,9 @@ export async function POST(request: NextRequest) {
     });
   } catch (err) {
     if (err instanceof ResendCooldownError) return jsonError(429, err.message);
+    if (err instanceof EmailSendError) {
+      return jsonError(502, "Não foi possível enviar o e-mail de verificação agora. Tente novamente em instantes.");
+    }
     throw err;
   }
 

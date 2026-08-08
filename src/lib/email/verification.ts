@@ -5,9 +5,10 @@ import { createHash } from "crypto";
 import type { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
-import { sendVerificationEmail, type VerificationPurpose } from "@/lib/email/mailer";
+import { sendVerificationEmail, EmailSendError, type VerificationPurpose } from "@/lib/email/mailer";
 
 export type { VerificationPurpose };
+export { EmailSendError };
 export type VerificationRole = "motorista" | "responsavel";
 
 const CODE_LENGTH = 6;

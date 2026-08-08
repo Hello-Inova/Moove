@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { verifyPassword } from "@/lib/auth/password";
 import { loginSchema } from "@/lib/validation/schemas";
 import { jsonError, jsonValidationError } from "@/lib/http";
-import { issueVerificationCode, ResendCooldownError } from "@/lib/email/verification";
+import { issueVerificationCode, EmailSendError, ResendCooldownError } from "@/lib/email/verification";
 
 /**
  * Primeira etapa do login: valida e-mail+senha e, se ok, envia um código de
@@ -31,6 +31,9 @@ export async function POST(request: NextRequest) {
     await issueVerificationCode({ email, role: "responsavel", proposito: "LOGIN", nome: responsavel.nome });
   } catch (err) {
     if (err instanceof ResendCooldownError) return jsonError(429, err.message);
+    if (err instanceof EmailSendError) {
+      return jsonError(502, "Não foi possível enviar o e-mail de verificação agora. Tente novamente em instantes.");
+    }
     throw err;
   }
 
