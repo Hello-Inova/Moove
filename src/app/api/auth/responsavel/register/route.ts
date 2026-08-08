@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/auth/password";
-import { createSession } from "@/lib/auth/session";
 import { responsavelRegisterSchema } from "@/lib/validation/schemas";
 import { jsonError, jsonValidationError } from "@/lib/http";
+import { issueVerificationCode, ResendCooldownError } from "@/lib/email/verification";
 
+/**
+ * Não cria a conta ainda — só emite o código de verificação. A conta só
+ * passa a existir quando o código é confirmado em
+ * POST /api/auth/responsavel/register/verificar (ver esse arquivo).
+ */
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null);
   if (!body) return jsonError(400, "Corpo da requisição inválido.");
@@ -15,29 +19,31 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) return jsonValidationError(parsed.error);
 
   const { nome, email, telefone, senha } = parsed.data;
+
+  const existente = await prisma.responsavel.findUnique({ where: { email } });
+  if (existente) {
+    return jsonError(409, "Já existe uma conta de responsável com este e-mail.");
+  }
+
   const senhaHash = await hashPassword(senha);
 
   try {
-    const responsavel = await prisma.responsavel.create({
-      data: {
+    await issueVerificationCode({
+      email,
+      role: "responsavel",
+      proposito: "CADASTRO",
+      nome,
+      payload: {
         nome,
-        email,
         telefone,
         senhaHash,
-        consentimentoLgpdAceitoEm: new Date(),
+        consentimentoLgpdAceitoEm: new Date().toISOString(),
       },
     });
-
-    await createSession("responsavel", responsavel.id);
-
-    return NextResponse.json(
-      { id: responsavel.id, nome: responsavel.nome, email: responsavel.email },
-      { status: 201 }
-    );
   } catch (err) {
-    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
-      return jsonError(409, "Já existe uma conta de responsável com este e-mail.");
-    }
+    if (err instanceof ResendCooldownError) return jsonError(429, err.message);
     throw err;
   }
+
+  return NextResponse.json({ email }, { status: 200 });
 }

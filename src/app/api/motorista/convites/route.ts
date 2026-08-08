@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getAuthenticatedMotorista } from "@/lib/auth/guards";
 import { jsonError } from "@/lib/http";
 import { calcularExpiracaoConvite, expirarConvitesVencidos, gerarCodigoConvite } from "@/lib/convite";
+import { assinaturaPermiteAcesso, getAssinaturaAtual } from "@/lib/subscription/service";
 
 export async function GET() {
   const motorista = await getAuthenticatedMotorista();
@@ -33,6 +34,11 @@ export async function GET() {
 export async function POST() {
   const motorista = await getAuthenticatedMotorista();
   if (!motorista) return jsonError(401, "Não autenticado.");
+
+  const assinatura = await getAssinaturaAtual(motorista.id);
+  if (!assinaturaPermiteAcesso(assinatura)) {
+    return jsonError(402, "Seu período de teste ou assinatura expirou. Assine um plano para gerar novos convites.");
+  }
 
   // Gera um código único; em caso de colisão (extremamente improvável dado o
   // espaço de 8 caracteres em alfabeto de 32 símbolos), tenta novamente.

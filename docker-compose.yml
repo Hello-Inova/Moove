@@ -7,7 +7,7 @@ services:
       POSTGRES_PASSWORD: moove
       POSTGRES_DB: moove
     ports:
-      - "5433:5432"
+      - "5432:5432"
     volumes:
       - moove_db_data:/var/lib/postgresql/data
     healthcheck:

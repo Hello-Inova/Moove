@@ -1,66 +1,67 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { getAuthenticatedMotorista } from "@/lib/auth/guards";
 import { prisma } from "@/lib/prisma";
 import { MotoristaShell } from "@/components/motorista/MotoristaShell";
+import { PLANOS, formatarBRL } from "@/lib/subscription/plans";
+import { secondaryButtonClass } from "@/components/ui/form-elements";
 
 const STATUS_LABEL: Record<string, string> = {
   PENDENTE: "Pendente",
-  PAGO: "Pago",
-  ATRASADO: "Atrasado",
+  APROVADO: "Aprovado",
+  RECUSADO: "Recusado",
+  CANCELADO: "Cancelado",
 };
 
 const STATUS_CLASS: Record<string, string> = {
   PENDENTE: "bg-blue-100 text-blue-800",
-  PAGO: "bg-green-100 text-green-800",
-  ATRASADO: "bg-red-100 text-red-700",
+  APROVADO: "bg-green-100 text-green-800",
+  RECUSADO: "bg-red-100 text-red-700",
+  CANCELADO: "bg-neutral-200 text-neutral-600",
 };
-
-function formatBRL(value: string) {
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(value));
-}
 
 export default async function MotoristaCobrancasPage() {
   const motorista = await getAuthenticatedMotorista();
   if (!motorista) redirect("/motorista/login");
 
-  const [plano, cobrancas] = await Promise.all([
-    prisma.plano.findUnique({ where: { motoristaId: motorista.id } }),
-    prisma.cobranca.findMany({
-      where: { motoristaId: motorista.id },
-      orderBy: { referenciaMes: "desc" },
-    }),
-  ]);
+  const pagamentos = await prisma.pagamento.findMany({
+    where: { assinatura: { motoristaId: motorista.id } },
+    include: { assinatura: true },
+    orderBy: { criadoEm: "desc" },
+  });
 
   return (
     <MotoristaShell>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-semibold">Cobranças</h1>
-          <p className="text-neutral-500">
-            Grátis até {plano?.alunosIncluidosGratis ?? 5} alunos vinculados. A partir do próximo,{" "}
-            {plano ? formatBRL(plano.valorPorAlunoExcedente.toString()) : "R$ 5–7"} por aluno/mês.
-          </p>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-semibold">Cobranças</h1>
+            <p className="text-neutral-500">Histórico de pagamentos das suas assinaturas.</p>
+          </div>
+          <Link href="/motorista/planos" className={secondaryButtonClass + " w-auto px-4"}>
+            Ver planos
+          </Link>
         </div>
 
         <div className="space-y-3">
-          {cobrancas.length === 0 && (
-            <p className="text-sm text-neutral-500">
-              Nenhuma cobrança gerada ainda. O fechamento roda mensalmente com base nos vínculos ativos.
-            </p>
+          {pagamentos.length === 0 && (
+            <p className="text-sm text-neutral-500">Nenhum pagamento gerado ainda.</p>
           )}
-          {cobrancas.map((c) => (
-            <div key={c.id} className="rounded-2xl border border-neutral-200 bg-white shadow-sm p-4">
+          {pagamentos.map((p) => (
+            <div key={p.id} className="rounded-2xl border border-neutral-200 bg-white shadow-sm p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="font-medium">{c.referenciaMes}</p>
-                <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_CLASS[c.status]}`}>
-                  {STATUS_LABEL[c.status]}
+                <p className="font-medium">Plano {PLANOS[p.assinatura.tipoPlano].label}</p>
+                <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_CLASS[p.status]}`}>
+                  {STATUS_LABEL[p.status]}
                 </span>
               </div>
               <p className="mt-1 text-sm text-neutral-500">
-                {c.qtdAlunosVinculados} alunos vinculados · {c.qtdAlunosCobrados} cobrados
+                {p.assinatura.qtdAlunosContratados} aluno(s) ·{" "}
+                {p.criadoEm.toLocaleDateString("pt-BR")}
+                {p.pagoEm && ` · pago em ${p.pagoEm.toLocaleDateString("pt-BR")}`}
               </p>
-              <p className="mt-1 font-semibold">{formatBRL(c.valorTotal.toString())}</p>
+              <p className="mt-1 font-semibold">{formatarBRL(Number(p.valor))}</p>
             </div>
           ))}
         </div>

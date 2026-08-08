@@ -6,6 +6,7 @@ import Link from "next/link";
 
 import { apiPostJson } from "@/lib/api-client";
 import { FieldError, inputClass, primaryButtonClass } from "@/components/ui/form-elements";
+import { VerifyCodeForm } from "@/components/auth/VerifyCodeForm";
 
 type Role = "motorista" | "responsavel";
 
@@ -20,6 +21,7 @@ export function RegisterForm({ role }: { role: Role }) {
   const [formError, setFormError] = useState<string | null>(null);
   const [issues, setIssues] = useState<Record<string, string[] | undefined>>({});
   const [aceitaLgpd, setAceitaLgpd] = useState(false);
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -36,7 +38,7 @@ export function RegisterForm({ role }: { role: Role }) {
       aceitaLgpd,
     };
 
-    const result = await apiPostJson(`/api/auth/${role}/register`, payload);
+    const result = await apiPostJson<{ email: string }>(`/api/auth/${role}/register`, payload);
     setLoading(false);
 
     if (!result.ok) {
@@ -45,8 +47,31 @@ export function RegisterForm({ role }: { role: Role }) {
       return;
     }
 
-    router.push(`/${role}/dashboard`);
-    router.refresh();
+    setPendingEmail(result.data.email);
+  }
+
+  if (pendingEmail) {
+    return (
+      <div className="space-y-4">
+        <VerifyCodeForm
+          role={role}
+          email={pendingEmail}
+          proposito="CADASTRO"
+          verifyUrl={`/api/auth/${role}/register/verificar`}
+          onVerified={() => {
+            router.push(`/${role}/dashboard`);
+            router.refresh();
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => setPendingEmail(null)}
+          className="w-full text-center text-sm text-neutral-500 underline underline-offset-2"
+        >
+          Usar outro e-mail
+        </button>
+      </div>
+    );
   }
 
   return (
@@ -111,7 +136,7 @@ export function RegisterForm({ role }: { role: Role }) {
       {formError && <p className="text-sm text-red-600">{formError}</p>}
 
       <button type="submit" disabled={loading} className={primaryButtonClass}>
-        {loading ? "Criando conta…" : `Criar conta de ${ROLE_LABEL[role]}`}
+        {loading ? "Enviando código…" : `Criar conta de ${ROLE_LABEL[role]}`}
       </button>
     </form>
   );

@@ -32,10 +32,10 @@ de coluna do modelo de dados especificado (`motorista_id`, `senha_hash`,
 etc.) enquanto mantém a convenção idiomática do ecossistema TypeScript.
 
 Entidades: `Motorista`, `Veiculo`, `Responsavel`, `Convite`, `Vinculo`,
-`Localizacao`, `Plano`, `Cobranca`. Uma tabela auxiliar `CobrancaVinculo`
-registra quais vínculos compuseram o excedente cobrado em cada fechamento
-mensal (auditoria — não fazia parte do modelo mínimo pedido, mas evita ter
-que recalcular/adivinhar isso depois do fato).
+`Localizacao`, `Assinatura`, `Pagamento`. `Plano`, `Cobranca` e
+`CobrancaVinculo` são do modelo de cobrança antigo (por aluno excedente,
+sem gateway) e ficam apenas para histórico — foram substituídos pelas
+assinaturas pré-pagas, ver [Assinaturas e pagamento](#assinaturas-e-pagamento-mercado-pago).
 
 ## Rodando localmente
 
@@ -64,7 +64,9 @@ Preencha pelo menos `DATABASE_URL`, `AUTH_SECRET_MOTORISTA` e
 `AUTH_SECRET_RESPONSAVEL` (gere valores fortes, ex: `openssl rand -base64 48`
 para cada). O storage (`STORAGE_*`) só é necessário para testar upload de
 documentos — sem ele, o cadastro de veículo funciona normalmente e o upload
-retorna um aviso.
+retorna um aviso. O envio de e-mail (`RESEND_API_KEY`) também é opcional em
+dev — sem ele, o código de verificação aparece no log do servidor em vez de
+ser enviado de verdade (ver seção "Verificação por e-mail" abaixo).
 
 ### 4. Instalar dependências e migrar o banco
 
@@ -93,6 +95,39 @@ navegador. Cada Server Component de página autenticada (`src/app/motorista/**`,
 interceptando rotas: a checagem de autorização vive no mesmo lugar em toda a
 aplicação (páginas e API), para reduzir a chance de uma rota esquecer de
 validar.
+
+## Verificação por e-mail (cadastro e login)
+
+Tanto o cadastro quanto o login — de Motorista e de Responsável — exigem um
+código de 6 dígitos enviado por e-mail, além da senha:
+
+- **Cadastro**: `POST /api/auth/{role}/register` valida os dados e **envia o
+  código, mas não cria a conta ainda** — os dados ficam guardados (com a
+  senha já hasheada) junto do próprio registro do código em
+  `CodigoVerificacao.payload`, já que a conta não existe até o código ser
+  confirmado. Só `POST /api/auth/{role}/register/verificar` (com o e-mail e
+  o código) efetivamente cria a conta e a sessão. Isso evita contas "fantasma"
+  de e-mails digitados errado ou nunca confirmados.
+- **Login**: `POST /api/auth/{role}/login` valida e-mail+senha como antes,
+  mas em vez de criar sessão já envia um código novo por e-mail. A sessão só
+  é criada em `POST /api/auth/{role}/login/verificar`. Ou seja, é um segundo
+  fator obrigatório em todo login, não só uma confirmação única no cadastro.
+- **Reenvio**: `POST /api/auth/{role}/reenviar-codigo` (com `{ email,
+  proposito }`) gera e envia um novo código, reaproveitando os dados
+  pendentes do cadastro quando `proposito = "CADASTRO"`.
+
+Detalhes de segurança (`src/lib/email/verification.ts`): código de 6 dígitos
+gerado com `crypto.randomInt`, guardado como hash SHA-256 (nunca em texto
+puro), expira em 10 minutos, no máximo 5 tentativas erradas antes de exigir
+um novo código, e um intervalo mínimo de 45s entre envios para o mesmo
+e-mail/propósito — tanto para proteger a cota gratuita do provedor de
+e-mail quanto para dificultar abuso.
+
+**Envio de e-mail** (`src/lib/email/mailer.ts`): usa a API do
+[Resend](https://resend.com) (plano gratuito: 100 e-mails/dia, 3000/mês) via
+`RESEND_API_KEY`. Sem essa variável configurada, cai automaticamente para um
+`ConsoleMailer` que só imprime o código no log do servidor — assim dá para
+testar o fluxo inteiro localmente sem precisar de conta em nenhum provedor.
 
 ## Segurança da busca por placa (regra de negócio mais crítica)
 
@@ -154,29 +189,61 @@ a aba aberta e a tela ligada durante a rota. Transformar o app em PWA com
 Service Worker pode estender minimamente essa janela numa fase futura, mas
 não elimina a limitação — não foi implementado nesta fase.
 
-## Cobrança mensal
+## Assinaturas e pagamento (Mercado Pago)
 
-- `src/lib/billing/service.ts` — lógica pura: grátis até
-  `Plano.alunosIncluidosGratis` (padrão 5) vínculos ativos; a partir do
-  próximo, cobra `Plano.valorPorAlunoExcedente` (padrão R$ 6,00, configurável
-  via `BILLING_VALOR_POR_ALUNO_EXCEDENTE`) por aluno/mês. Idempotente: rodar
-  o fechamento duas vezes para o mesmo mês não duplica a cobrança
-  (`@@unique([motoristaId, referenciaMes])`).
-- **Sem gateway de pagamento integrado ainda.** `src/lib/billing/payment-gateway.ts`
-  define a interface `PaymentGateway` e uma implementação stub
-  (`NullPaymentGateway`) que não faz nenhuma chamada externa — a cobrança é
-  gerada e persistida como `PENDENTE` independente disso, para o fechamento
-  financeiro não ficar bloqueado por essa integração. Trocar por um gateway
-  real é implementar `PaymentGateway` e trocar o retorno de
-  `getPaymentGateway()`.
-- Dois jeitos de disparar o fechamento, ambos chamando o mesmo serviço:
-  - **Job standalone**: `npm run job:fechamento-mensal` (roda fora do
-    Next.js via `tsx`; aceita uma referência de mês opcional como argumento,
-    ex: `npm run job:fechamento-mensal -- 2026-07`). Pensado para um cron
-    externo tipo `0 3 1 * *`.
-  - **HTTP** (para agendadores baseados em requisição, ex: Vercel Cron):
-    `POST /api/cron/fechamento-mensal`, protegido por
-    `Authorization: Bearer <CRON_SECRET>`.
+Substituiu o modelo antigo de cobrança mensal por aluno excedente. Motoristas
+assinam um dos três planos pré-pagos e pagam via Mercado Pago (Checkout Pro);
+o pagamento é validado no próprio sistema, sem intervenção manual.
+
+- **Planos** (`src/lib/subscription/plans.ts`, módulo puro — usado tanto no
+  cliente para o preview de preço quanto no servidor como fonte de verdade):
+  - **Basic** — R$ 33,00, cobrança mensal, 7 dias de teste, sem alunos
+    grátis, + R$ 1,00/aluno.
+  - **Pró** — R$ 178,20, cobrança semestral (10% de economia vs. Basic ×6),
+    7 dias de teste, 5 alunos grátis, + R$ 1,00/aluno excedente.
+  - **Max** — R$ 356,40, cobrança anual (10% de economia vs. Basic ×12), 7
+    dias de teste, 10 alunos grátis, acesso ao módulo de gestão de alunos,
+    + R$ 1,00/aluno excedente. Único plano que aceita **anos adicionais**:
+    cada ano extra soma o valor cheio do plano anual
+    (`valorTotal = valorBase + alunosExcedentes×1 + anosAdicionais×valorBase`).
+  - O valor é sempre recalculado no servidor a partir dos parâmetros brutos
+    (`tipoPlano`, `qtdAlunos`, `anosAdicionais`) antes de gerar a cobrança —
+    nunca confiamos num total vindo do cliente.
+- **Ciclo de vida da assinatura** (`src/lib/subscription/service.ts`):
+  1. Ao escolher um plano em `/motorista/planos` e informar a quantidade de
+     alunos, `POST /api/motorista/assinatura/checkout` cria uma `Assinatura`
+     (status `TESTE`, 7 dias a partir de agora) e uma preference de checkout
+     no Mercado Pago — o motorista já tem acesso liberado durante o teste,
+     mesmo antes de pagar.
+  2. Ao aprovar o pagamento, o webhook (`POST /api/webhooks/mercadopago`)
+     ativa a assinatura (`ATIVA`, com `expiraEm` calculado pelo ciclo de
+     cobrança) e cancela qualquer outra assinatura `TESTE`/`ATIVA` do mesmo
+     motorista — cobre tanto upgrade de plano quanto renovação.
+  3. Status expira preguiçosamente (mesmo padrão usado nos convites): na
+     primeira leitura após `testeExpiraEm`/`expiraEm`, o status é corrigido
+     para `EXPIRADA`, sem precisar de cron.
+- **Validação do pagamento**: o webhook recebe só um `id` de pagamento — o
+  corpo da notificação nunca é a fonte de verdade. `confirmarPagamentoMercadoPago`
+  sempre revalida direto na API do Mercado Pago (`GET /v1/payments/{id}`) com
+  nosso próprio access token antes de ativar qualquer coisa, e confere se o
+  valor recebido bate com o valor originalmente cobrado.
+- **Renovação é manual** (não há cobrança recorrente automática ainda): ao
+  final do ciclo pago, o motorista volta a `/motorista/planos` e refaz o
+  checkout. Fica para uma fase futura assinatura recorrente de fato.
+- **Alerta de dias de teste**: `MotoristaShell` busca a assinatura atual do
+  motorista e mostra uma faixa discreta no topo, em todas as abas, com os
+  dias restantes de teste (ou aviso de expiração) — `src/components/motorista/TrialBanner.tsx`.
+- **Bloqueio de acesso quando expira**: sem assinatura `TESTE`/`ATIVA`,
+  `POST /api/motorista/convites` retorna 402 e a geração de novos convites
+  fica bloqueada até assinar um plano (vínculos/alunos existentes continuam
+  funcionando normalmente).
+- Variáveis de ambiente: `MERCADOPAGO_ACCESS_TOKEN`, `MERCADOPAGO_WEBHOOK_SECRET`
+  (opcional — ver comentário no `.env.example`) e `NEXT_PUBLIC_APP_URL` (usada
+  para montar as URLs de retorno e do webhook).
+- O antigo fechamento mensal por aluno excedente (`src/lib/billing/service.ts`,
+  `POST /api/cron/fechamento-mensal`) foi desativado — o cron correspondente
+  foi removido de `vercel.json` para não gerar cobranças do modelo antigo em
+  paralelo às assinaturas.
 
 ## Documentos do veículo
 
@@ -203,36 +270,80 @@ especificado — eles são apenas armazenados para consulta.
 
 ```
 prisma/schema.prisma          modelo de dados + migrations
-scripts/fechamento-mensal.ts  job standalone de cobrança
+scripts/fechamento-mensal.ts  job standalone do modelo de cobrança antigo (desativado, ver Assinaturas)
 
 src/lib/
   auth/                       sessão (JWT/cookie), hash de senha, guards de autenticação
+  email/                      envio de e-mail (Resend) e código de verificação (cadastro/login)
   storage/                    upload e resolução de URL de documentos (S3-compatível)
-  billing/                    cálculo de cobrança, job e stub de gateway de pagamento
+  billing/                    modelo de cobrança antigo por aluno excedente (desativado)
+  subscription/               planos (Basic/Pró/Max), cálculo de preço e ciclo de vida da assinatura
+  payment/mercadopago.ts      integração com o Mercado Pago (Checkout Pro + validação de pagamento)
   validation/schemas.ts       schemas Zod de entrada
   convite.ts                  geração/expiração de código de convite
   location.ts                 regra de "localização desatualizada"
 
+src/contexts/LocationSharingContext.tsx   compartilhamento de GPS + alerta de confirmação ao interromper
+
 src/app/
-  api/auth/{motorista,responsavel}/{register,login,logout}
-  api/motorista/{veiculos,convites,vinculos,localizacao,cobrancas,me}
+  api/auth/{motorista,responsavel}/{register,register/verificar,login,login/verificar,logout,reenviar-codigo}
+  api/motorista/{veiculos,convites,vinculos,localizacao,assinatura,assinatura/checkout,me}
   api/responsavel/{convites/usar,vinculos,buscar-placa,me}
-  api/cron/fechamento-mensal
-  motorista/{login,cadastro,dashboard,veiculos,convites,vinculos,cobrancas}
+  api/webhooks/mercadopago
+  api/cron/fechamento-mensal   (desativado — ver Assinaturas e pagamento)
+  motorista/{login,cadastro,dashboard,veiculos,convites,vinculos,cobrancas,planos}
   responsavel/{login,cadastro,dashboard,vincular,buscar}
   privacidade
 
 src/components/
-  auth/                       formulários e shell de login/cadastro, reusados pelas duas roles
+  auth/                       formulários, verificação de código e shell de login/cadastro, reusados pelas duas roles
   motorista/ , responsavel/   componentes específicos de cada painel
+  motorista/{PlanCard,PlanosClient,TrialBanner}.tsx   cards de plano, checkout e alerta de dias de teste
   map/                        mapa Leaflet (client-only)
+  layout/AppHeader.tsx        header responsivo com menu hambúrguer no mobile
 
 src/hooks/useLocationSharing.ts   watchPosition + envio throttled de localização
 ```
 
+## Deploy (Vercel + Neon)
+
+Stack de hospedagem recomendada — gratuita pra começar, sem servidor pra
+gerenciar:
+
+1. **Banco de dados**: crie um projeto no [Neon](https://neon.tech) (Postgres
+   serverless, free tier). Copie a **connection string com pooling**
+   (termina em `-pooler...`, não a direta) — funções serverless da Vercel
+   abrem muitas conexões simultâneas, e sem o pooler o banco esgota conexões
+   rápido. Acrescente `?pgbouncer=true&connection_limit=1` no fim dessa URL
+   (recomendação oficial do Prisma para o pooler da Neon, evita erros
+   esporádicos de "prepared statement already exists" em produção).
+2. **App**: em [vercel.com](https://vercel.com), "Add New → Project" e
+   importe o repositório `hello-inova/moove` do GitHub. A Vercel detecta o
+   Next.js automaticamente.
+3. **Variáveis de ambiente**: no dashboard do projeto na Vercel, em
+   *Settings → Environment Variables*, configure as mesmas chaves do
+   `.env.example` (`DATABASE_URL` apontando pro Neon com pooler,
+   `AUTH_SECRET_MOTORISTA`, `AUTH_SECRET_RESPONSAVEL`, `RESEND_API_KEY`,
+   `EMAIL_FROM`, `CRON_SECRET`, `STORAGE_*` se for usar upload de documentos,
+   e `NEXT_PUBLIC_APP_URL` + `MERCADOPAGO_ACCESS_TOKEN` (produção) para as
+   assinaturas — ver [Assinaturas e pagamento](#assinaturas-e-pagamento-mercado-pago)).
+4. **Deploy**: clique em Deploy. O build (`vercel.json`/`package.json`) já
+   roda `prisma migrate deploy` automaticamente antes do `next build`, então
+   as tabelas são criadas/atualizadas em todo deploy sem passo manual.
+5. **Fechamento mensal**: o `vercel.json` já declara um Cron Job da Vercel
+   chamando `POST /api/cron/fechamento-mensal` todo dia 1 às 03:00 UTC. A
+   Vercel injeta automaticamente o header `Authorization: Bearer
+   $CRON_SECRET` usando a env var `CRON_SECRET` configurada no projeto — não
+   precisa de nenhum agendador externo.
+
+> O plano gratuito ("Hobby") da Vercel é destinado a uso pessoal/não
+> comercial nos termos deles — bom para validar o produto, mas migre para o
+> plano Pro (pago) quando o Moove estiver em operação real.
+
 ## O que fica para depois
 
-- Integração real de gateway de pagamento (interface já pronta).
+- Cobrança recorrente automática (hoje a renovação do plano é feita
+  manualmente pelo motorista a cada fim de ciclo — ver Assinaturas e pagamento).
 - App nativo (fase futura, fora do escopo atual).
 - PWA/Service Worker para estender a janela de compartilhamento em segundo
   plano no mobile.

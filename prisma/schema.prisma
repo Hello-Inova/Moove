@@ -54,6 +54,40 @@ enum StatusCobranca {
   @@map("status_cobranca")
 }
 
+enum TipoPlanoAssinatura {
+  BASIC
+  PRO
+  MAX
+
+  @@map("tipo_plano_assinatura")
+}
+
+enum CicloCobrancaAssinatura {
+  MENSAL
+  SEMESTRAL
+  ANUAL
+
+  @@map("ciclo_cobranca_assinatura")
+}
+
+enum StatusAssinatura {
+  TESTE
+  ATIVA
+  EXPIRADA
+  CANCELADA
+
+  @@map("status_assinatura")
+}
+
+enum StatusPagamento {
+  PENDENTE
+  APROVADO
+  RECUSADO
+  CANCELADO
+
+  @@map("status_pagamento")
+}
+
 // ---------------------------------------------------------------------------
 // Motorista
 // ---------------------------------------------------------------------------
@@ -69,6 +103,11 @@ model Motorista {
   // LGPD: registro do aceite explícito no cadastro.
   consentimentoLgpdAceitoEm DateTime @map("consentimento_lgpd_aceito_em")
 
+  // Confirmado no momento do cadastro (a conta só existe depois do código de
+  // verificação por e-mail ser validado) e reforçado a cada login, já que o
+  // login também exige um código novo enviado por e-mail.
+  emailVerificadoEm DateTime? @map("email_verificado_em")
+
   criadoEm DateTime @default(now()) @map("criado_em")
 
   veiculos    Veiculo[]
@@ -77,6 +116,7 @@ model Motorista {
   cobrancas   Cobranca[]
   localizacao Localizacao?
   plano       Plano?
+  assinaturas Assinatura[]
 
   @@map("motoristas")
 }
@@ -115,6 +155,8 @@ model Responsavel {
 
   // LGPD: registro do aceite explícito no cadastro.
   consentimentoLgpdAceitoEm DateTime @map("consentimento_lgpd_aceito_em")
+
+  emailVerificadoEm DateTime? @map("email_verificado_em")
 
   criadoEm DateTime @default(now()) @map("criado_em")
 
@@ -190,6 +232,11 @@ model Localizacao {
 
 // ---------------------------------------------------------------------------
 // Plano (1:1 com Motorista)
+//
+// Superseded pelo modelo de assinatura pré-paga (Assinatura/Pagamento, logo
+// abaixo) — mantido no schema sem uso ativo para não descartar histórico e
+// para permitir remoção controlada depois, mas nada no fluxo atual grava ou
+// lê este modelo.
 // ---------------------------------------------------------------------------
 
 model Plano {
@@ -205,7 +252,7 @@ model Plano {
 }
 
 // ---------------------------------------------------------------------------
-// Cobranca
+// Cobranca — idem Plano, superseded pela Assinatura/Pagamento.
 // ---------------------------------------------------------------------------
 
 model Cobranca {
@@ -224,6 +271,93 @@ model Cobranca {
 
   @@unique([motoristaId, referenciaMes])
   @@map("cobrancas")
+}
+
+// ---------------------------------------------------------------------------
+// Assinatura — plano pago pré-pago (Basic/Pró/Max) que o motorista escolhe.
+// Ao escolher um plano, entra em teste por 7 dias (TESTE); o pagamento via
+// Mercado Pago ativa o ciclo pago (ATIVA) até `expiraEm`. Cada motorista
+// pode ter várias linhas ao longo do tempo (histórico de trocas/renovações)
+// — a assinatura "atual" é sempre a mais recente por `criadoEm`.
+// ---------------------------------------------------------------------------
+
+model Assinatura {
+  id                   String                  @id @default(cuid())
+  motoristaId          String                  @map("motorista_id")
+  tipoPlano            TipoPlanoAssinatura     @map("tipo_plano")
+  cicloCobranca        CicloCobrancaAssinatura @map("ciclo_cobranca")
+  qtdAlunosContratados Int                     @map("qtd_alunos_contratados")
+  anosAdicionais       Int                     @default(0) @map("anos_adicionais") // só plano MAX
+
+  // Composição do valor cobrado — guardada explicitamente (não só o total)
+  // para o histórico/recibo mostrar o desconto de alunos grátis aplicado.
+  valorPlano            Decimal @db.Decimal(10, 2) @map("valor_plano")
+  valorAlunosExcedentes Decimal @db.Decimal(10, 2) @map("valor_alunos_excedentes")
+  valorAnosAdicionais   Decimal @default(0) @db.Decimal(10, 2) @map("valor_anos_adicionais")
+  valorTotal            Decimal @db.Decimal(10, 2) @map("valor_total")
+
+  status          StatusAssinatura @default(TESTE)
+  testeExpiraEm   DateTime         @map("teste_expira_em")
+  inicioEm        DateTime?        @map("inicio_em")
+  expiraEm        DateTime?        @map("expira_em")
+  criadoEm        DateTime         @default(now()) @map("criado_em")
+
+  motorista  Motorista   @relation(fields: [motoristaId], references: [id], onDelete: Cascade)
+  pagamentos Pagamento[]
+
+  @@index([motoristaId, criadoEm])
+  @@map("assinaturas")
+}
+
+// ---------------------------------------------------------------------------
+// Pagamento — cada tentativa/registro de cobrança no Mercado Pago para uma
+// Assinatura. O status nunca é gravado a partir do corpo do webhook
+// diretamente: o webhook só avisa "algo mudou", e o servidor sempre
+// reconsulta o pagamento na API do Mercado Pago antes de confiar nele.
+// ---------------------------------------------------------------------------
+
+model Pagamento {
+  id                  String          @id @default(cuid())
+  assinaturaId        String          @map("assinatura_id")
+  gateway             String          @default("mercadopago")
+  gatewayPagamentoId  String?         @unique @map("gateway_pagamento_id")
+  gatewayPreferenceId String?         @map("gateway_preference_id")
+  valor               Decimal         @db.Decimal(10, 2)
+  status              StatusPagamento @default(PENDENTE)
+  checkoutUrl         String?         @map("checkout_url")
+  criadoEm            DateTime        @default(now()) @map("criado_em")
+  pagoEm              DateTime?       @map("pago_em")
+
+  assinatura Assinatura @relation(fields: [assinaturaId], references: [id], onDelete: Cascade)
+
+  @@map("pagamentos")
+}
+
+// ---------------------------------------------------------------------------
+// CodigoVerificacao — código de 6 dígitos enviado por e-mail, usado tanto
+// para confirmar o cadastro (a conta só é criada depois de validado) quanto
+// como segundo fator obrigatório em todo login.
+// ---------------------------------------------------------------------------
+
+model CodigoVerificacao {
+  id         String    @id @default(cuid())
+  email      String
+  role       String // "motorista" | "responsavel"
+  proposito  String // "CADASTRO" | "LOGIN"
+  codigoHash String    @map("codigo_hash")
+  tentativas Int       @default(0)
+
+  // Dados do cadastro pendente (nome/telefone/senhaHash), guardados aqui só
+  // quando proposito = CADASTRO — a conta em si não existe até o código ser
+  // confirmado, então não há onde mais guardar isso nesse meio-tempo.
+  payload Json?
+
+  criadoEm DateTime  @default(now()) @map("criado_em")
+  expiraEm DateTime  @map("expira_em")
+  usadoEm  DateTime? @map("usado_em")
+
+  @@index([email, role, proposito, usadoEm])
+  @@map("codigos_verificacao")
 }
 
 // Tabela auxiliar: quais vínculos (alunos) compuseram o excedente cobrado em

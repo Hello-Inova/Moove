@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { executarFechamentoMensal } from "@/lib/billing/service";
 import { jsonError } from "@/lib/http";
 
 /**
- * Endpoint HTTP para disparar o fechamento mensal a partir de um agendador
- * externo (ex: Vercel Cron). Protegido por um segredo compartilhado — nunca
- * expor publicamente sem essa checagem, já que dispara geração de cobranças.
+ * O fechamento mensal por aluno excedente (`src/lib/billing/service.ts`) foi
+ * substituído pelas assinaturas pré-pagas (Basic/Pró/Max — ver
+ * `src/lib/subscription`). Esse endpoint (e o cron que o chamava, removido
+ * de `vercel.json`) fica desativado para não gerar cobranças do modelo
+ * antigo em paralelo às assinaturas.
  */
 export async function POST(request: NextRequest) {
   const secret = process.env.CRON_SECRET;
@@ -15,8 +16,8 @@ export async function POST(request: NextRequest) {
     return jsonError(401, "Não autorizado.");
   }
 
-  const referenciaMes = request.nextUrl.searchParams.get("referenciaMes") ?? undefined;
-  const resumo = await executarFechamentoMensal(referenciaMes);
-
-  return NextResponse.json(resumo);
+  return NextResponse.json({
+    desativado: true,
+    motivo: "Fechamento mensal substituído pelas assinaturas pré-pagas (Basic/Pró/Max).",
+  });
 }
