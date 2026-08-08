@@ -5,6 +5,7 @@ import { getAuthenticatedMotorista } from "@/lib/auth/guards";
 import { prisma } from "@/lib/prisma";
 import { MotoristaShell } from "@/components/motorista/MotoristaShell";
 import { LocationSharingPanel } from "@/components/motorista/LocationSharingPanel";
+import { RotaPanel } from "@/components/motorista/RotaPanel";
 
 export default async function MotoristaDashboardPage() {
   const motorista = await getAuthenticatedMotorista();
@@ -34,6 +35,8 @@ export default async function MotoristaDashboardPage() {
         )}
 
         <LocationSharingPanel />
+
+        <RotaPanel />
 
         <div className="grid gap-4 sm:grid-cols-3">
           <StatCard label="Veículos" value={veiculosCount} href="/motorista/veiculos" />

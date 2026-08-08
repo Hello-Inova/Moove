@@ -38,6 +38,14 @@ export function apiPostJson<T>(url: string, body: unknown) {
   return request<T>(url, { method: "POST", body: JSON.stringify(body) });
 }
 
+export function apiPatchJson<T>(url: string, body: unknown) {
+  return request<T>(url, { method: "PATCH", body: JSON.stringify(body) });
+}
+
+export function apiPutJson<T>(url: string, body: unknown) {
+  return request<T>(url, { method: "PUT", body: JSON.stringify(body) });
+}
+
 export function apiPostForm<T>(url: string, form: FormData) {
   return request<T>(url, { method: "POST", body: form });
 }

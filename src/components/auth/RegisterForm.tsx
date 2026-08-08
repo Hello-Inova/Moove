@@ -7,6 +7,7 @@ import Link from "next/link";
 import { apiPostJson } from "@/lib/api-client";
 import { FieldError, inputClass, primaryButtonClass } from "@/components/ui/form-elements";
 import { PasswordInput } from "@/components/ui/PasswordInput";
+import { EnderecoFields } from "@/components/ui/EnderecoFields";
 import { VerifyCodeForm } from "@/components/auth/VerifyCodeForm";
 
 type Role = "motorista" | "responsavel";
@@ -40,7 +41,7 @@ export function RegisterForm({ role }: { role: Role }) {
 
     setLoading(true);
 
-    const payload = {
+    const payload: Record<string, unknown> = {
       nome: form.get("nome"),
       email: form.get("email"),
       telefone: form.get("telefone"),
@@ -48,6 +49,16 @@ export function RegisterForm({ role }: { role: Role }) {
       confirmarSenha,
       aceitaLgpd,
     };
+
+    if (role === "responsavel") {
+      payload.cep = form.get("cep");
+      payload.logradouro = form.get("logradouro");
+      payload.numero = form.get("numero");
+      payload.complemento = form.get("complemento");
+      payload.bairro = form.get("bairro");
+      payload.cidade = form.get("cidade");
+      payload.estado = form.get("estado");
+    }
 
     const result = await apiPostJson<{ email: string }>(`/api/auth/${role}/register`, payload);
     setLoading(false);
@@ -133,6 +144,13 @@ export function RegisterForm({ role }: { role: Role }) {
         />
         <FieldError message={issues.confirmarSenha?.[0]} />
       </div>
+
+      {role === "responsavel" && (
+        <div className="border-t border-neutral-200 pt-4 dark:border-neutral-700">
+          <p className="mb-3 text-sm font-medium">Endereço do aluno (embarque/desembarque)</p>
+          <EnderecoFields issues={issues} />
+        </div>
+      )}
 
       <label className="flex items-start gap-2 text-sm text-neutral-700 dark:text-neutral-300">
         <input

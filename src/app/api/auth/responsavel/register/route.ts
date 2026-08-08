@@ -5,6 +5,7 @@ import { hashPassword } from "@/lib/auth/password";
 import { responsavelRegisterSchema } from "@/lib/validation/schemas";
 import { jsonError, jsonValidationError } from "@/lib/http";
 import { issueVerificationCode, EmailSendError, ResendCooldownError } from "@/lib/email/verification";
+import { geocodeEndereco, montarEnderecoTexto } from "@/lib/geocoding";
 
 /**
  * Não cria a conta ainda — só emite o código de verificação. A conta só
@@ -18,7 +19,7 @@ export async function POST(request: NextRequest) {
   const parsed = responsavelRegisterSchema.safeParse(body);
   if (!parsed.success) return jsonValidationError(parsed.error);
 
-  const { nome, email, telefone, senha } = parsed.data;
+  const { nome, email, telefone, senha, cep, logradouro, numero, complemento, bairro, cidade, estado } = parsed.data;
 
   const existente = await prisma.responsavel.findUnique({ where: { email } });
   if (existente) {
@@ -26,6 +27,14 @@ export async function POST(request: NextRequest) {
   }
 
   const senhaHash = await hashPassword(senha);
+
+  // Geocodifica o endereço agora (não é digitação em tempo real, é uma
+  // chamada só no envio do cadastro) — se falhar, a conta ainda é criada
+  // normalmente; o responsável pode corrigir/tentar de novo depois em
+  // "Meu endereço", e até lá esse vínculo simplesmente não entra na rota
+  // otimizada do motorista.
+  const enderecoTexto = montarEnderecoTexto({ logradouro, numero, bairro, cidade, estado });
+  const coordenadas = await geocodeEndereco(`${enderecoTexto}, ${cep}, Brasil`);
 
   try {
     await issueVerificationCode({
@@ -38,6 +47,15 @@ export async function POST(request: NextRequest) {
         telefone,
         senhaHash,
         consentimentoLgpdAceitoEm: new Date().toISOString(),
+        cep,
+        logradouro,
+        numero,
+        complemento: complemento || null,
+        bairro,
+        cidade,
+        estado,
+        enderecoLatitude: coordenadas?.latitude ?? null,
+        enderecoLongitude: coordenadas?.longitude ?? null,
       },
     });
   } catch (err) {

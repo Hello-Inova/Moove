@@ -146,6 +146,26 @@ model Responsavel {
   senhaHash   String      @map("senha_hash")
   statusConta StatusConta @default(ATIVA) @map("status_conta")
 
+  // Endereço de embarque/desembarque do(s) aluno(s) deste responsável —
+  // preenchido no cadastro a partir do CEP (autocompletado via ViaCEP) e
+  // editável depois em "Meu endereço". `numero` e `complemento` continuam
+  // sendo digitados manualmente pelo responsável.
+  cep           String? @map("cep")
+  logradouro    String? @map("logradouro")
+  numero        String? @map("numero")
+  complemento   String? @map("complemento")
+  bairro        String? @map("bairro")
+  cidade        String? @map("cidade")
+  estado        String? @map("estado") // UF, 2 letras
+
+  // Geocodificado a partir do endereço acima (Nominatim/OpenStreetMap) —
+  // é o que a rota otimizada do motorista usa como parada. Pode ficar nulo
+  // se a geocodificação falhar (endereço não encontrado); a tela de "Meu
+  // endereço" deixa isso visível e permite tentar de novo.
+  enderecoLatitude  Float?    @map("endereco_latitude")
+  enderecoLongitude Float?    @map("endereco_longitude")
+  enderecoAtualizadoEm DateTime? @map("endereco_atualizado_em")
+
   // LGPD: registro do aceite explícito no cadastro.
   consentimentoLgpdAceitoEm DateTime @map("consentimento_lgpd_aceito_em")
 

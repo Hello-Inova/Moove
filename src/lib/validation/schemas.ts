@@ -27,6 +27,27 @@ export const motoristaRegisterSchema = z
     path: ["confirmarSenha"],
   });
 
+const cep = z
+  .string()
+  .trim()
+  .transform((v) => v.replace(/\D/g, ""))
+  .refine((v) => v.length === 8, "CEP inválido — use 8 dígitos.");
+
+const enderecoCampos = {
+  cep,
+  logradouro: z.string().trim().min(2, "Endereço inválido — confira o CEP."),
+  numero: z.string().trim().min(1, "Informe o número."),
+  complemento: z.string().trim().max(80).optional(),
+  bairro: z.string().trim().min(1, "Bairro inválido — confira o CEP."),
+  cidade: z.string().trim().min(1, "Cidade inválida — confira o CEP."),
+  estado: z.string().trim().length(2, "UF inválida.").toUpperCase(),
+};
+
+/** Endereço usado tanto no cadastro do responsável quanto na tela de
+ * "Meu endereço" (edição posterior) — é a partir dele que a rota do
+ * motorista geocodifica a parada. */
+export const enderecoSchema = z.object(enderecoCampos);
+
 export const responsavelRegisterSchema = z
   .object({
     nome: z.string().trim().min(2, "Informe o nome completo."),
@@ -34,6 +55,7 @@ export const responsavelRegisterSchema = z
     telefone,
     senha,
     confirmarSenha: z.string().min(1, "Repita a senha."),
+    ...enderecoCampos,
     aceitaLgpd: z.literal(true, {
       message: "É necessário aceitar o tratamento de dados (LGPD) para criar a conta.",
     }),

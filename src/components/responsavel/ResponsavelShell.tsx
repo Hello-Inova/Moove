@@ -6,6 +6,7 @@ const NAV = [
   { href: "/responsavel/dashboard", label: "Meus vínculos" },
   { href: "/responsavel/vincular", label: "Usar convite" },
   { href: "/responsavel/buscar", label: "Ver localização" },
+  { href: "/responsavel/endereco", label: "Meu endereço" },
 ];
 
 export function ResponsavelShell({ children }: { children: ReactNode }) {

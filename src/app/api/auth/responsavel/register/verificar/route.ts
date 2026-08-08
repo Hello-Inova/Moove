@@ -24,6 +24,15 @@ export async function POST(request: NextRequest) {
     telefone: string;
     senhaHash: string;
     consentimentoLgpdAceitoEm: string;
+    cep?: string;
+    logradouro?: string;
+    numero?: string;
+    complemento?: string | null;
+    bairro?: string;
+    cidade?: string;
+    estado?: string;
+    enderecoLatitude?: number | null;
+    enderecoLongitude?: number | null;
   } | null;
 
   if (!payload) {
@@ -39,6 +48,16 @@ export async function POST(request: NextRequest) {
         senhaHash: payload.senhaHash,
         consentimentoLgpdAceitoEm: new Date(payload.consentimentoLgpdAceitoEm),
         emailVerificadoEm: new Date(),
+        cep: payload.cep,
+        logradouro: payload.logradouro,
+        numero: payload.numero,
+        complemento: payload.complemento ?? null,
+        bairro: payload.bairro,
+        cidade: payload.cidade,
+        estado: payload.estado,
+        enderecoLatitude: payload.enderecoLatitude ?? null,
+        enderecoLongitude: payload.enderecoLongitude ?? null,
+        enderecoAtualizadoEm: payload.cep ? new Date() : null,
       },
     });
 
