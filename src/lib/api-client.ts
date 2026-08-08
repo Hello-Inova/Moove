@@ -41,3 +41,7 @@ export function apiPostJson<T>(url: string, body: unknown) {
 export function apiPostForm<T>(url: string, form: FormData) {
   return request<T>(url, { method: "POST", body: form });
 }
+
+export function apiDelete<T>(url: string) {
+  return request<T>(url, { method: "DELETE" });
+}

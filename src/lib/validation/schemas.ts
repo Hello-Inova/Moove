@@ -96,3 +96,16 @@ export const buscarPlacaSchema = z.object({
     .transform((v) => v.replace(/[\s-]/g, ""))
     .refine((v) => v.length >= 6, "Placa inválida."),
 });
+
+export const adminLoginSchema = z.object({
+  email: z.string().trim().toLowerCase().email("E-mail inválido."),
+  senha: z.string().min(1, "Informe a senha."),
+});
+
+export const atualizarStatusContaSchema = z.object({
+  statusConta: z.enum(["ATIVA", "SUSPENSA"]),
+});
+
+export const forcarAssinaturaSchema = z.object({
+  tipoPlano: z.enum(["BASIC", "PRO", "MAX"]),
+});

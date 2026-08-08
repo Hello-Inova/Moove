@@ -3,10 +3,10 @@ import "server-only";
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 
-export type Role = "motorista" | "responsavel";
+export type Role = "motorista" | "responsavel" | "admin";
 
 export type SessionPayload = {
-  sub: string; // id do usuário (motorista ou responsavel)
+  sub: string; // id do usuário (motorista ou responsavel) — "admin" para a role admin
   role: Role;
 };
 
@@ -15,10 +15,17 @@ const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30; // 30 dias
 const COOKIE_NAMES: Record<Role, string> = {
   motorista: "moove_motorista_session",
   responsavel: "moove_responsavel_session",
+  admin: "moove_admin_session",
+};
+
+const SECRET_ENV_VARS: Record<Role, string> = {
+  motorista: "AUTH_SECRET_MOTORISTA",
+  responsavel: "AUTH_SECRET_RESPONSAVEL",
+  admin: "AUTH_SECRET_ADMIN",
 };
 
 function getSecret(role: Role): Uint8Array {
-  const envVar = role === "motorista" ? "AUTH_SECRET_MOTORISTA" : "AUTH_SECRET_RESPONSAVEL";
+  const envVar = SECRET_ENV_VARS[role];
   const secret = process.env[envVar];
   if (!secret) {
     throw new Error(`Variável de ambiente ${envVar} não configurada.`);

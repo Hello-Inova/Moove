@@ -99,6 +99,42 @@ export async function criarAssinaturaComCheckout(params: {
 }
 
 /**
+ * Uso administrativo (painel admin): ativa uma assinatura pro motorista sem
+ * passar pelo Mercado Pago — útil pra suporte/teste. Cria a assinatura já
+ * como ATIVA (0 alunos excedentes, sem anos adicionais) e cancela qualquer
+ * outra TESTE/ATIVA existente, no mesmo padrão da confirmação de pagamento.
+ */
+export async function forcarAssinaturaAtiva(motoristaId: string, tipoPlano: TipoPlano): Promise<Assinatura> {
+  const plano = PLANOS[tipoPlano];
+  const expiraEm = calcularExpiraEmAssinatura(plano.ciclo, 0);
+
+  return prisma.$transaction(async (tx) => {
+    const assinatura = await tx.assinatura.create({
+      data: {
+        motoristaId,
+        tipoPlano,
+        cicloCobranca: plano.ciclo,
+        qtdAlunosContratados: plano.alunosGratis,
+        valorPlano: plano.valorBase,
+        valorAlunosExcedentes: 0,
+        valorTotal: plano.valorBase,
+        status: "ATIVA",
+        testeExpiraEm: new Date(),
+        inicioEm: new Date(),
+        expiraEm,
+      },
+    });
+
+    await tx.assinatura.updateMany({
+      where: { motoristaId, id: { not: assinatura.id }, status: { in: ["TESTE", "ATIVA"] } },
+      data: { status: "CANCELADA" },
+    });
+
+    return assinatura;
+  });
+}
+
+/**
  * Chamado pelo webhook do Mercado Pago com o id do pagamento — já revalidado
  * contra a API oficial pelo chamador (ver a rota do webhook). Ativa a
  * assinatura correspondente e cancela outras assinaturas em aberto do mesmo

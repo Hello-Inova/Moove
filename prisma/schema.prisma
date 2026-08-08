@@ -147,11 +147,12 @@ model Veiculo {
 // ---------------------------------------------------------------------------
 
 model Responsavel {
-  id        String   @id @default(cuid())
-  nome      String
-  email     String   @unique
-  telefone  String
-  senhaHash String   @map("senha_hash")
+  id          String      @id @default(cuid())
+  nome        String
+  email       String      @unique
+  telefone    String
+  senhaHash   String      @map("senha_hash")
+  statusConta StatusConta @default(ATIVA) @map("status_conta")
 
   // LGPD: registro do aceite explícito no cadastro.
   consentimentoLgpdAceitoEm DateTime @map("consentimento_lgpd_aceito_em")
