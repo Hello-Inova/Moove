@@ -22,6 +22,11 @@ const NOMINATIM_URL = "https://nominatim.openstreetmap.org/search";
 
 export type GeocodeResult = { latitude: number; longitude: number };
 
+// Resultado interno com o texto do lugar encontrado — usado só para a
+// checagem de sanidade (bate com a cidade pedida?) antes de aceitar a
+// coordenada; não é exposto pra fora de geocodeEndereco.
+type ResultadoBruto = GeocodeResult & { displayName: string };
+
 export type EnderecoParaGeocodificar = {
   logradouro: string;
   numero: string;
@@ -81,7 +86,7 @@ async function buscarEm(
   params: Record<string, string>,
   extraSearchParams?: Record<string, string>,
   format: string = "jsonv2"
-): Promise<GeocodeResult | null> {
+): Promise<ResultadoBruto | null> {
   const url = new URL(baseUrl);
   url.searchParams.set("format", format);
   url.searchParams.set("limit", "1");
@@ -148,7 +153,7 @@ async function buscarEm(
       urlParaLog.toString()
     );
 
-    return { latitude, longitude };
+    return { latitude, longitude, displayName: primeiro.display_name ?? "" };
   } catch (err) {
     // Timeout, rede fora do ar, resposta inesperada — trata como "não
     // encontrado" em vez de propagar erro, mas loga a causa real.
@@ -159,7 +164,7 @@ async function buscarEm(
   }
 }
 
-async function buscarLocationIq(params: Record<string, string>): Promise<GeocodeResult | null> {
+async function buscarLocationIq(params: Record<string, string>): Promise<ResultadoBruto | null> {
   const keyBruta = process.env.LOCATIONIQ_API_KEY;
   if (!keyBruta) return null;
 
@@ -178,7 +183,7 @@ async function buscarLocationIq(params: Record<string, string>): Promise<Geocode
   return buscarEm("locationiq", LOCATIONIQ_URL, params, { key }, "json");
 }
 
-async function buscarNominatim(params: Record<string, string>): Promise<GeocodeResult | null> {
+async function buscarNominatim(params: Record<string, string>): Promise<ResultadoBruto | null> {
   return buscarEm("nominatim", NOMINATIM_URL, params);
 }
 
@@ -187,10 +192,34 @@ async function buscarNominatim(params: Record<string, string>): Promise<GeocodeR
  * pro Nominatim público se o LocationIQ não estiver configurado ou não
  * encontrar nada — mantém uma segunda chance gratuita sem depender de key.
  */
-async function buscar(params: Record<string, string>): Promise<GeocodeResult | null> {
+async function buscar(params: Record<string, string>): Promise<ResultadoBruto | null> {
   const viaLocationIq = await buscarLocationIq(params);
   if (viaLocationIq) return viaLocationIq;
   return buscarNominatim(params);
+}
+
+// Remove acentos/maiúsculas pra comparar nomes de cidade sem depender de
+// grafia idêntica ("São Paulo" vs "Sao Paulo").
+function normalizar(texto: string): string {
+  return texto
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "") // marcas de acentuação combinantes
+    .toLowerCase()
+    .trim();
+}
+
+/**
+ * Checagem de sanidade: o provedor de geocodificação (LocationIQ/Nominatim)
+ * pode devolver "sucesso" com um resultado de outra cidade completamente —
+ * já aconteceu de pedir "Cajamar" e vir "Avenida Higienópolis, Consolação,
+ * São Paulo capital". Isso não é erro de rede/formato (a API responde 200
+ * com um resultado válido), é o provedor "chutando" o resultado mais
+ * próximo que achou. Sem essa checagem, salvamos coordenada de um endereço
+ * errado sem avisar ninguém — pior do que não ter coordenada nenhuma.
+ */
+function cidadeBate(resultado: ResultadoBruto, cidadeEsperada: string): boolean {
+  if (!resultado.displayName) return true; // sem texto pra checar, aceita
+  return normalizar(resultado.displayName).includes(normalizar(cidadeEsperada));
 }
 
 /**
@@ -233,9 +262,14 @@ export async function geocodeEndereco(endereco: EnderecoParaGeocodificar): Promi
     postalcode: formatarCepComHifen(endereco.cep),
     country: "Brazil",
   });
-  if (comCep) {
+  if (comCep && cidadeBate(comCep, endereco.cidade)) {
     console.info("[geocoding] resolvido na ETAPA 1 (estruturada + CEP) — a mais precisa");
     return comCep;
+  }
+  if (comCep) {
+    console.warn(
+      `[geocoding] ETAPA 1 descartada: provedor devolveu um lugar de outra cidade ("${comCep.displayName}", esperado "${endereco.cidade}") — tentando próxima etapa.`
+    );
   }
 
   // 2) Busca estruturada sem CEP — o formato/indexação do CEP no OSM varia
@@ -247,9 +281,14 @@ export async function geocodeEndereco(endereco: EnderecoParaGeocodificar): Promi
     state: estado,
     country: "Brazil",
   });
-  if (semCep) {
+  if (semCep && cidadeBate(semCep, endereco.cidade)) {
     console.info("[geocoding] resolvido na ETAPA 2 (estruturada sem CEP) — precisa, mas sem checagem do CEP");
     return semCep;
+  }
+  if (semCep) {
+    console.warn(
+      `[geocoding] ETAPA 2 descartada: provedor devolveu um lugar de outra cidade ("${semCep.displayName}", esperado "${endereco.cidade}") — tentando próxima etapa.`
+    );
   }
 
   // 3) Texto livre como último recurso — menos preciso pro número exato,
@@ -259,12 +298,18 @@ export async function geocodeEndereco(endereco: EnderecoParaGeocodificar): Promi
     .join(", ");
 
   const viaTextoLivre = await buscar({ q: textoLivre, countrycodes: "br" });
+  if (viaTextoLivre && cidadeBate(viaTextoLivre, endereco.cidade)) {
+    console.warn(
+      "[geocoding] resolvido na ETAPA 3 (texto livre) — MENOS CONFIÁVEL pro número exato, mas cidade confere."
+    );
+    return viaTextoLivre;
+  }
   if (viaTextoLivre) {
     console.warn(
-      "[geocoding] resolvido na ETAPA 3 (texto livre) — MENOS CONFIÁVEL, o parser pode ter casado com uma rua/bairro homônimo em outro lugar. Confira o display_name logado acima."
+      `[geocoding] ETAPA 3 descartada: provedor devolveu um lugar de outra cidade ("${viaTextoLivre.displayName}", esperado "${endereco.cidade}"). Nenhuma etapa encontrou coordenada confiável — endereço fica sem geocodificação.`
     );
   }
-  return viaTextoLivre;
+  return null;
 }
 
 /** Monta a string de endereço padrão usada para exibir na UI (lista de
