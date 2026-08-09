@@ -81,20 +81,34 @@ async function buscarNominatim(params: Record<string, string>): Promise<GeocodeR
       signal: controller.signal,
     });
 
-    if (!response.ok) return null;
+    if (!response.ok) {
+      // Loga no servidor (visível nos Runtime Logs da Vercel) — o motivo
+      // mais comum de falha aqui não é o endereço em si, e sim o Nominatim
+      // público limitando/bloqueando por IP de provedores de nuvem. Sem
+      // esse log não dá pra distinguir isso de "endereço não encontrado".
+      console.warn(
+        `[geocoding] Nominatim respondeu ${response.status} ${response.statusText} para`,
+        url.toString()
+      );
+      return null;
+    }
 
     const data = (await response.json()) as Array<{ lat: string; lon: string }>;
     const primeiro = data[0];
-    if (!primeiro) return null;
+    if (!primeiro) {
+      console.warn(`[geocoding] Nominatim não encontrou resultado para`, url.toString());
+      return null;
+    }
 
     const latitude = Number(primeiro.lat);
     const longitude = Number(primeiro.lon);
     if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
 
     return { latitude, longitude };
-  } catch {
+  } catch (err) {
     // Timeout, rede fora do ar, resposta inesperada — trata como "não
-    // encontrado" em vez de propagar erro.
+    // encontrado" em vez de propagar erro, mas loga a causa real.
+    console.warn(`[geocoding] falha ao consultar Nominatim`, url.toString(), err);
     return null;
   } finally {
     clearTimeout(timeout);
@@ -119,28 +133,44 @@ async function buscarNominatim(params: Record<string, string>): Promise<GeocodeR
  * como segunda tentativa — melhor uma localização aproximada (nível de rua)
  * do que nenhuma.
  */
+function formatarCepComHifen(cep: string): string {
+  const digitos = cep.replace(/\D/g, "");
+  return digitos.length === 8 ? `${digitos.slice(0, 5)}-${digitos.slice(5)}` : cep;
+}
+
 export async function geocodeEndereco(endereco: EnderecoParaGeocodificar): Promise<GeocodeResult | null> {
   const rua = endereco.logradouro.trim();
   const numero = endereco.numero.trim();
   if (!rua) return null;
 
-  const estruturado = await buscarNominatim({
-    street: numero ? `${numero} ${rua}` : rua,
+  const ruaComNumero = numero ? `${numero} ${rua}` : rua;
+  const estado = nomeEstado(endereco.estado);
+
+  // 1) Busca estruturada com CEP — a mais precisa quando bate certinho com
+  // o formato indexado no OpenStreetMap (com hífen).
+  const comCep = await buscarNominatim({
+    street: ruaComNumero,
     city: endereco.cidade,
-    state: nomeEstado(endereco.estado),
-    postalcode: endereco.cep,
+    state: estado,
+    postalcode: formatarCepComHifen(endereco.cep),
     country: "Brazil",
   });
-  if (estruturado) return estruturado;
+  if (comCep) return comCep;
 
-  const textoLivre = [
-    rua && numero ? `${rua}, ${numero}` : rua,
-    endereco.bairro,
-    endereco.cidade,
-    nomeEstado(endereco.estado),
-    endereco.cep,
-    "Brasil",
-  ]
+  // 2) Busca estruturada sem CEP — o formato/indexação do CEP no OSM varia
+  // bastante no Brasil; exigir esse campo às vezes zera resultados que
+  // existiriam só com rua+número+cidade+estado.
+  const semCep = await buscarNominatim({
+    street: ruaComNumero,
+    city: endereco.cidade,
+    state: estado,
+    country: "Brazil",
+  });
+  if (semCep) return semCep;
+
+  // 3) Texto livre como último recurso — menos preciso pro número exato,
+  // mas melhor do que não ter coordenada nenhuma.
+  const textoLivre = [ruaComNumero, endereco.bairro, endereco.cidade, estado, endereco.cep, "Brasil"]
     .filter(Boolean)
     .join(", ");
 
