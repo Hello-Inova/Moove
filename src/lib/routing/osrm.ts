@@ -17,6 +17,7 @@ import "server-only";
 // um provedor pago (Mapbox, Google) é a evolução natural.
 
 const OSRM_TRIP_URL = "https://router.project-osrm.org/trip/v1/driving/";
+const OSRM_ROUTE_URL = "https://router.project-osrm.org/route/v1/driving/";
 
 export type Ponto = { latitude: number; longitude: number };
 
@@ -84,6 +85,56 @@ export async function calcularRotaOtimizada(pontos: Ponto[]): Promise<RotaOtimiz
       duracaoSegundos: trip.duration,
       geometria: trip.geometry,
     };
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+export type RotaSimples = {
+  distanciaMetros: number;
+  duracaoSegundos: number;
+  /** GeoJSON LineString (coordenadas [lon, lat]) — inverter para [lat, lon]
+   * na hora de renderizar no Leaflet, igual à `RotaOtimizada`. */
+  geometria: { type: "LineString"; coordinates: [number, number][] };
+};
+
+/**
+ * Traçado simples entre dois pontos (sem otimização de paradas) — usado no
+ * mapa do responsável pra desenhar o caminho do motorista até o endereço
+ * dele, ao contrário de `calcularRotaOtimizada` (mapa do motorista, que
+ * visita vários alunos). Usa o serviço `route` do OSRM em vez de `trip`.
+ */
+export async function calcularRotaSimples(origem: Ponto, destino: Ponto): Promise<RotaSimples | null> {
+  const coordenadas = [origem, destino]
+    .map((p) => `${p.longitude.toFixed(6)},${p.latitude.toFixed(6)}`)
+    .join(";");
+
+  const url = new URL(OSRM_ROUTE_URL + coordenadas);
+  url.searchParams.set("overview", "full");
+  url.searchParams.set("geometries", "geojson");
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10_000);
+
+  try {
+    const response = await fetch(url.toString(), { signal: controller.signal });
+    if (!response.ok) return null;
+
+    const data = (await response.json()) as {
+      code: string;
+      routes?: Array<{
+        distance: number;
+        duration: number;
+        geometry: { type: "LineString"; coordinates: [number, number][] };
+      }>;
+    };
+
+    if (data.code !== "Ok" || !data.routes?.[0]) return null;
+
+    const rota = data.routes[0];
+    return { distanciaMetros: rota.distance, duracaoSegundos: rota.duration, geometria: rota.geometry };
   } catch {
     return null;
   } finally {

@@ -14,6 +14,12 @@ const VehicleMapInner = dynamic(
   }
 );
 
-export function VehicleMap(props: { latitude: number; longitude: number; label: string }) {
+export function VehicleMap(props: {
+  latitude: number;
+  longitude: number;
+  label: string;
+  destino?: { latitude: number; longitude: number } | null;
+  geometria?: [number, number][] | null;
+}) {
   return <VehicleMapInner {...props} />;
 }

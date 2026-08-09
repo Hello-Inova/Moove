@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { apiGet } from "@/lib/api-client";
 import { inputClass } from "@/components/ui/form-elements";
 import { VehicleMap } from "@/components/map/VehicleMap";
+import type { BuscaPlacaResponse } from "@/app/api/responsavel/buscar-placa/route";
 
 type Vinculo = {
   id: string;
@@ -13,11 +14,18 @@ type Vinculo = {
   veiculos: { placa: string; modelo: string }[];
 };
 
-type BuscaResponse = {
-  veiculo: { placa: string; modelo: string };
-  motorista: { nome: string };
-  localizacao: { latitude: number; longitude: number; atualizadoEm: string; desatualizada: boolean } | null;
-};
+type BuscaResponse = BuscaPlacaResponse;
+
+function formatarDistancia(m: number): string {
+  return m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${Math.round(m)} m`;
+}
+
+function formatarDuracao(s: number): string {
+  const min = Math.round(s / 60);
+  if (min < 60) return `${min} min`;
+  const h = Math.floor(min / 60);
+  return `${h}h${String(min % 60).padStart(2, "0")}`;
+}
 
 type Opcao = { placa: string; modelo: string; motoristaNome: string };
 
@@ -143,6 +151,18 @@ export function BuscarPlacaClient({ placaInicial }: { placaInicial?: string }) {
                   {new Date(data.localizacao.atualizadoEm).toLocaleTimeString("pt-BR")}.
                 </p>
               )}
+              {!data.rota && (
+                <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+                  Cadastre seu endereço em &quot;Meu endereço&quot; para ver o trajeto do motorista até você no mapa.
+                </p>
+              )}
+
+              {data.rota && (
+                <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                  {formatarDistancia(data.rota.distanciaMetros)} · aprox. {formatarDuracao(data.rota.duracaoSegundos)} até o seu endereço
+                </p>
+              )}
+
               {/* `isolate` cria um novo contexto de empilhamento pro mapa —
                   o Leaflet usa z-index até 1000 nos próprios controles, e
                   sem isso ele pode ficar por cima de menus/diálogos da
@@ -153,6 +173,8 @@ export function BuscarPlacaClient({ placaInicial }: { placaInicial?: string }) {
                   latitude={data.localizacao.latitude}
                   longitude={data.localizacao.longitude}
                   label={`${data.veiculo.placa} — ${data.motorista.nome}`}
+                  destino={data.rota?.destino ?? null}
+                  geometria={data.rota?.geometria ?? null}
                 />
               </div>
             </>
