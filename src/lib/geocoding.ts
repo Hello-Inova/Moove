@@ -126,7 +126,7 @@ async function buscarEm(
       return null;
     }
 
-    const data = (await response.json()) as Array<{ lat: string; lon: string }>;
+    const data = (await response.json()) as Array<{ lat: string; lon: string; display_name?: string }>;
     const primeiro = data[0];
     if (!primeiro) {
       console.warn(`[geocoding:${provedor}] não encontrou resultado para`, urlParaLog.toString());
@@ -136,6 +136,17 @@ async function buscarEm(
     const latitude = Number(primeiro.lat);
     const longitude = Number(primeiro.lon);
     if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+
+    // Loga sucesso também — sem isso não dava pra saber qual das 3 etapas
+    // (estruturada+CEP / estruturada sem CEP / texto livre) resolveu, nem
+    // conferir se o lugar encontrado ("display_name" do OSM) bate com o
+    // endereço pedido. Essencial pra diagnosticar "salvou mas caiu longe".
+    console.info(
+      `[geocoding:${provedor}] encontrado ${latitude},${longitude} —`,
+      primeiro.display_name ?? "(sem display_name)",
+      "| url:",
+      urlParaLog.toString()
+    );
 
     return { latitude, longitude };
   } catch (err) {
@@ -222,7 +233,10 @@ export async function geocodeEndereco(endereco: EnderecoParaGeocodificar): Promi
     postalcode: formatarCepComHifen(endereco.cep),
     country: "Brazil",
   });
-  if (comCep) return comCep;
+  if (comCep) {
+    console.info("[geocoding] resolvido na ETAPA 1 (estruturada + CEP) — a mais precisa");
+    return comCep;
+  }
 
   // 2) Busca estruturada sem CEP — o formato/indexação do CEP no OSM varia
   // bastante no Brasil; exigir esse campo às vezes zera resultados que
@@ -233,7 +247,10 @@ export async function geocodeEndereco(endereco: EnderecoParaGeocodificar): Promi
     state: estado,
     country: "Brazil",
   });
-  if (semCep) return semCep;
+  if (semCep) {
+    console.info("[geocoding] resolvido na ETAPA 2 (estruturada sem CEP) — precisa, mas sem checagem do CEP");
+    return semCep;
+  }
 
   // 3) Texto livre como último recurso — menos preciso pro número exato,
   // mas melhor do que não ter coordenada nenhuma.
@@ -241,7 +258,13 @@ export async function geocodeEndereco(endereco: EnderecoParaGeocodificar): Promi
     .filter(Boolean)
     .join(", ");
 
-  return buscar({ q: textoLivre, countrycodes: "br" });
+  const viaTextoLivre = await buscar({ q: textoLivre, countrycodes: "br" });
+  if (viaTextoLivre) {
+    console.warn(
+      "[geocoding] resolvido na ETAPA 3 (texto livre) — MENOS CONFIÁVEL, o parser pode ter casado com uma rua/bairro homônimo em outro lugar. Confira o display_name logado acima."
+    );
+  }
+  return viaTextoLivre;
 }
 
 /** Monta a string de endereço padrão usada para exibir na UI (lista de
