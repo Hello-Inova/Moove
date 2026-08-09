@@ -1,12 +1,23 @@
 import "server-only";
 
-// Geocodificação de endereço → coordenadas via Nominatim (OpenStreetMap),
-// mesmo provedor gratuito já usado para os tiles do mapa (Leaflet). Uso
-// baixo volume (só no cadastro/edição de endereço do responsável, nunca em
-// tempo real) — dentro da política de uso justo do serviço público
-// (https://operations.osmfoundation.org/policies/nominatim/): no máximo
-// 1 req/s, com um User-Agent identificando a aplicação.
+// Geocodificação de endereço → coordenadas.
+//
+// Provedor principal: LocationIQ (https://locationiq.com), gratuito até
+// 5.000 requisições/dia, com API compatível com o Nominatim (mesmos nomes
+// de parâmetro: street/city/state/postalcode/country, ou `q=` livre).
+// Precisa da env var LOCATIONIQ_API_KEY.
+//
+// Por que trocar do Nominatim público direto: em produção (servidor da
+// Vercel), o Nominatim público estava devolvendo lista vazia mesmo pra
+// buscas em texto livre de endereços válidos — comportamento típico de
+// bloqueio/limitação de IPs de datacenter/nuvem pela política de uso
+// justo do serviço (https://operations.osmfoundation.org/policies/nominatim/).
+// O LocationIQ é pensado justamente para uso de servidor/produção.
+//
+// Mantemos o Nominatim como fallback final (sem key nenhuma) caso o
+// LOCATIONIQ_API_KEY não esteja configurado ou o LocationIQ também falhe.
 
+const LOCATIONIQ_URL = "https://us1.locationiq.com/v1/search";
 const NOMINATIM_URL = "https://nominatim.openstreetmap.org/search";
 
 export type GeocodeResult = { latitude: number; longitude: number };
@@ -64,13 +75,27 @@ function userAgent(): string {
   return `Moove/1.0 (${contato})`;
 }
 
-async function buscarNominatim(params: Record<string, string>): Promise<GeocodeResult | null> {
-  const url = new URL(NOMINATIM_URL);
+async function buscarEm(
+  provedor: "locationiq" | "nominatim",
+  baseUrl: string,
+  params: Record<string, string>,
+  extraSearchParams?: Record<string, string>
+): Promise<GeocodeResult | null> {
+  const url = new URL(baseUrl);
   url.searchParams.set("format", "jsonv2");
   url.searchParams.set("limit", "1");
   for (const [chave, valor] of Object.entries(params)) {
     if (valor) url.searchParams.set(chave, valor);
   }
+  if (extraSearchParams) {
+    for (const [chave, valor] of Object.entries(extraSearchParams)) {
+      url.searchParams.set(chave, valor);
+    }
+  }
+
+  // URL só pra log — sem a key, pra não vazar ela nos Runtime Logs.
+  const urlParaLog = new URL(url.toString());
+  urlParaLog.searchParams.delete("key");
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8_000);
@@ -82,13 +107,11 @@ async function buscarNominatim(params: Record<string, string>): Promise<GeocodeR
     });
 
     if (!response.ok) {
-      // Loga no servidor (visível nos Runtime Logs da Vercel) — o motivo
-      // mais comum de falha aqui não é o endereço em si, e sim o Nominatim
-      // público limitando/bloqueando por IP de provedores de nuvem. Sem
-      // esse log não dá pra distinguir isso de "endereço não encontrado".
+      // Loga no servidor (visível nos Runtime Logs da Vercel) — ajuda a
+      // distinguir "endereço não encontrado" de bloqueio/limite do provedor.
       console.warn(
-        `[geocoding] Nominatim respondeu ${response.status} ${response.statusText} para`,
-        url.toString()
+        `[geocoding:${provedor}] respondeu ${response.status} ${response.statusText} para`,
+        urlParaLog.toString()
       );
       return null;
     }
@@ -96,7 +119,7 @@ async function buscarNominatim(params: Record<string, string>): Promise<GeocodeR
     const data = (await response.json()) as Array<{ lat: string; lon: string }>;
     const primeiro = data[0];
     if (!primeiro) {
-      console.warn(`[geocoding] Nominatim não encontrou resultado para`, url.toString());
+      console.warn(`[geocoding:${provedor}] não encontrou resultado para`, urlParaLog.toString());
       return null;
     }
 
@@ -108,11 +131,32 @@ async function buscarNominatim(params: Record<string, string>): Promise<GeocodeR
   } catch (err) {
     // Timeout, rede fora do ar, resposta inesperada — trata como "não
     // encontrado" em vez de propagar erro, mas loga a causa real.
-    console.warn(`[geocoding] falha ao consultar Nominatim`, url.toString(), err);
+    console.warn(`[geocoding:${provedor}] falha ao consultar`, urlParaLog.toString(), err);
     return null;
   } finally {
     clearTimeout(timeout);
   }
+}
+
+async function buscarLocationIq(params: Record<string, string>): Promise<GeocodeResult | null> {
+  const key = process.env.LOCATIONIQ_API_KEY;
+  if (!key) return null;
+  return buscarEm("locationiq", LOCATIONIQ_URL, params, { key });
+}
+
+async function buscarNominatim(params: Record<string, string>): Promise<GeocodeResult | null> {
+  return buscarEm("nominatim", NOMINATIM_URL, params);
+}
+
+/**
+ * Tenta o LocationIQ primeiro (se houver API key configurada) e só cai
+ * pro Nominatim público se o LocationIQ não estiver configurado ou não
+ * encontrar nada — mantém uma segunda chance gratuita sem depender de key.
+ */
+async function buscar(params: Record<string, string>): Promise<GeocodeResult | null> {
+  const viaLocationIq = await buscarLocationIq(params);
+  if (viaLocationIq) return viaLocationIq;
+  return buscarNominatim(params);
 }
 
 /**
@@ -148,7 +192,7 @@ export async function geocodeEndereco(endereco: EnderecoParaGeocodificar): Promi
 
   // 1) Busca estruturada com CEP — a mais precisa quando bate certinho com
   // o formato indexado no OpenStreetMap (com hífen).
-  const comCep = await buscarNominatim({
+  const comCep = await buscar({
     street: ruaComNumero,
     city: endereco.cidade,
     state: estado,
@@ -160,7 +204,7 @@ export async function geocodeEndereco(endereco: EnderecoParaGeocodificar): Promi
   // 2) Busca estruturada sem CEP — o formato/indexação do CEP no OSM varia
   // bastante no Brasil; exigir esse campo às vezes zera resultados que
   // existiriam só com rua+número+cidade+estado.
-  const semCep = await buscarNominatim({
+  const semCep = await buscar({
     street: ruaComNumero,
     city: endereco.cidade,
     state: estado,
@@ -174,7 +218,7 @@ export async function geocodeEndereco(endereco: EnderecoParaGeocodificar): Promi
     .filter(Boolean)
     .join(", ");
 
-  return buscarNominatim({ q: textoLivre, countrycodes: "br" });
+  return buscar({ q: textoLivre, countrycodes: "br" });
 }
 
 /** Monta a string de endereço padrão usada para exibir na UI (lista de
