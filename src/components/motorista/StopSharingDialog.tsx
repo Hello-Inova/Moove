@@ -16,7 +16,12 @@ export function StopSharingDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
+      // Leaflet usa z-index até 1000 nos próprios controles/painéis
+      // (.leaflet-pane, .leaflet-top/.leaflet-bottom) — com o mapa de rota
+      // (RotaMapInner) agora presente na mesma tela, um z-50 comum não é
+      // suficiente pra esse alerta ficar por cima. Precisa estourar esse
+      // valor com folga.
+      className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
       role="alertdialog"
       aria-modal="true"
       aria-labelledby="stop-sharing-title"

@@ -143,7 +143,12 @@ export function BuscarPlacaClient({ placaInicial }: { placaInicial?: string }) {
                   {new Date(data.localizacao.atualizadoEm).toLocaleTimeString("pt-BR")}.
                 </p>
               )}
-              <div className="h-[420px] overflow-hidden rounded-xl border border-neutral-200 dark:border-neutral-700">
+              {/* `isolate` cria um novo contexto de empilhamento pro mapa —
+                  o Leaflet usa z-index até 1000 nos próprios controles, e
+                  sem isso ele pode ficar por cima de menus/diálogos da
+                  aplicação (ex: alerta de encerrar rota) que usam z-index
+                  mais baixos. */}
+              <div className="isolate h-[420px] overflow-hidden rounded-xl border border-neutral-200 dark:border-neutral-700">
                 <VehicleMap
                   latitude={data.localizacao.latitude}
                   longitude={data.localizacao.longitude}

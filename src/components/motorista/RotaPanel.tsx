@@ -90,7 +90,10 @@ export function RotaPanel() {
 
       {rota && rota.paradas.length > 0 && (
         <>
-          <div className="mt-3 h-[360px] overflow-hidden rounded-xl border border-neutral-200 dark:border-neutral-700">
+          {/* `isolate` evita que os controles internos do Leaflet
+              (z-index até 1000) vazem por cima de menus/diálogos da
+              aplicação — ver StopSharingDialog.tsx. */}
+          <div className="isolate mt-3 h-[360px] overflow-hidden rounded-xl border border-neutral-200 dark:border-neutral-700">
             <RotaMap motorista={rota.motorista} paradas={rota.paradas} concluidas={concluidas} geometria={rota.geometria} />
           </div>
 
