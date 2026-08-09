@@ -116,7 +116,7 @@ async function buscarEm(
         `[geocoding:${provedor}] respondeu ${response.status} ${response.statusText} para`,
         urlParaLog.toString(),
         "| corpo:",
-        corpo.slice(0, 300)
+        corpo.slice(0, 1000)
       );
       return null;
     }
