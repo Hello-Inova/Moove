@@ -107,11 +107,16 @@ async function buscarEm(
     });
 
     if (!response.ok) {
-      // Loga no servidor (visível nos Runtime Logs da Vercel) — ajuda a
-      // distinguir "endereço não encontrado" de bloqueio/limite do provedor.
+      // Loga no servidor (visível nos Runtime Logs da Vercel) — inclui o
+      // corpo da resposta (a API costuma mandar o motivo exato do erro,
+      // ex: {"error":"..."}), essencial pra diferenciar "endereço não
+      // encontrado" de key inválida/plano sem esse recurso/limite atingido.
+      const corpo = await response.text().catch(() => "");
       console.warn(
         `[geocoding:${provedor}] respondeu ${response.status} ${response.statusText} para`,
-        urlParaLog.toString()
+        urlParaLog.toString(),
+        "| corpo:",
+        corpo.slice(0, 300)
       );
       return null;
     }
