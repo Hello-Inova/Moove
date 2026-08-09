@@ -79,10 +79,11 @@ async function buscarEm(
   provedor: "locationiq" | "nominatim",
   baseUrl: string,
   params: Record<string, string>,
-  extraSearchParams?: Record<string, string>
+  extraSearchParams?: Record<string, string>,
+  format: string = "jsonv2"
 ): Promise<GeocodeResult | null> {
   const url = new URL(baseUrl);
-  url.searchParams.set("format", "jsonv2");
+  url.searchParams.set("format", format);
   url.searchParams.set("limit", "1");
   for (const [chave, valor] of Object.entries(params)) {
     if (valor) url.searchParams.set(chave, valor);
@@ -148,9 +149,22 @@ async function buscarEm(
 }
 
 async function buscarLocationIq(params: Record<string, string>): Promise<GeocodeResult | null> {
-  const key = process.env.LOCATIONIQ_API_KEY;
-  if (!key) return null;
-  return buscarEm("locationiq", LOCATIONIQ_URL, params, { key });
+  const keyBruta = process.env.LOCATIONIQ_API_KEY;
+  if (!keyBruta) return null;
+
+  // Copiar a key com aspas/espaço junto (comum ao colar em variável de
+  // ambiente) faz a API rejeitar a requisição inteira com "Invalid Request"
+  // — mais barato checar isso aqui e avisar do que descobrir só pelo log.
+  const key = keyBruta.trim().replace(/^['"]|['"]$/g, "");
+  if (key !== keyBruta) {
+    console.warn(
+      `[geocoding:locationiq] LOCATIONIQ_API_KEY tinha espaços/aspas sobrando — usando versão limpa (${key.length} caracteres, original tinha ${keyBruta.length}).`
+    );
+  }
+
+  // O plano gratuito do LocationIQ não aceita format=jsonv2 no endpoint
+  // /search (retorna 400 "Invalid Request" genérico) — só json/xml.
+  return buscarEm("locationiq", LOCATIONIQ_URL, params, { key }, "json");
 }
 
 async function buscarNominatim(params: Record<string, string>): Promise<GeocodeResult | null> {
