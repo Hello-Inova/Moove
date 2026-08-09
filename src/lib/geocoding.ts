@@ -107,16 +107,20 @@ async function buscarEm(
     });
 
     if (!response.ok) {
-      // Loga no servidor (visível nos Runtime Logs da Vercel) — inclui o
-      // corpo da resposta (a API costuma mandar o motivo exato do erro,
-      // ex: {"error":"..."}), essencial pra diferenciar "endereço não
-      // encontrado" de key inválida/plano sem esse recurso/limite atingido.
+      // Loga no servidor (visível nos Runtime Logs da Vercel). O corpo de
+      // erro do LocationIQ vem em XML com o motivo em <error>...</error>
+      // (ou <message>) — extraímos isso e colocamos ANTES da URL na
+      // mensagem de log, porque o Vercel trunca linhas de log longas e a
+      // URL (bem maior) estava "empurrando" a parte que importa pra fora.
       const corpo = await response.text().catch(() => "");
+      const motivo = corpo.match(/<error[^>]*>([\s\S]*?)<\/error>/i)?.[1]?.trim()
+        ?? corpo.match(/<message[^>]*>([\s\S]*?)<\/message>/i)?.[1]?.trim()
+        ?? corpo.slice(0, 200);
       console.warn(
-        `[geocoding:${provedor}] respondeu ${response.status} ${response.statusText} para`,
-        urlParaLog.toString(),
-        "| corpo:",
-        corpo.slice(0, 1000)
+        `[geocoding:${provedor}] ${response.status} ${response.statusText} — motivo:`,
+        motivo,
+        "| url:",
+        urlParaLog.toString()
       );
       return null;
     }
