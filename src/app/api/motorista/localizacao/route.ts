@@ -9,6 +9,27 @@ import { isLocationStale } from "@/lib/location";
 import { haversineMetros, estimarEtaMinutos } from "@/lib/geo/distancia";
 import { enviarNotificacaoPush, PushNaoConfiguradoError, PushSubscriptionInvalidaError } from "@/lib/push/webpush";
 
+/** Se houver um percurso aberto (ver /api/motorista/percurso/iniciar),
+ * registra este ponto de GPS nele — é o que alimenta a distância percorrida
+ * mostrada no relatório diário. Silencioso se não houver percurso aberto
+ * (compatibilidade: motorista pode ter uma sessão antiga sem ter clicado em
+ * "Iniciar rota" através do fluxo novo). */
+async function registrarPontoPercurso(
+  motoristaId: string,
+  posicao: { latitude: number; longitude: number }
+) {
+  const aberto = await prisma.percursoDia.findFirst({
+    where: { motoristaId, encerradoEm: null },
+    orderBy: { iniciadoEm: "desc" },
+    select: { id: true },
+  });
+  if (!aberto) return;
+
+  await prisma.percursoPonto.create({
+    data: { percursoId: aberto.id, latitude: posicao.latitude, longitude: posicao.longitude },
+  });
+}
+
 /** Data de hoje truncada (sem hora), em UTC — mesma convenção usada em
  * embarques_dia (ver src/app/api/motorista/embarques/route.ts). */
 function hojeData(): Date {
@@ -130,8 +151,14 @@ export async function POST(request: NextRequest) {
     update: { latitude, longitude },
   });
 
-  // Não deixa uma falha no envio do alerta derrubar a atualização de GPS —
-  // o rastreamento em si é o que importa mais; o alerta é um "bônus".
+  // Nem o alerta de proximidade nem o registro do trajeto podem derrubar a
+  // atualização de GPS em si, que é o que mais importa.
+  try {
+    await registrarPontoPercurso(motorista.id, { latitude, longitude });
+  } catch (err) {
+    console.error("[percurso] erro ao registrar ponto", err);
+  }
+
   try {
     await verificarAlertasProximidade(motorista.id, { latitude, longitude });
   } catch (err) {

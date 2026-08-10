@@ -99,13 +99,32 @@ export function LocationSharingPanel() {
 
       {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
 
-      <p className="mt-4 text-sm text-neutral-500 dark:text-neutral-400">
-        Você precisa habilitar o compartilhamento a cada nova sessão. Navegar entre as páginas
-        do Moove (Vínculos, Convites, Escolas etc.) não interrompe o envio — pode usar o menu
-        à vontade durante a rota. Só evite trocar para outro aplicativo ou bloquear a tela do
-        celular: navegadores mobile (principalmente iOS/Safari) pausam o GPS nesses casos, o
-        que é uma limitação do próprio celular/navegador, não do Moove.
-      </p>
+      <div
+        className={`mt-4 flex items-start gap-2.5 rounded-xl border p-3 text-sm ${
+          isSharing
+            ? "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+            : "border-neutral-200 bg-neutral-50 text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300"
+        }`}
+      >
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" className="mt-0.5 shrink-0" aria-hidden="true">
+          <path
+            d="M10 2.5l8 14.5H2l8-14.5z"
+            stroke="currentColor"
+            strokeWidth="1.4"
+            strokeLinejoin="round"
+          />
+          <path d="M10 8v3.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+          <circle cx="10" cy="14" r="0.9" fill="currentColor" />
+        </svg>
+        <p>
+          <strong>Mantenha o Moove aberto</strong> na tela enquanto compartilha — se você fechar o
+          app/navegador, o compartilhamento e o rastreio são interrompidos na hora. Navegar entre as
+          páginas do Moove (Vínculos, Convites, Escolas etc.) não interrompe o envio. Só evite trocar
+          para outro aplicativo ou bloquear a tela do celular: navegadores mobile (principalmente
+          iOS/Safari) pausam o GPS nesses casos — é uma limitação do próprio celular/navegador, não do
+          Moove.
+        </p>
+      </div>
 
       <AlertaChegadaConfig />
     </section>

@@ -86,6 +86,11 @@ export function useLocationSharing() {
     setError(null);
     setStatus("ativando");
     void requestWakeLock();
+    // Abre (ou reaproveita) o percurso do dia — acumula os pontos de GPS
+    // pra distância do relatório diário. Fogo-e-esquece: se falhar, o
+    // rastreamento em tempo real continua normalmente, só o relatório
+    // dessa sessão específica ficaria incompleto.
+    void apiPostJson("/api/motorista/percurso/iniciar", {});
 
     const id = navigator.geolocation.watchPosition(
       (pos) => {

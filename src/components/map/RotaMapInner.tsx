@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
-import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from "react-leaflet";
+import { useEffect, useRef, useState } from "react";
+import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -45,6 +45,65 @@ function FitBounds({ pontos }: { pontos: [number, number][] }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [JSON.stringify(pontos)]);
   return null;
+}
+
+function TargetIcon({ ativo }: { ativo: boolean }) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="7.5" stroke="currentColor" strokeWidth="1.8" />
+      <circle cx="12" cy="12" r="2.2" fill={ativo ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.8" />
+      <path d="M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/**
+ * Botão "seguir minha localização" (estilo Waze/Google Maps) — centraliza o
+ * mapa na posição do motorista e, enquanto ativo, recentraliza a cada
+ * atualização de GPS. Se o motorista arrastar o mapa manualmente, o modo
+ * "seguir" desliga sozinho (mesmo comportamento dos apps de navegação).
+ */
+function FollowControl({ motorista }: { motorista: { latitude: number; longitude: number } }) {
+  const map = useMap();
+  const [seguindo, setSeguindo] = useState(false);
+  const arrastandoProgramaticamente = useRef(false);
+
+  useMapEvents({
+    dragstart() {
+      if (arrastandoProgramaticamente.current) return;
+      setSeguindo(false);
+    },
+  });
+
+  useEffect(() => {
+    if (!seguindo) return;
+    arrastandoProgramaticamente.current = true;
+    map.setView([motorista.latitude, motorista.longitude], Math.max(map.getZoom(), 17), { animate: true });
+    // Libera a trava no próximo tick — dá tempo do evento `dragstart` (que o
+    // Leaflet as vezes dispara durante `setView` animado) ser ignorado.
+    const timeout = setTimeout(() => {
+      arrastandoProgramaticamente.current = false;
+    }, 50);
+    return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seguindo, motorista.latitude, motorista.longitude]);
+
+  return (
+    <button
+      type="button"
+      onClick={() => setSeguindo((s) => !s)}
+      aria-pressed={seguindo}
+      aria-label={seguindo ? "Parar de seguir minha localização" : "Centralizar e seguir minha localização"}
+      className={`absolute bottom-3 right-3 flex h-11 w-11 items-center justify-center rounded-full border shadow-md transition ${
+        seguindo
+          ? "border-brand-orange bg-brand-orange text-white"
+          : "border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
+      }`}
+      style={{ zIndex: 1000 }}
+    >
+      <TargetIcon ativo={seguindo} />
+    </button>
+  );
 }
 
 export function RotaMapInner({
@@ -95,6 +154,7 @@ export function RotaMapInner({
       )}
 
       <FitBounds pontos={pontos} />
+      <FollowControl motorista={motorista} />
     </MapContainer>
   );
 }

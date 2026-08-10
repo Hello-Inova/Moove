@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import { apiGet, apiPatchJson } from "@/lib/api-client";
-import { inputClass, primaryButtonClass, secondaryButtonClass } from "@/components/ui/form-elements";
+import { apiGet, apiPatchJson, apiPostJson } from "@/lib/api-client";
+import { inputClass, primaryButtonClass, secondaryButtonClass, dangerButtonClass } from "@/components/ui/form-elements";
 import { RotaMap } from "@/components/map/RotaMap";
 import { useLocationSharingContext } from "@/contexts/LocationSharingContext";
 import type { RotaResponse } from "@/app/api/motorista/rota/route";
@@ -31,11 +31,20 @@ function formatarDuracao(s: number): string {
   return `${h}h${String(min % 60).padStart(2, "0")}`;
 }
 
+type ResumoPercurso = {
+  totalAlunos: number;
+  totalEmbarcaram: number;
+  totalAusentes: number;
+  distanciaMetros: number | null;
+};
+
 export function RotaPanel() {
-  const { isSharing } = useLocationSharingContext();
+  const { isSharing, confirmAndRun } = useLocationSharingContext();
   const [rota, setRota] = useState<RotaResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [encerrando, setEncerrando] = useState(false);
+  const [resumoEncerrado, setResumoEncerrado] = useState<ResumoPercurso | null>(null);
   // Status de hoje (Embarcou/Ausente) por vínculo — persistido no servidor
   // (ver GET/PATCH /api/motorista/embarques), sobrevive a atualizar a
   // página, diferente do que era antes (só existia em memória).
@@ -98,6 +107,20 @@ export function RotaPanel() {
     void carregar();
   }
 
+  function encerrarRota() {
+    confirmAndRun(async () => {
+      setEncerrando(true);
+      const result = await apiPostJson<ResumoPercurso>("/api/motorista/percurso/encerrar", {});
+      setEncerrando(false);
+      if (result.ok) {
+        setResumoEncerrado(result.data);
+        setStatusPorVinculo({});
+      } else {
+        setError(result.error);
+      }
+    });
+  }
+
   async function marcarStatus(vinculoId: string, status: StatusEmbarque | null) {
     // Atualização otimista — a UI muda na hora, sem esperar a resposta.
     setStatusPorVinculo((prev) => {
@@ -131,14 +154,36 @@ export function RotaPanel() {
     <section className="rounded-2xl border border-neutral-200 bg-white shadow-sm p-5 dark:bg-neutral-900 dark:border-neutral-700">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="font-medium">{modoEscolaAtivo ? `Indo para: ${rota?.modoEscola?.nome ?? "escola"}` : "Rota do dia"}</h2>
-        <button
-          onClick={() => void carregar(modoEscolaAtivo || undefined)}
-          disabled={loading}
-          className={secondaryButtonClass + " w-auto px-4 py-1.5 text-sm"}
-        >
-          {loading ? "Calculando…" : "Recalcular rota"}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => void carregar(modoEscolaAtivo || undefined)}
+            disabled={loading}
+            className={secondaryButtonClass + " w-auto px-4 py-1.5 text-sm"}
+          >
+            {loading ? "Calculando…" : "Recalcular rota"}
+          </button>
+          <button
+            onClick={encerrarRota}
+            disabled={encerrando}
+            className={dangerButtonClass + " w-auto px-4 py-1.5 text-sm"}
+          >
+            {encerrando ? "Encerrando…" : "Encerrar rota"}
+          </button>
+        </div>
       </div>
+
+      {resumoEncerrado && (
+        <div className="mt-3 rounded-xl border border-green-200 bg-green-50 p-3 text-sm text-green-900 dark:border-green-900 dark:bg-green-950/30 dark:text-green-300">
+          <p className="font-medium">Rota encerrada e salva no relatório do dia.</p>
+          <p className="mt-1">
+            {resumoEncerrado.totalEmbarcaram} embarcaram · {resumoEncerrado.totalAusentes} ausentes ·{" "}
+            {resumoEncerrado.totalAlunos} no total
+            {resumoEncerrado.distanciaMetros !== null && (
+              <> · {formatarDistancia(resumoEncerrado.distanciaMetros)} percorridos</>
+            )}
+          </p>
+        </div>
+      )}
 
       {escolas.length > 0 && (
         <div className="mt-3 flex flex-wrap items-end gap-2 rounded-xl bg-neutral-50 p-3 dark:bg-neutral-800">

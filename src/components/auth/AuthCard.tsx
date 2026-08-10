@@ -30,7 +30,7 @@ export function AuthCard({
   footer?: { href: string; label: string; linkLabel: string };
 }) {
   return (
-    <main className="relative flex flex-1 flex-col items-center justify-center bg-gradient-to-b from-brand-orange-soft/40 to-white px-4 py-12 dark:from-neutral-900 dark:to-neutral-950">
+    <main className="relative flex min-h-screen flex-1 flex-col items-center justify-center overflow-y-auto bg-gradient-to-b from-brand-orange-soft/40 to-white px-4 py-12 dark:from-neutral-900 dark:to-neutral-950">
       <div className="absolute left-4 top-4">
         <Link
           href="/"

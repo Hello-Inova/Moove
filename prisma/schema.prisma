@@ -140,6 +140,7 @@ model Motorista {
   localizacao Localizacao?
   assinaturas Assinatura[]
   escolas     Escola[]
+  percursos   PercursoDia[]
 
   @@map("motoristas")
 }
@@ -399,6 +400,49 @@ model AlertaProximidade {
 
   @@unique([vinculoId, data])
   @@map("alertas_proximidade")
+}
+
+// ---------------------------------------------------------------------------
+// PercursoDia — histórico do trajeto percorrido pelo motorista, encerrado
+// pelo botão "Encerrar rota" (RotaPanel.tsx). Guarda um snapshot dos status
+// de embarque do dia (embarcaram/ausentes) e a distância percorrida — a
+// fonte de dados do relatório diário (src/app/motorista/(app)/relatorios).
+// Não é único por dia: o motorista pode ter mais de um percurso no mesmo
+// dia (ida e volta, manhã e tarde etc.), cada um encerrado separadamente.
+// ---------------------------------------------------------------------------
+
+model PercursoDia {
+  id          String    @id @default(cuid())
+  motoristaId String    @map("motorista_id")
+  data        DateTime  @db.Date
+  iniciadoEm  DateTime  @map("iniciado_em")
+  encerradoEm DateTime? @map("encerrado_em")
+
+  totalAlunos     Int   @default(0) @map("total_alunos")
+  totalEmbarcaram Int   @default(0) @map("total_embarcaram")
+  totalAusentes   Int   @default(0) @map("total_ausentes")
+  distanciaMetros Float? @map("distancia_metros")
+
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  motorista Motorista       @relation(fields: [motoristaId], references: [id], onDelete: Cascade)
+  pontos    PercursoPonto[]
+
+  @@index([motoristaId, data])
+  @@map("percursos_dia")
+}
+
+model PercursoPonto {
+  id         String   @id @default(cuid())
+  percursoId String   @map("percurso_id")
+  latitude   Float
+  longitude  Float
+  criadoEm   DateTime @default(now()) @map("criado_em")
+
+  percurso PercursoDia @relation(fields: [percursoId], references: [id], onDelete: Cascade)
+
+  @@index([percursoId, criadoEm])
+  @@map("percurso_pontos")
 }
 
 // ---------------------------------------------------------------------------
