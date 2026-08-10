@@ -4,6 +4,20 @@ import type { ReactNode } from "react";
 import { Logo } from "@/components/ui/Logo";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 
+function HomeIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+      <path
+        d="M3 9.5L10 3l7 6.5M4.5 8.5V16a1 1 0 001 1h3v-4.5h3V17h3a1 1 0 001-1V8.5"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export function AuthCard({
   title,
   subtitle,
@@ -17,6 +31,15 @@ export function AuthCard({
 }) {
   return (
     <main className="relative flex flex-1 flex-col items-center justify-center bg-gradient-to-b from-brand-orange-soft/40 to-white px-4 py-12 dark:from-neutral-900 dark:to-neutral-950">
+      <div className="absolute left-4 top-4">
+        <Link
+          href="/"
+          aria-label="Voltar para a seleção de perfil"
+          className="flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-200 bg-white text-neutral-700 transition hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800"
+        >
+          <HomeIcon />
+        </Link>
+      </div>
       <div className="absolute right-4 top-4">
         <ThemeToggle />
       </div>
