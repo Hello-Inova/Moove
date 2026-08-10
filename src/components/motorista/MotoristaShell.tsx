@@ -32,7 +32,7 @@ export async function MotoristaShell({ children }: { children: ReactNode }) {
 
   return (
     <LocationSharingProvider>
-      <div className="flex min-h-full flex-1 bg-neutral-50 dark:bg-neutral-950">
+      <div className="flex min-h-full flex-1 flex-col bg-neutral-50 dark:bg-neutral-950 md:flex-row">
         <AppHeader role="motorista" roleLabel="motorista" homeHref="/motorista/dashboard" nav={NAV} userName={motorista?.nome} />
         <div className="flex min-w-0 flex-1 flex-col">
           {motorista && (

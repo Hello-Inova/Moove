@@ -27,7 +27,7 @@ export async function ResponsavelShell({ children }: { children: ReactNode }) {
   const bloqueado = responsavel ? !responsavelTemAcesso(responsavel, assinatura) : false;
 
   return (
-    <div className="flex min-h-full flex-1 bg-neutral-50 dark:bg-neutral-950">
+    <div className="flex min-h-full flex-1 flex-col bg-neutral-50 dark:bg-neutral-950 md:flex-row">
       <AppHeader
         role="responsavel"
         roleLabel="responsável"
