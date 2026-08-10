@@ -39,8 +39,13 @@ export async function createMercadoPagoPreference(params: {
   valor: number;
   externalReference: string;
   payerEmail: string;
+  /** Caminho (sem domínio) para onde o Mercado Pago redireciona depois do
+   * pagamento — por padrão a vitrine de planos do motorista; a assinatura
+   * do responsável usa "/responsavel/assinatura". */
+  backUrlPath?: string;
 }): Promise<MercadoPagoPreference> {
   const appUrl = getAppUrl();
+  const backUrlPath = params.backUrlPath ?? "/motorista/planos";
   // `auto_return` exige back_urls públicas em https — em dev local
   // (http://localhost) o Mercado Pago recusa a preference inteira com um
   // erro (mal explicado: "back_url.success must be defined"). Só pedimos o
@@ -65,9 +70,9 @@ export async function createMercadoPagoPreference(params: {
       payer: { email: params.payerEmail },
       external_reference: params.externalReference,
       back_urls: {
-        success: `${appUrl}/motorista/planos?pagamento=sucesso`,
-        pending: `${appUrl}/motorista/planos?pagamento=pendente`,
-        failure: `${appUrl}/motorista/planos?pagamento=falha`,
+        success: `${appUrl}${backUrlPath}?pagamento=sucesso`,
+        pending: `${appUrl}${backUrlPath}?pagamento=pendente`,
+        failure: `${appUrl}${backUrlPath}?pagamento=falha`,
       },
       ...(podeAutoReturn ? { auto_return: "approved" } : {}),
       notification_url: `${appUrl}/api/webhooks/mercadopago`,

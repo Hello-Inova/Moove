@@ -12,7 +12,11 @@ export default async function MotoristaVinculosPage() {
   const vinculos = await prisma.vinculo.findMany({
     where: { motoristaId: motorista.id },
     orderBy: { criadoEm: "desc" },
-    include: { responsavel: { select: { nome: true, email: true } } },
+    include: {
+      responsavel: { select: { nome: true, email: true } },
+      aluno: { select: { nome: true } },
+      escola: { select: { nome: true } },
+    },
   });
 
   const ativos = vinculos.filter((v) => v.status === "ATIVO").length;
@@ -23,14 +27,13 @@ export default async function MotoristaVinculosPage() {
         <div>
           <h1 className="text-2xl font-semibold">Vínculos</h1>
           <p className="text-neutral-500 dark:text-neutral-400">
-            {ativos} vínculo{ativos === 1 ? "" : "s"} ativo{ativos === 1 ? "" : "s"} — grátis até 5, cobrança a
-            partir do 6º.
+            {ativos} aluno{ativos === 1 ? "" : "s"} vinculado{ativos === 1 ? "" : "s"}.
           </p>
         </div>
 
         <div className="space-y-3">
           {vinculos.length === 0 && (
-            <p className="text-sm text-neutral-500 dark:text-neutral-400">Nenhum responsável vinculado ainda.</p>
+            <p className="text-sm text-neutral-500 dark:text-neutral-400">Nenhum aluno vinculado ainda.</p>
           )}
           {vinculos.map((v) => (
             <div
@@ -38,8 +41,13 @@ export default async function MotoristaVinculosPage() {
               className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-neutral-200 bg-white shadow-sm p-4 dark:bg-neutral-900 dark:border-neutral-700"
             >
               <div>
-                <p className="font-medium">{v.responsavel.nome}</p>
-                <p className="text-sm text-neutral-500 dark:text-neutral-400">{v.responsavel.email}</p>
+                <p className="font-medium">{v.aluno.nome}</p>
+                <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                  Responsável: {v.responsavel.nome} ({v.responsavel.email})
+                </p>
+                <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                  Escola: {v.escola?.nome ?? "não definida"}
+                </p>
               </div>
               {v.status === "ATIVO" ? (
                 <RevogarButton

@@ -6,7 +6,6 @@ import { createSession } from "@/lib/auth/session";
 import { verificarCodigoSchema } from "@/lib/validation/schemas";
 import { jsonError, jsonValidationError } from "@/lib/http";
 import { verifyCode } from "@/lib/email/verification";
-import { getPlanoDefaults } from "@/lib/billing/config";
 
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null);
@@ -25,6 +24,16 @@ export async function POST(request: NextRequest) {
     telefone: string;
     senhaHash: string;
     consentimentoLgpdAceitoEm: string;
+    nomeEscola: string;
+    cep: string;
+    logradouro: string;
+    numero: string;
+    complemento: string | null;
+    bairro: string;
+    cidade: string;
+    estado: string;
+    enderecoLatitude: number | null;
+    enderecoLongitude: number | null;
   } | null;
 
   if (!payload) {
@@ -41,7 +50,20 @@ export async function POST(request: NextRequest) {
         senhaHash: payload.senhaHash,
         consentimentoLgpdAceitoEm: new Date(payload.consentimentoLgpdAceitoEm),
         emailVerificadoEm: agora,
-        plano: { create: getPlanoDefaults() },
+        escolas: {
+          create: {
+            nome: payload.nomeEscola,
+            cep: payload.cep,
+            logradouro: payload.logradouro,
+            numero: payload.numero,
+            complemento: payload.complemento,
+            bairro: payload.bairro,
+            cidade: payload.cidade,
+            estado: payload.estado,
+            enderecoLatitude: payload.enderecoLatitude,
+            enderecoLongitude: payload.enderecoLongitude,
+          },
+        },
       },
     });
 

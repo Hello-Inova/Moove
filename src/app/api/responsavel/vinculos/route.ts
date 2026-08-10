@@ -17,6 +17,7 @@ export async function GET() {
       motorista: {
         select: { nome: true, telefone: true, veiculos: { select: { placa: true, modelo: true } } },
       },
+      aluno: { select: { nome: true } },
     },
   });
 
@@ -24,6 +25,7 @@ export async function GET() {
     vinculos.map((v) => ({
       id: v.id,
       status: v.status,
+      alunoNome: v.aluno.nome,
       motoristaNome: v.motorista.nome,
       motoristaTelefone: v.motorista.telefone,
       veiculos: v.motorista.veiculos,

@@ -45,6 +45,9 @@ export default async function AdminPlanosPage() {
                   <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-xs text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
                     {p.codigo}
                   </span>
+                  <span className="rounded-full bg-brand-orange-soft px-2 py-0.5 text-xs font-medium text-brand-orange-dark dark:bg-brand-orange/15 dark:text-brand-orange-light">
+                    {p.publico === "RESPONSAVEL" ? "Responsável" : "Motorista"}
+                  </span>
                   {!p.ativo && (
                     <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-950/50 dark:text-red-400">
                       Inativo
@@ -52,7 +55,9 @@ export default async function AdminPlanosPage() {
                   )}
                 </div>
                 <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                  {formatarBRL(p.valorBase)} · {p.cicloLabel} · {p.alunosGratis} aluno(s) grátis
+                  {p.publico === "RESPONSAVEL"
+                    ? `${formatarBRL(p.valorBase)}/aluno · ${p.cicloLabel}`
+                    : `${formatarBRL(p.valorBase)} · ${p.cicloLabel} · ${p.alunosGratis} aluno(s) grátis`}
                 </p>
               </div>
               <div className="flex items-center gap-2">

@@ -11,13 +11,19 @@ export async function GET() {
   const vinculos = await prisma.vinculo.findMany({
     where: { motoristaId: motorista.id },
     orderBy: { criadoEm: "desc" },
-    include: { responsavel: { select: { nome: true, email: true } } },
+    include: {
+      responsavel: { select: { nome: true, email: true } },
+      aluno: { select: { nome: true } },
+      escola: { select: { nome: true } },
+    },
   });
 
   return NextResponse.json(
     vinculos.map((v) => ({
       id: v.id,
       status: v.status,
+      alunoNome: v.aluno.nome,
+      escolaNome: v.escola?.nome ?? null,
       responsavelNome: v.responsavel.nome,
       responsavelEmail: v.responsavel.email,
       criadoEm: v.criadoEm,

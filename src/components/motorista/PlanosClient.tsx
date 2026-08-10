@@ -4,9 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { apiGet, apiPostJson } from "@/lib/api-client";
-import { inputClass, primaryButtonClass, secondaryButtonClass } from "@/components/ui/form-elements";
+import { primaryButtonClass, secondaryButtonClass } from "@/components/ui/form-elements";
 import { PlanCard } from "@/components/motorista/PlanCard";
-import { calcularValorAssinatura, formatarBRL, type PlanoDefinicao } from "@/lib/subscription/plans";
+import { calcularValorAssinaturaMotorista, formatarBRL, type PlanoDefinicao } from "@/lib/subscription/plans";
 
 const STATUS_MSG: Record<string, { text: string; className: string }> = {
   sucesso: {
@@ -31,7 +31,6 @@ export function PlanosClient({ tipoPlanoAtual }: { tipoPlanoAtual: string | null
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [selecionado, setSelecionado] = useState<string | null>(null);
-  const [qtdAlunos, setQtdAlunos] = useState(5);
   const [anosAdicionais, setAnosAdicionais] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -55,8 +54,8 @@ export function PlanosClient({ tipoPlanoAtual }: { tipoPlanoAtual: string | null
 
   const resumo = useMemo(() => {
     if (!plano) return null;
-    return calcularValorAssinatura({ plano, qtdAlunos, anosAdicionais });
-  }, [plano, qtdAlunos, anosAdicionais]);
+    return calcularValorAssinaturaMotorista({ plano, anosAdicionais });
+  }, [plano, anosAdicionais]);
 
   async function handleCheckout() {
     if (!plano) return;
@@ -65,7 +64,6 @@ export function PlanosClient({ tipoPlanoAtual }: { tipoPlanoAtual: string | null
 
     const result = await apiPostJson<{ checkoutUrl: string }>("/api/motorista/assinatura/checkout", {
       tipoPlano: plano.codigo,
-      qtdAlunos,
       anosAdicionais: plano.permiteAnosAdicionais ? anosAdicionais : 0,
     });
 
@@ -111,7 +109,6 @@ export function PlanosClient({ tipoPlanoAtual }: { tipoPlanoAtual: string | null
             selecionado={selecionado === p.codigo}
             onSelecionar={() => {
               setSelecionado(p.codigo);
-              setQtdAlunos(Math.max(1, p.alunosGratis || 5));
               setAnosAdicionais(0);
               setError(null);
             }}
@@ -123,22 +120,8 @@ export function PlanosClient({ tipoPlanoAtual }: { tipoPlanoAtual: string | null
         <section className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm dark:border-neutral-700 dark:bg-neutral-900">
           <h2 className="text-lg font-semibold text-brand-navy dark:text-white">Assinar plano {plano.label}</h2>
           <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-            Informe quantos alunos (vínculos) você pretende atender — o valor é calculado na hora.
+            Valor fixo da plataforma, independente da quantidade de alunos que você atende.
           </p>
-
-          <div className="mt-4 max-w-xs">
-            <label className="mb-1 block text-sm font-medium" htmlFor="qtdAlunos">
-              Quantidade de alunos
-            </label>
-            <input
-              id="qtdAlunos"
-              type="number"
-              min={1}
-              value={qtdAlunos}
-              onChange={(e) => setQtdAlunos(Math.max(1, Number(e.target.value) || 1))}
-              className={inputClass}
-            />
-          </div>
 
           {plano.permiteAnosAdicionais && (
             <div className="mt-4 max-w-xs">
@@ -172,20 +155,6 @@ export function PlanosClient({ tipoPlanoAtual }: { tipoPlanoAtual: string | null
                 Plano {plano.label} ({plano.cicloLabel.toLowerCase()})
               </span>
               <span>{formatarBRL(resumo.valorPlano)}</span>
-            </div>
-
-            {resumo.alunosGratis > 0 && (
-              <div className="flex justify-between text-green-700 dark:text-green-400">
-                <span>Desconto — {Math.min(resumo.alunosContratados, resumo.alunosGratis)} aluno(s) grátis incluído(s)</span>
-                <span>− {formatarBRL(Math.min(resumo.alunosContratados, resumo.alunosGratis) * plano.valorPorAlunoExcedente)}</span>
-              </div>
-            )}
-
-            <div className="flex justify-between">
-              <span className="text-neutral-600 dark:text-neutral-300">
-                {resumo.alunosCobrados} aluno(s) cobrado(s) × {formatarBRL(plano.valorPorAlunoExcedente)}
-              </span>
-              <span>{formatarBRL(resumo.valorAlunosExcedentes)}</span>
             </div>
 
             {resumo.anosAdicionais > 0 && (

@@ -12,10 +12,13 @@
 
 export type CicloCobranca = "MENSAL" | "SEMESTRAL" | "ANUAL";
 
+export type PublicoPlano = "MOTORISTA" | "RESPONSAVEL";
+
 export type PlanoDefinicao = {
   id: string;
   codigo: string;
   label: string;
+  publico: PublicoPlano;
   ciclo: CicloCobranca;
   cicloLabel: string;
   valorBase: number;
@@ -42,34 +45,51 @@ export type ResumoValorAssinatura = {
 };
 
 /**
- * Calcula o valor a cobrar. Sempre recalculado no servidor a partir do plano
- * lido do banco (não confiamos num total vindo do cliente).
+ * Valor da assinatura do MOTORISTA — plano fixo, independente de quantos
+ * alunos ele tem vinculados (a cobrança por aluno saiu do motorista e foi
+ * para o responsável, ver `calcularValorAssinaturaResponsavel`). Só varia
+ * pelos anos adicionais (planos anuais que permitem contratar mais de 1 ano
+ * de uma vez).
  */
-export function calcularValorAssinatura(params: {
-  plano: Pick<PlanoDefinicao, "valorBase" | "alunosGratis" | "valorPorAlunoExcedente" | "permiteAnosAdicionais">;
-  qtdAlunos: number;
+export function calcularValorAssinaturaMotorista(params: {
+  plano: Pick<PlanoDefinicao, "valorBase" | "permiteAnosAdicionais">;
   anosAdicionais?: number;
 }): ResumoValorAssinatura {
   const { plano } = params;
-  const alunosContratados = Math.max(0, Math.floor(params.qtdAlunos));
-  const alunosCobrados = Math.max(0, alunosContratados - plano.alunosGratis);
-  const valorAlunosExcedentes = alunosCobrados * plano.valorPorAlunoExcedente;
-
   const anosAdicionais = plano.permiteAnosAdicionais ? Math.max(0, Math.floor(params.anosAdicionais ?? 0)) : 0;
   const valorAnosAdicionais = anosAdicionais * plano.valorBase;
-
-  const valorTotal = plano.valorBase + valorAlunosExcedentes + valorAnosAdicionais;
+  const valorTotal = plano.valorBase + valorAnosAdicionais;
 
   return {
     valorPlano: plano.valorBase,
-    alunosGratis: plano.alunosGratis,
-    alunosContratados,
-    alunosCobrados,
-    valorAlunosExcedentes,
+    alunosGratis: 0,
+    alunosContratados: 0,
+    alunosCobrados: 0,
+    valorAlunosExcedentes: 0,
     anosAdicionais,
     valorAnosAdicionais,
     valorTotal,
   };
+}
+
+export type ResumoValorAssinaturaResponsavel = {
+  valorPorAluno: number;
+  qtdAlunos: number;
+  valorTotal: number;
+};
+
+/**
+ * Valor da assinatura do RESPONSÁVEL — cobrança direta por aluno: preço do
+ * plano (Basic/Pró) × quantidade de alunos cadastrados, sem desconto de
+ * "alunos grátis" (isso era um conceito do plano do motorista).
+ */
+export function calcularValorAssinaturaResponsavel(params: {
+  plano: Pick<PlanoDefinicao, "valorBase">;
+  qtdAlunos: number;
+}): ResumoValorAssinaturaResponsavel {
+  const qtdAlunos = Math.max(1, Math.floor(params.qtdAlunos));
+  const valorTotal = Math.round(params.plano.valorBase * qtdAlunos * 100) / 100;
+  return { valorPorAluno: params.plano.valorBase, qtdAlunos, valorTotal };
 }
 
 /** Data de expiração do ciclo pago a partir de `from` (default: agora). */

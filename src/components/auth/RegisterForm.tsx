@@ -50,7 +50,7 @@ export function RegisterForm({ role }: { role: Role }) {
       aceitaLgpd,
     };
 
-    if (role === "responsavel") {
+    if (role === "responsavel" || role === "motorista") {
       payload.cep = form.get("cep");
       payload.logradouro = form.get("logradouro");
       payload.numero = form.get("numero");
@@ -58,6 +58,10 @@ export function RegisterForm({ role }: { role: Role }) {
       payload.bairro = form.get("bairro");
       payload.cidade = form.get("cidade");
       payload.estado = form.get("estado");
+    }
+
+    if (role === "motorista") {
+      payload.nomeEscola = form.get("nomeEscola");
     }
 
     const result = await apiPostJson<{ email: string }>(`/api/auth/${role}/register`, payload);
@@ -148,6 +152,23 @@ export function RegisterForm({ role }: { role: Role }) {
       {role === "responsavel" && (
         <div className="border-t border-neutral-200 pt-4 dark:border-neutral-700">
           <p className="mb-3 text-sm font-medium">Endereço do aluno (embarque/desembarque)</p>
+          <EnderecoFields issues={issues} />
+        </div>
+      )}
+
+      {role === "motorista" && (
+        <div className="border-t border-neutral-200 pt-4 dark:border-neutral-700">
+          <p className="mb-3 text-sm font-medium">Escola que você atende</p>
+          <p className="mb-3 text-xs text-neutral-500 dark:text-neutral-400">
+            Você pode cadastrar mais escolas depois, em &quot;Minhas escolas&quot;.
+          </p>
+          <div className="mb-4">
+            <label className="mb-1 block text-sm font-medium" htmlFor="nomeEscola">
+              Nome da escola
+            </label>
+            <input id="nomeEscola" name="nomeEscola" required className={inputClass} />
+            <FieldError message={issues.nomeEscola?.[0]} />
+          </div>
           <EnderecoFields issues={issues} />
         </div>
       )}

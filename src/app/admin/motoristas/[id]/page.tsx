@@ -42,7 +42,7 @@ export default async function AdminMotoristaDetailPage({ params }: { params: Pro
 
   if (!motorista) notFound();
 
-  const planosAtivos = await listarPlanosAtivos();
+  const planosAtivos = await listarPlanosAtivos("MOTORISTA");
 
   return (
     <AdminShell>
@@ -89,9 +89,7 @@ export default async function AdminMotoristaDetailPage({ params }: { params: Pro
             {motorista.assinaturas.map((a) => (
               <div key={a.id} className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm dark:bg-neutral-900 dark:border-neutral-700">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-medium">
-                    Plano {a.planoLabel || a.tipoPlano} · {a.qtdAlunosContratados} aluno(s)
-                  </p>
+                  <p className="font-medium">Plano {a.planoLabel || a.tipoPlano}</p>
                   <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${ASSINATURA_STATUS_CLASS[a.status]}`}>
                     {a.status}
                   </span>

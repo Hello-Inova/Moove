@@ -4,11 +4,15 @@ import { isAdminAuthenticated } from "@/lib/auth/guards";
 import { jsonError, jsonValidationError } from "@/lib/http";
 import { planoAdminSchema } from "@/lib/validation/schemas";
 import { criarPlano, listarTodosPlanos, PlanoCodigoDuplicadoError } from "@/lib/subscription/planos-service";
+import type { PublicoPlano } from "@/lib/subscription/plans";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   if (!(await isAdminAuthenticated())) return jsonError(401, "Não autenticado.");
 
-  const planos = await listarTodosPlanos();
+  const publicoParam = request.nextUrl.searchParams.get("publico");
+  const publico = publicoParam === "MOTORISTA" || publicoParam === "RESPONSAVEL" ? (publicoParam as PublicoPlano) : undefined;
+
+  const planos = await listarTodosPlanos(publico);
   return NextResponse.json({ planos });
 }
 

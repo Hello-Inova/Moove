@@ -10,6 +10,7 @@ import type { BuscaPlacaResponse } from "@/app/api/responsavel/buscar-placa/rout
 type Vinculo = {
   id: string;
   status: "ATIVO" | "REVOGADO";
+  alunoNome: string;
   motoristaNome: string;
   veiculos: { placa: string; modelo: string }[];
 };
@@ -27,7 +28,7 @@ function formatarDuracao(s: number): string {
   return `${h}h${String(min % 60).padStart(2, "0")}`;
 }
 
-type Opcao = { placa: string; modelo: string; motoristaNome: string };
+type Opcao = { placa: string; modelo: string; motoristaNome: string; alunoNome: string };
 
 const POLL_INTERVAL_MS = 10_000;
 
@@ -55,7 +56,9 @@ export function BuscarPlacaClient({ placaInicial }: { placaInicial?: string }) {
       }
       const lista: Opcao[] = result.data
         .filter((v) => v.status === "ATIVO")
-        .flatMap((v) => v.veiculos.map((ve) => ({ placa: ve.placa, modelo: ve.modelo, motoristaNome: v.motoristaNome })));
+        .flatMap((v) =>
+          v.veiculos.map((ve) => ({ placa: ve.placa, modelo: ve.modelo, motoristaNome: v.motoristaNome, alunoNome: v.alunoNome }))
+        );
       setOpcoes(lista);
 
       if (!placaSelecionada && lista.length > 0) {
@@ -113,7 +116,7 @@ export function BuscarPlacaClient({ placaInicial }: { placaInicial?: string }) {
       {opcoes && opcoes.length > 0 && (
         <div className="max-w-sm">
           <label className="mb-1 block text-sm font-medium" htmlFor="motorista">
-            Motorista
+            Aluno / motorista
           </label>
           <select
             id="motorista"
@@ -122,8 +125,8 @@ export function BuscarPlacaClient({ placaInicial }: { placaInicial?: string }) {
             className={inputClass}
           >
             {opcoes.map((o) => (
-              <option key={o.placa} value={o.placa}>
-                {o.motoristaNome} — {o.placa} · {o.modelo}
+              <option key={o.placa + o.alunoNome} value={o.placa}>
+                {o.alunoNome} — {o.motoristaNome} · {o.placa}
               </option>
             ))}
           </select>

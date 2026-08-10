@@ -82,7 +82,7 @@ export function RotaMapInner({
         >
           <Popup>
             <strong>
-              {p.sequencia}. {p.responsavelNome}
+              {p.sequencia}. {p.alunoNome}
             </strong>
             <br />
             {p.enderecoResumo}

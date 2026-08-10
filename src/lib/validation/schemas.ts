@@ -11,22 +11,6 @@ const telefone = z
   .min(8, "Telefone inválido.")
   .max(20, "Telefone inválido.");
 
-export const motoristaRegisterSchema = z
-  .object({
-    nome: z.string().trim().min(2, "Informe o nome completo."),
-    email: z.string().trim().toLowerCase().email("E-mail inválido."),
-    telefone,
-    senha,
-    confirmarSenha: z.string().min(1, "Repita a senha."),
-    aceitaLgpd: z.literal(true, {
-      message: "É necessário aceitar o tratamento de dados (LGPD) para criar a conta.",
-    }),
-  })
-  .refine((data) => data.senha === data.confirmarSenha, {
-    message: "As senhas não coincidem.",
-    path: ["confirmarSenha"],
-  });
-
 const cep = z
   .string()
   .trim()
@@ -47,6 +31,27 @@ const enderecoCampos = {
  * "Meu endereço" (edição posterior) — é a partir dele que a rota do
  * motorista geocodifica a parada. */
 export const enderecoSchema = z.object(enderecoCampos);
+
+export const motoristaRegisterSchema = z
+  .object({
+    nome: z.string().trim().min(2, "Informe o nome completo."),
+    email: z.string().trim().toLowerCase().email("E-mail inválido."),
+    telefone,
+    senha,
+    confirmarSenha: z.string().min(1, "Repita a senha."),
+    // Escola inicial que o motorista atende — obrigatória no cadastro; ele
+    // pode cadastrar outras depois em "Minhas escolas" (motorista pode
+    // atender mais de uma).
+    nomeEscola: z.string().trim().min(2, "Informe o nome da escola."),
+    ...enderecoCampos,
+    aceitaLgpd: z.literal(true, {
+      message: "É necessário aceitar o tratamento de dados (LGPD) para criar a conta.",
+    }),
+  })
+  .refine((data) => data.senha === data.confirmarSenha, {
+    message: "As senhas não coincidem.",
+    path: ["confirmarSenha"],
+  });
 
 export const responsavelRegisterSchema = z
   .object({
@@ -103,12 +108,31 @@ export const gerarConviteSchema = z.object({
   observacao: z.string().trim().max(200).optional(),
 });
 
+export const validarConviteSchema = z.object({
+  codigo: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .min(6, "Código de convite inválido."),
+});
+
 export const usarConviteSchema = z.object({
   codigo: z
     .string()
     .trim()
     .toUpperCase()
     .min(6, "Código de convite inválido."),
+  alunoId: z.string().trim().min(1, "Selecione o aluno."),
+  escolaId: z.string().trim().min(1, "Selecione a escola."),
+});
+
+export const alunoSchema = z.object({
+  nome: z.string().trim().min(2, "Informe o nome do aluno.").max(120),
+});
+
+export const escolaSchema = z.object({
+  nome: z.string().trim().min(2, "Informe o nome da escola.").max(120),
+  ...enderecoCampos,
 });
 
 export const atualizarLocalizacaoSchema = z.object({
@@ -118,8 +142,11 @@ export const atualizarLocalizacaoSchema = z.object({
 
 export const criarCheckoutAssinaturaSchema = z.object({
   tipoPlano: z.string().trim().min(1, "Selecione um plano."),
-  qtdAlunos: z.number().int().min(1, "Informe pelo menos 1 aluno.").max(2000, "Quantidade de alunos inválida."),
   anosAdicionais: z.number().int().min(0).max(20).optional(),
+});
+
+export const criarCheckoutAssinaturaResponsavelSchema = z.object({
+  tipoPlano: z.string().trim().min(1, "Selecione um plano."),
 });
 
 export const buscarPlacaSchema = z.object({
@@ -153,6 +180,7 @@ export const planoAdminSchema = z.object({
     .toUpperCase()
     .regex(codigoPlanoRegex, "Use só letras maiúsculas, números, hífen ou underscore (2 a 40 caracteres)."),
   label: z.string().trim().min(1, "Informe o nome do plano.").max(60),
+  publico: z.enum(["MOTORISTA", "RESPONSAVEL"]).default("MOTORISTA"),
   ciclo: z.enum(["MENSAL", "SEMESTRAL", "ANUAL"]),
   cicloLabel: z.string().trim().min(1, "Informe o rótulo do ciclo de cobrança.").max(60),
   valorBase: z.number().min(0, "Valor inválido.").max(1_000_000),

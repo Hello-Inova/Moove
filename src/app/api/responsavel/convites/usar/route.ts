@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getAuthenticatedResponsavel } from "@/lib/auth/guards";
 import { usarConviteSchema } from "@/lib/validation/schemas";
 import { jsonError, jsonValidationError } from "@/lib/http";
+import { vagasDisponiveisParaVincular } from "@/lib/subscription/service";
 
 export async function POST(request: NextRequest) {
   const responsavel = await getAuthenticatedResponsavel();
@@ -15,7 +16,7 @@ export async function POST(request: NextRequest) {
   const parsed = usarConviteSchema.safeParse(body);
   if (!parsed.success) return jsonValidationError(parsed.error);
 
-  const { codigo } = parsed.data;
+  const { codigo, alunoId, escolaId } = parsed.data;
 
   const convite = await prisma.convite.findUnique({ where: { codigo } });
   if (!convite) return jsonError(404, "Código de convite inválido.");
@@ -35,11 +36,30 @@ export async function POST(request: NextRequest) {
     return jsonError(409, motivo);
   }
 
-  const vinculoExistente = await prisma.vinculo.findFirst({
-    where: { motoristaId: convite.motoristaId, responsavelId: responsavel.id, status: "ATIVO" },
-  });
-  if (vinculoExistente) {
-    return jsonError(409, "Você já possui um vínculo ativo com este motorista.");
+  // Só libera vincular se a assinatura ATIVA do responsável cobre mais um
+  // aluno (ver src/lib/subscription/service.ts) — regra central pedida:
+  // pagar antes de vincular.
+  const vagas = await vagasDisponiveisParaVincular(responsavel.id);
+  if (vagas <= 0) {
+    return jsonError(
+      402,
+      "Você não tem vagas disponíveis na sua assinatura para vincular mais um aluno. Assine ou amplie seu plano."
+    );
+  }
+
+  const aluno = await prisma.aluno.findUnique({ where: { id: alunoId } });
+  if (!aluno || aluno.responsavelId !== responsavel.id) {
+    return jsonError(404, "Aluno não encontrado.");
+  }
+
+  const vinculoAtivoDoAluno = await prisma.vinculo.findFirst({ where: { alunoId, status: "ATIVO" } });
+  if (vinculoAtivoDoAluno) {
+    return jsonError(409, "Este aluno já está vinculado a um motorista.");
+  }
+
+  const escola = await prisma.escola.findUnique({ where: { id: escolaId } });
+  if (!escola || escola.motoristaId !== convite.motoristaId) {
+    return jsonError(404, "Escola inválida para este motorista.");
   }
 
   try {
@@ -63,6 +83,8 @@ export async function POST(request: NextRequest) {
         data: {
           motoristaId: convite.motoristaId,
           responsavelId: responsavel.id,
+          alunoId,
+          escolaId,
           conviteId: convite.id,
         },
         include: { motorista: { select: { nome: true } } },

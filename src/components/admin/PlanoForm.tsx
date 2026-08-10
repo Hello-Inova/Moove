@@ -46,6 +46,7 @@ export function PlanoForm({ planoExistente }: { planoExistente?: PlanoDefinicao 
   const [issues, setIssues] = useState<Record<string, string[] | undefined>>({});
   const [permiteAnosAdicionais, setPermiteAnosAdicionais] = useState(planoExistente?.permiteAnosAdicionais ?? false);
   const [ativo, setAtivo] = useState(planoExistente?.ativo ?? true);
+  const [publico, setPublico] = useState(planoExistente?.publico ?? "MOTORISTA");
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -63,6 +64,7 @@ export function PlanoForm({ planoExistente }: { planoExistente?: PlanoDefinicao 
     const payload = {
       codigo: String(form.get("codigo") ?? ""),
       label: String(form.get("label") ?? ""),
+      publico,
       ciclo: String(form.get("ciclo") ?? "MENSAL"),
       cicloLabel: String(form.get("cicloLabel") ?? ""),
       valorBase: Number(form.get("valorBase")),
@@ -132,6 +134,24 @@ export function PlanoForm({ planoExistente }: { planoExistente?: PlanoDefinicao 
           </label>
           <input id="label" name="label" required defaultValue={planoExistente?.label} placeholder="Basic" className={inputClass} />
           <FieldError message={issues.label?.[0]} />
+        </div>
+
+        <div>
+          <label className="mb-1 block text-sm font-medium" htmlFor="publico">
+            Para quem é este plano
+          </label>
+          <select
+            id="publico"
+            value={publico}
+            onChange={(e) => setPublico(e.target.value as "MOTORISTA" | "RESPONSAVEL")}
+            className={inputClass}
+          >
+            <option value="MOTORISTA">Motorista (assinatura fixa da plataforma)</option>
+            <option value="RESPONSAVEL">Responsável (cobrado por aluno)</option>
+          </select>
+          <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+            Em planos do responsável, &quot;valor base&quot; é o valor POR ALUNO — os campos de aluno grátis/excedente abaixo não se aplicam.
+          </p>
         </div>
 
         <div>

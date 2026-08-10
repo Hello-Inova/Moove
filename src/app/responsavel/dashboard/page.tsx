@@ -13,7 +13,11 @@ export default async function ResponsavelDashboardPage() {
   const vinculos = await prisma.vinculo.findMany({
     where: { responsavelId: responsavel.id },
     orderBy: { criadoEm: "desc" },
-    include: { motorista: { select: { nome: true, veiculos: { select: { placa: true, modelo: true } } } } },
+    include: {
+      motorista: { select: { nome: true, veiculos: { select: { placa: true, modelo: true } } } },
+      aluno: { select: { nome: true } },
+      escola: { select: { nome: true } },
+    },
   });
 
   return (
@@ -47,7 +51,10 @@ export default async function ResponsavelDashboardPage() {
             <div key={v.id} className="rounded-2xl border border-neutral-200 bg-white shadow-sm p-4 dark:bg-neutral-900 dark:border-neutral-700">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <p className="font-medium">{v.motorista.nome}</p>
+                  <p className="font-medium">{v.aluno.nome}</p>
+                  <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                    Motorista: {v.motorista.nome} · Escola: {v.escola?.nome ?? "não definida"}
+                  </p>
                   <p className="text-sm text-neutral-500 dark:text-neutral-400">
                     {v.motorista.veiculos.map((ve) => `${ve.placa} · ${ve.modelo}`).join(", ") || "Sem veículo cadastrado"}
                   </p>

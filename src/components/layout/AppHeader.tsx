@@ -27,16 +27,24 @@ function CloseIcon() {
   );
 }
 
+/**
+ * Menu lateral (sidebar) — fixo na lateral esquerda em telas médias/grandes,
+ * e uma gaveta deslizante em telas pequenas (com barra superior só pro botão
+ * de abrir). Mostra nome + papel de quem está logado no topo, ajuda a
+ * orientar em qual conta a pessoa está.
+ */
 export function AppHeader({
   role,
   roleLabel,
   homeHref,
   nav,
+  userName,
 }: {
   role: "motorista" | "responsavel";
   roleLabel: string;
   homeHref: string;
   nav: NavItem[];
+  userName?: string | null;
 }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
@@ -52,41 +60,71 @@ export function AppHeader({
     confirmAndRun(() => router.push(href));
   }
 
-  return (
-    <header className="sticky top-0 z-30 border-b border-neutral-200 bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/70 dark:border-neutral-800 dark:bg-neutral-950/90 dark:supports-[backdrop-filter]:bg-neutral-950/70 dark:border-neutral-700">
-      <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-2.5">
-        <Link href={homeHref} className="flex items-center gap-2" onClick={(e) => handleNavClick(e, homeHref)}>
-          <Logo height={26} />
-          <span className="hidden text-sm font-medium text-neutral-500 sm:inline dark:text-neutral-400">
-            · {roleLabel}
+  const iniciais = (userName ?? "")
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase())
+    .join("");
+
+  const sidebarConteudo = (
+    <div className="flex h-full flex-col">
+      <Link href={homeHref} className="flex items-center gap-2 px-4 py-4" onClick={(e) => handleNavClick(e, homeHref)}>
+        <Logo height={26} />
+      </Link>
+
+      {userName && (
+        <div className="mx-4 mb-3 flex items-center gap-3 rounded-xl bg-neutral-100 px-3 py-2.5 dark:bg-neutral-800">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-orange text-sm font-semibold text-white">
+            {iniciais || "?"}
           </span>
-        </Link>
-
-        <nav className="hidden items-center gap-1 md:flex">
-          {nav.map((item) => {
-            const active = pathname === item.href;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={(e) => handleNavClick(e, item.href)}
-                className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
-                  active
-                    ? "bg-brand-orange-soft text-brand-orange-dark dark:bg-brand-orange/15 dark:text-brand-orange-light"
-                    : "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-white"
-                }`}
-              >
-                {item.label}
-              </Link>
-            );
-          })}
-          <div className="ml-2 flex items-center gap-2 border-l border-neutral-200 pl-3 dark:border-neutral-700">
-            <ThemeToggle />
-            <LogoutButton role={role} />
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium text-neutral-900 dark:text-white">{userName}</p>
+            <p className="text-xs capitalize text-neutral-500 dark:text-neutral-400">{roleLabel}</p>
           </div>
-        </nav>
+        </div>
+      )}
 
-        <div className="flex items-center gap-2 md:hidden">
+      <nav className="flex-1 space-y-1 px-3">
+        {nav.map((item) => {
+          const active = pathname === item.href;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={(e) => handleNavClick(e, item.href)}
+              className={`block rounded-lg px-3 py-2 text-sm font-medium transition ${
+                active
+                  ? "bg-brand-orange-soft text-brand-orange-dark dark:bg-brand-orange/15 dark:text-brand-orange-light"
+                  : "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-white"
+              }`}
+            >
+              {item.label}
+            </Link>
+          );
+        })}
+      </nav>
+
+      <div className="flex items-center justify-between gap-2 border-t border-neutral-200 px-4 py-3 dark:border-neutral-700">
+        <ThemeToggle />
+        <LogoutButton role={role} />
+      </div>
+    </div>
+  );
+
+  return (
+    <>
+      {/* Sidebar fixa — md e acima */}
+      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 border-r border-neutral-200 bg-white md:block dark:border-neutral-700 dark:bg-neutral-950">
+        {sidebarConteudo}
+      </aside>
+
+      {/* Barra superior + gaveta — abaixo de md */}
+      <header className="sticky top-0 z-30 flex items-center justify-between border-b border-neutral-200 bg-white/90 px-4 py-2.5 backdrop-blur supports-[backdrop-filter]:bg-white/70 md:hidden dark:border-neutral-800 dark:bg-neutral-950/90 dark:supports-[backdrop-filter]:bg-neutral-950/70">
+        <Link href={homeHref} className="flex items-center gap-2" onClick={(e) => handleNavClick(e, homeHref)}>
+          <Logo height={24} />
+        </Link>
+        <div className="flex items-center gap-2">
           <ThemeToggle />
           <button
             type="button"
@@ -98,35 +136,20 @@ export function AppHeader({
             {open ? <CloseIcon /> : <MenuIcon />}
           </button>
         </div>
-      </div>
+      </header>
 
       {open && (
-        <nav className="border-t border-neutral-200 bg-white px-4 pb-3 pt-2 md:hidden dark:border-neutral-800 dark:bg-neutral-950">
-          <ul className="flex flex-col gap-1">
-            {nav.map((item) => {
-              const active = pathname === item.href;
-              return (
-                <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    onClick={(e) => handleNavClick(e, item.href)}
-                    className={`block rounded-lg px-3 py-2 text-sm font-medium transition ${
-                      active
-                        ? "bg-brand-orange-soft text-brand-orange-dark dark:bg-brand-orange/15 dark:text-brand-orange-light"
-                        : "text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
-                    }`}
-                  >
-                    {item.label}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-          <div className="mt-2 border-t border-neutral-200 pt-3 dark:border-neutral-800">
-            <LogoutButton role={role} />
+        <div className="fixed inset-0 z-40 md:hidden">
+          <button
+            aria-label="Fechar menu"
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setOpen(false)}
+          />
+          <div className="absolute inset-y-0 left-0 w-72 max-w-[85vw] bg-white shadow-xl dark:bg-neutral-950">
+            {sidebarConteudo}
           </div>
-        </nav>
+        </div>
       )}
-    </header>
+    </>
   );
 }

@@ -5,6 +5,7 @@ import { hashPassword } from "@/lib/auth/password";
 import { motoristaRegisterSchema } from "@/lib/validation/schemas";
 import { jsonError, jsonValidationError } from "@/lib/http";
 import { issueVerificationCode, EmailSendError, ResendCooldownError } from "@/lib/email/verification";
+import { geocodeEndereco } from "@/lib/geocoding";
 
 /**
  * Não cria a conta ainda — só emite o código de verificação. A conta só
@@ -18,7 +19,7 @@ export async function POST(request: NextRequest) {
   const parsed = motoristaRegisterSchema.safeParse(body);
   if (!parsed.success) return jsonValidationError(parsed.error);
 
-  const { nome, email, telefone, senha } = parsed.data;
+  const { nome, email, telefone, senha, nomeEscola, cep, logradouro, numero, complemento, bairro, cidade, estado } = parsed.data;
 
   const existente = await prisma.motorista.findUnique({ where: { email } });
   if (existente) {
@@ -26,6 +27,12 @@ export async function POST(request: NextRequest) {
   }
 
   const senhaHash = await hashPassword(senha);
+
+  // Mesma lógica do cadastro do responsável: geocodifica o endereço da
+  // escola agora (uma vez, no envio do formulário) — se falhar, a conta e a
+  // escola ainda são criadas, só sem coordenada; o motorista corrige depois
+  // em "Minhas escolas".
+  const coordenadas = await geocodeEndereco({ logradouro, numero, bairro, cidade, estado, cep });
 
   try {
     await issueVerificationCode({
@@ -38,6 +45,16 @@ export async function POST(request: NextRequest) {
         telefone,
         senhaHash,
         consentimentoLgpdAceitoEm: new Date().toISOString(),
+        nomeEscola,
+        cep,
+        logradouro,
+        numero,
+        complemento: complemento || null,
+        bairro,
+        cidade,
+        estado,
+        enderecoLatitude: coordenadas?.latitude ?? null,
+        enderecoLongitude: coordenadas?.longitude ?? null,
       },
     });
   } catch (err) {

@@ -13,6 +13,6 @@ export async function GET() {
   const motorista = await getAuthenticatedMotorista();
   if (!motorista) return jsonError(401, "Não autenticado.");
 
-  const planos = await listarPlanosAtivos();
+  const planos = await listarPlanosAtivos("MOTORISTA");
   return NextResponse.json({ planos });
 }

@@ -39,21 +39,6 @@ enum StatusVinculo {
   @@map("status_vinculo")
 }
 
-enum TipoPlano {
-  FREE
-  PAGO
-
-  @@map("tipo_plano")
-}
-
-enum StatusCobranca {
-  PENDENTE
-  PAGO
-  ATRASADO
-
-  @@map("status_cobranca")
-}
-
 enum CicloCobrancaAssinatura {
   MENSAL
   SEMESTRAL
@@ -78,6 +63,26 @@ enum StatusPagamento {
   CANCELADO
 
   @@map("status_pagamento")
+}
+
+enum PublicoPlano {
+  MOTORISTA
+  RESPONSAVEL
+
+  @@map("publico_plano")
+}
+
+// Status da assinatura do responsável — sem período de teste (diferente da
+// Assinatura do motorista): o responsável precisa pagar antes de poder
+// vincular qualquer aluno a um motorista, então o estado inicial é
+// "aguardando pagamento" (PENDENTE), não um trial liberado.
+enum StatusAssinaturaResponsavel {
+  PENDENTE
+  ATIVA
+  EXPIRADA
+  CANCELADA
+
+  @@map("status_assinatura_responsavel")
 }
 
 // ---------------------------------------------------------------------------
@@ -105,10 +110,9 @@ model Motorista {
   veiculos    Veiculo[]
   convites    Convite[]
   vinculos    Vinculo[]
-  cobrancas   Cobranca[]
   localizacao Localizacao?
-  plano       Plano?
   assinaturas Assinatura[]
+  escolas     Escola[]
 
   @@map("motoristas")
 }
@@ -175,8 +179,62 @@ model Responsavel {
 
   vinculos        Vinculo[]
   convitesUsados  Convite[] @relation("ConviteUsadoPor")
+  alunos          Aluno[]
+  assinaturas     AssinaturaResponsavel[]
 
   @@map("responsaveis")
+}
+
+// ---------------------------------------------------------------------------
+// Escola — cadastrada pelo motorista (pode atender mais de uma). Endereço
+// geocodificado do mesmo jeito que o do responsável, usado pelo motorista
+// pra traçar rota direto até a escola (ver src/lib/routing/osrm.ts).
+// ---------------------------------------------------------------------------
+
+model Escola {
+  id          String @id @default(cuid())
+  motoristaId String @map("motorista_id")
+  nome        String
+
+  cep         String? @map("cep")
+  logradouro  String? @map("logradouro")
+  numero      String? @map("numero")
+  complemento String? @map("complemento")
+  bairro      String? @map("bairro")
+  cidade      String? @map("cidade")
+  estado      String? @map("estado")
+
+  enderecoLatitude  Float? @map("endereco_latitude")
+  enderecoLongitude Float? @map("endereco_longitude")
+
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  motorista Motorista @relation(fields: [motoristaId], references: [id], onDelete: Cascade)
+  vinculos  Vinculo[]
+
+  @@index([motoristaId])
+  @@map("escolas")
+}
+
+// ---------------------------------------------------------------------------
+// Aluno — cadastrado pelo responsável, antes de qualquer vínculo com
+// motorista. É a unidade cobrada na assinatura do responsável (1 assento =
+// 1 aluno) e a unidade do vínculo (ver Vinculo.alunoId) — um responsável com
+// 2 filhos tem 2 Alunos, podendo vincular cada um a um motorista diferente.
+// ---------------------------------------------------------------------------
+
+model Aluno {
+  id            String @id @default(cuid())
+  responsavelId String @map("responsavel_id")
+  nome          String
+
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  responsavel Responsavel @relation(fields: [responsavelId], references: [id], onDelete: Cascade)
+  vinculos    Vinculo[]
+
+  @@index([responsavelId])
+  @@map("alunos")
 }
 
 // ---------------------------------------------------------------------------
@@ -210,6 +268,21 @@ model Vinculo {
   id            String        @id @default(cuid())
   motoristaId   String        @map("motorista_id")
   responsavelId String        @map("responsavel_id")
+  // O vínculo é por aluno (não mais por família inteira) — cada aluno
+  // pago pelo responsável gera um vínculo próprio, podendo ser com
+  // motoristas diferentes. `responsavelId` continua aqui (redundante com
+  // `aluno.responsavelId`) porque é usado direto nas checagens de
+  // segurança/autorização sem precisar de join extra.
+  //
+  // NÃO é @unique: um aluno pode ter vários vínculos ao longo do tempo
+  // (histórico de troca/revogação de motorista) — só não pode ter mais de
+  // um com status ATIVO ao mesmo tempo, checado na aplicação (mesmo padrão
+  // já usado para motorista+responsável antes desta mudança).
+  alunoId       String        @map("aluno_id")
+  // Escola desse aluno com esse motorista, escolhida ao usar o convite
+  // (dentre as escolas cadastradas pelo motorista). Opcional só por
+  // segurança de migração — todo vínculo novo sempre define uma.
+  escolaId      String?       @map("escola_id")
   conviteId     String        @unique @map("convite_id")
   status        StatusVinculo @default(ATIVO)
   criadoEm      DateTime      @default(now()) @map("criado_em")
@@ -217,14 +290,16 @@ model Vinculo {
 
   motorista   Motorista   @relation(fields: [motoristaId], references: [id], onDelete: Cascade)
   responsavel Responsavel @relation(fields: [responsavelId], references: [id], onDelete: Cascade)
+  aluno       Aluno       @relation(fields: [alunoId], references: [id], onDelete: Cascade)
+  escola      Escola?     @relation(fields: [escolaId], references: [id])
   convite     Convite     @relation(fields: [conviteId], references: [id])
-
-  cobrancaItens CobrancaVinculo[]
 
   // Índice usado pela checagem crítica de segurança: existe vínculo ATIVO
   // entre este responsável e este motorista?
   @@index([motoristaId, responsavelId, status])
   @@index([responsavelId, status])
+  @@index([alunoId, status])
+  @@index([escolaId])
   @@map("vinculos")
 }
 
@@ -244,49 +319,6 @@ model Localizacao {
 }
 
 // ---------------------------------------------------------------------------
-// Plano (1:1 com Motorista)
-//
-// Superseded pelo modelo de assinatura pré-paga (Assinatura/Pagamento, logo
-// abaixo) — mantido no schema sem uso ativo para não descartar histórico e
-// para permitir remoção controlada depois, mas nada no fluxo atual grava ou
-// lê este modelo.
-// ---------------------------------------------------------------------------
-
-model Plano {
-  motoristaId             String    @id @map("motorista_id")
-  tipo                    TipoPlano @default(FREE)
-  alunosIncluidosGratis   Int       @default(5) @map("alunos_incluidos_gratis")
-  valorPorAlunoExcedente  Decimal   @default(6.00) @db.Decimal(10, 2) @map("valor_por_aluno_excedente")
-  atualizadoEm            DateTime  @updatedAt @map("atualizado_em")
-
-  motorista Motorista @relation(fields: [motoristaId], references: [id], onDelete: Cascade)
-
-  @@map("planos")
-}
-
-// ---------------------------------------------------------------------------
-// Cobranca — idem Plano, superseded pela Assinatura/Pagamento.
-// ---------------------------------------------------------------------------
-
-model Cobranca {
-  id                String         @id @default(cuid())
-  motoristaId       String         @map("motorista_id")
-  referenciaMes     String         @map("referencia_mes") // formato "YYYY-MM"
-  qtdAlunosVinculados Int          @map("qtd_alunos_vinculados")
-  qtdAlunosCobrados  Int           @map("qtd_alunos_cobrados")
-  valorTotal         Decimal       @db.Decimal(10, 2) @map("valor_total")
-  status             StatusCobranca @default(PENDENTE)
-  geradoEm           DateTime      @default(now()) @map("gerado_em")
-  pagoEm             DateTime?     @map("pago_em")
-
-  motorista Motorista @relation(fields: [motoristaId], references: [id], onDelete: Cascade)
-  itens     CobrancaVinculo[]
-
-  @@unique([motoristaId, referenciaMes])
-  @@map("cobrancas")
-}
-
-// ---------------------------------------------------------------------------
 // PlanoAssinatura — catálogo de planos (Basic/Pró/Max, e quaisquer outros
 // que o admin criar) editável pelo painel administrativo. É a fonte de
 // verdade única: tanto o preview de preço no motorista quanto o cálculo no
@@ -301,6 +333,14 @@ model PlanoAssinatura {
   id                     String                  @id @default(cuid())
   codigo                 String                  @unique
   label                  String
+  // A quem esse plano é oferecido — motoristas pagam um valor fixo pela
+  // plataforma (sem relação com quantos alunos têm vinculados); responsáveis
+  // pagam por aluno (`valorBase` é interpretado como valor POR ALUNO nesse
+  // caso, multiplicado pela quantidade contratada — ver
+  // `src/lib/subscription/plans.ts`). Dois catálogos na mesma tabela porque
+  // o admin CRUD e o histórico (Assinatura.tipoPlano snapshot) já existiam
+  // prontos para motorista; reaproveitar evita duplicar toda a infra.
+  publico                PublicoPlano            @default(MOTORISTA)
   cicloCobranca          CicloCobrancaAssinatura @map("ciclo_cobranca")
   cicloLabel             String                  @map("ciclo_label")
   valorBase              Decimal                 @db.Decimal(10, 2) @map("valor_base")
@@ -385,6 +425,54 @@ model Pagamento {
 }
 
 // ---------------------------------------------------------------------------
+// AssinaturaResponsavel / PagamentoResponsavel — mesma lógica de
+// Assinatura/Pagamento (motorista), mas do lado do responsável: paga por
+// aluno cadastrado (qtdAlunosContratados × valorPorAluno do plano
+// escolhido), sem período de teste — só depois do pagamento aprovado é que
+// o responsável fica liberado para usar códigos de convite (ver
+// `src/lib/subscription/service.ts`).
+// ---------------------------------------------------------------------------
+
+model AssinaturaResponsavel {
+  id                   String                      @id @default(cuid())
+  responsavelId        String                      @map("responsavel_id")
+  tipoPlano            String                      @map("tipo_plano")
+  planoLabel           String                      @default("") @map("plano_label")
+  cicloCobranca        CicloCobrancaAssinatura     @map("ciclo_cobranca")
+  qtdAlunosContratados Int                         @map("qtd_alunos_contratados")
+  valorPorAluno        Decimal                     @db.Decimal(10, 2) @map("valor_por_aluno")
+  valorTotal           Decimal                     @db.Decimal(10, 2) @map("valor_total")
+
+  status   StatusAssinaturaResponsavel @default(PENDENTE)
+  inicioEm DateTime?                   @map("inicio_em")
+  expiraEm DateTime?                   @map("expira_em")
+  criadoEm DateTime                    @default(now()) @map("criado_em")
+
+  responsavel Responsavel             @relation(fields: [responsavelId], references: [id], onDelete: Cascade)
+  pagamentos  PagamentoResponsavel[]
+
+  @@index([responsavelId, criadoEm])
+  @@map("assinaturas_responsavel")
+}
+
+model PagamentoResponsavel {
+  id                  String          @id @default(cuid())
+  assinaturaId        String          @map("assinatura_id")
+  gateway             String          @default("mercadopago")
+  gatewayPagamentoId  String?         @unique @map("gateway_pagamento_id")
+  gatewayPreferenceId String?         @map("gateway_preference_id")
+  valor               Decimal         @db.Decimal(10, 2)
+  status              StatusPagamento @default(PENDENTE)
+  checkoutUrl         String?         @map("checkout_url")
+  criadoEm            DateTime        @default(now()) @map("criado_em")
+  pagoEm              DateTime?       @map("pago_em")
+
+  assinatura AssinaturaResponsavel @relation(fields: [assinaturaId], references: [id], onDelete: Cascade)
+
+  @@map("pagamentos_responsavel")
+}
+
+// ---------------------------------------------------------------------------
 // CodigoVerificacao — código de 6 dígitos enviado por e-mail, usado tanto
 // para confirmar o cadastro (a conta só é criada depois de validado) quanto
 // como segundo fator obrigatório em todo login.
@@ -409,20 +497,4 @@ model CodigoVerificacao {
 
   @@index([email, role, proposito, usadoEm])
   @@map("codigos_verificacao")
-}
-
-// Tabela auxiliar: quais vínculos (alunos) compuseram o excedente cobrado em
-// uma dada Cobranca. Não faz parte do modelo mínimo pedido, mas evita que o
-// job de fechamento mensal precise recalcular/adivinhar quais alunos geraram
-// a cobrança depois do fato (auditoria).
-model CobrancaVinculo {
-  id         String @id @default(cuid())
-  cobrancaId String @map("cobranca_id")
-  vinculoId  String @map("vinculo_id")
-
-  cobranca Cobranca @relation(fields: [cobrancaId], references: [id], onDelete: Cascade)
-  vinculo  Vinculo  @relation(fields: [vinculoId], references: [id], onDelete: Cascade)
-
-  @@unique([cobrancaId, vinculoId])
-  @@map("cobranca_vinculos")
 }

@@ -2,13 +2,14 @@ import "server-only";
 
 import { prisma } from "@/lib/prisma";
 import type { PlanoAssinatura as PlanoAssinaturaRow } from "@prisma/client";
-import type { CicloCobranca, PlanoDefinicao } from "@/lib/subscription/plans";
+import type { CicloCobranca, PlanoDefinicao, PublicoPlano } from "@/lib/subscription/plans";
 
 function paraDefinicao(row: PlanoAssinaturaRow): PlanoDefinicao {
   return {
     id: row.id,
     codigo: row.codigo,
     label: row.label,
+    publico: row.publico as PublicoPlano,
     ciclo: row.cicloCobranca as CicloCobranca,
     cicloLabel: row.cicloLabel,
     valorBase: Number(row.valorBase),
@@ -22,18 +23,19 @@ function paraDefinicao(row: PlanoAssinaturaRow): PlanoDefinicao {
   };
 }
 
-/** Planos visíveis na vitrine do motorista — só os ativos, em ordem. */
-export async function listarPlanosAtivos(): Promise<PlanoDefinicao[]> {
+/** Planos visíveis na vitrine (motorista ou responsável) — só os ativos, em ordem. */
+export async function listarPlanosAtivos(publico?: PublicoPlano): Promise<PlanoDefinicao[]> {
   const rows = await prisma.planoAssinatura.findMany({
-    where: { ativo: true },
+    where: { ativo: true, ...(publico ? { publico } : {}) },
     orderBy: [{ ordem: "asc" }, { criadoEm: "asc" }],
   });
   return rows.map(paraDefinicao);
 }
 
 /** Todos os planos (inclusive inativos) — uso exclusivo do painel admin. */
-export async function listarTodosPlanos(): Promise<PlanoDefinicao[]> {
+export async function listarTodosPlanos(publico?: PublicoPlano): Promise<PlanoDefinicao[]> {
   const rows = await prisma.planoAssinatura.findMany({
+    where: publico ? { publico } : undefined,
     orderBy: [{ ordem: "asc" }, { criadoEm: "asc" }],
   });
   return rows.map(paraDefinicao);
@@ -52,6 +54,7 @@ export async function buscarPlanoPorId(id: string): Promise<PlanoDefinicao | nul
 export type PlanoInput = {
   codigo: string;
   label: string;
+  publico: PublicoPlano;
   ciclo: CicloCobranca;
   cicloLabel: string;
   valorBase: number;
@@ -75,6 +78,7 @@ export async function criarPlano(input: PlanoInput): Promise<PlanoDefinicao> {
     data: {
       codigo: input.codigo,
       label: input.label,
+      publico: input.publico,
       cicloCobranca: input.ciclo,
       cicloLabel: input.cicloLabel,
       valorBase: input.valorBase,
@@ -99,6 +103,7 @@ export async function atualizarPlano(id: string, input: PlanoInput): Promise<Pla
     data: {
       codigo: input.codigo,
       label: input.label,
+      publico: input.publico,
       cicloCobranca: input.ciclo,
       cicloLabel: input.cicloLabel,
       valorBase: input.valorBase,

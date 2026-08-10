@@ -17,10 +17,12 @@ export async function POST(request: NextRequest) {
   const parsed = criarCheckoutAssinaturaSchema.safeParse(body);
   if (!parsed.success) return jsonValidationError(parsed.error);
 
-  const { tipoPlano, qtdAlunos, anosAdicionais } = parsed.data;
+  const { tipoPlano, anosAdicionais } = parsed.data;
 
   const plano = await buscarPlanoPorCodigo(tipoPlano);
-  if (!plano || !plano.ativo) return jsonError(404, "Plano não encontrado ou não está mais disponível.");
+  if (!plano || !plano.ativo || plano.publico !== "MOTORISTA") {
+    return jsonError(404, "Plano não encontrado ou não está mais disponível.");
+  }
 
   if (anosAdicionais && anosAdicionais > 0 && !plano.permiteAnosAdicionais) {
     return jsonError(400, `Anos adicionais não estão disponíveis no plano ${plano.label}.`);
@@ -32,7 +34,6 @@ export async function POST(request: NextRequest) {
       motoristaNome: motorista.nome,
       motoristaEmail: motorista.email,
       tipoPlano,
-      qtdAlunos,
       anosAdicionais,
     });
 

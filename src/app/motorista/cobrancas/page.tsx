@@ -57,7 +57,6 @@ export default async function MotoristaCobrancasPage() {
                 </span>
               </div>
               <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-                {p.assinatura.qtdAlunosContratados} aluno(s) ·{" "}
                 {p.criadoEm.toLocaleDateString("pt-BR")}
                 {p.pagoEm && ` · pago em ${p.pagoEm.toLocaleDateString("pt-BR")}`}
               </p>
