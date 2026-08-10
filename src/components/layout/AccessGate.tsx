@@ -31,12 +31,12 @@ export function AccessGate({
   if (liberado) return <>{children}</>;
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
+    <div className="flex flex-1 flex-col items-center justify-center gap-4 p-4 text-center sm:p-8">
       <h1 className="text-xl font-semibold">Seu período de teste acabou</h1>
       <p className="max-w-sm text-sm text-neutral-500 dark:text-neutral-400">
         Assine um plano para continuar usando o Moove. Seus dados continuam salvos — nada foi perdido.
       </p>
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center justify-center gap-3">
         <Link href={planosHref} className={primaryButtonClass + " w-auto px-6"}>
           Ver planos e assinar
         </Link>

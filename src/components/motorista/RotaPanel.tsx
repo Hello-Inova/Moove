@@ -183,11 +183,11 @@ export function RotaPanel() {
                         : "border-neutral-200 dark:border-neutral-700"
                     }`}
                   >
-                    <div className={concluida ? "line-through opacity-60" : ""}>
+                    <div className={`min-w-0 ${concluida ? "line-through opacity-60" : ""}`}>
                       <p className="font-medium">
                         {p.sequencia}. {p.alunoNome}
                       </p>
-                      <p className="text-neutral-500 dark:text-neutral-400">{p.enderecoResumo}</p>
+                      <p className="break-words text-neutral-500 dark:text-neutral-400">{p.enderecoResumo}</p>
                     </div>
                     <button
                       onClick={() =>
