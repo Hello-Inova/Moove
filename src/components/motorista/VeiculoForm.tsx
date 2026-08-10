@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { apiPostForm } from "@/lib/api-client";
 import { FieldError, inputClass, primaryButtonClass } from "@/components/ui/form-elements";
 
-export function VeiculoForm() {
+export function VeiculoForm({ onSaved }: { onSaved?: () => void } = {}) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -36,6 +36,7 @@ export function VeiculoForm() {
 
     event.currentTarget.reset();
     router.refresh();
+    onSaved?.();
   }
 
   return (

@@ -14,13 +14,20 @@ type EscolaListagem = EscolaEditavel & {
 };
 
 /** Um item da lista de escolas — alterna entre visualização e o EscolaForm em modo edição. */
-export function EscolaCard({ escola }: { escola: EscolaListagem }) {
+export function EscolaCard({ escola, onChanged }: { escola: EscolaListagem; onChanged?: () => void }) {
   const [editando, setEditando] = useState(false);
 
   if (editando) {
     return (
       <div className="rounded-2xl border border-neutral-200 bg-white shadow-sm p-4 dark:bg-neutral-900 dark:border-neutral-700">
-        <EscolaForm escola={escola} onSaved={() => setEditando(false)} onCancel={() => setEditando(false)} />
+        <EscolaForm
+          escola={escola}
+          onSaved={() => {
+            setEditando(false);
+            onChanged?.();
+          }}
+          onCancel={() => setEditando(false)}
+        />
       </div>
     );
   }
@@ -43,7 +50,7 @@ export function EscolaCard({ escola }: { escola: EscolaListagem }) {
         <button type="button" onClick={() => setEditando(true)} className={secondaryButtonClass + " w-auto px-3 py-1.5 text-xs"}>
           Editar
         </button>
-        <EscolaDeleteButton id={escola.id} nome={escola.nome} />
+        <EscolaDeleteButton id={escola.id} nome={escola.nome} onDeleted={onChanged} />
       </div>
     </div>
   );

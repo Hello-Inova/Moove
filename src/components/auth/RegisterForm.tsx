@@ -17,6 +17,14 @@ const ROLE_LABEL: Record<Role, string> = {
   responsavel: "responsável",
 };
 
+function formatarCpf(v: string): string {
+  const d = v.replace(/\D/g, "").slice(0, 11);
+  if (d.length <= 3) return d;
+  if (d.length <= 6) return `${d.slice(0, 3)}.${d.slice(3)}`;
+  if (d.length <= 9) return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6)}`;
+  return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
+}
+
 export function RegisterForm({ role }: { role: Role }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -24,6 +32,7 @@ export function RegisterForm({ role }: { role: Role }) {
   const [issues, setIssues] = useState<Record<string, string[] | undefined>>({});
   const [aceitaLgpd, setAceitaLgpd] = useState(false);
   const [pendingEmail, setPendingEmail] = useState<string | null>(null);
+  const [cpf, setCpf] = useState("");
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -45,6 +54,7 @@ export function RegisterForm({ role }: { role: Role }) {
       nome: form.get("nome"),
       email: form.get("email"),
       telefone: form.get("telefone"),
+      cpf,
       senha,
       confirmarSenha,
       aceitaLgpd,
@@ -124,6 +134,28 @@ export function RegisterForm({ role }: { role: Role }) {
         </label>
         <input id="telefone" name="telefone" required className={inputClass} autoComplete="tel" />
         <FieldError message={issues.telefone?.[0]} />
+      </div>
+
+      <div>
+        <label className="mb-1 block text-sm font-medium" htmlFor="cpf">
+          CPF
+        </label>
+        <input
+          id="cpf"
+          name="cpf"
+          required
+          inputMode="numeric"
+          placeholder="000.000.000-00"
+          maxLength={14}
+          value={cpf}
+          onChange={(e) => setCpf(formatarCpf(e.target.value))}
+          className={inputClass}
+          autoComplete="off"
+        />
+        <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+          Usado só para evitar cadastro duplicado — não é compartilhado com outros usuários.
+        </p>
+        <FieldError message={issues.cpf?.[0]} />
       </div>
 
       <div>

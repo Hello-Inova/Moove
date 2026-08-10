@@ -22,6 +22,7 @@ export async function GET() {
       cep: e.cep,
       logradouro: e.logradouro,
       numero: e.numero,
+      complemento: e.complemento,
       bairro: e.bairro,
       cidade: e.cidade,
       estado: e.estado,

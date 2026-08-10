@@ -4,6 +4,7 @@ import Link from "next/link";
 import { getAuthenticatedResponsavel } from "@/lib/auth/guards";
 import { prisma } from "@/lib/prisma";
 import { ResponsavelShell } from "@/components/responsavel/ResponsavelShell";
+import { PushAlertaToggle } from "@/components/responsavel/PushAlertaToggle";
 
 export default async function ResponsavelDashboardPage() {
   const responsavel = await getAuthenticatedResponsavel();
@@ -36,6 +37,8 @@ export default async function ResponsavelDashboardPage() {
             </Link>
           </div>
         )}
+
+        <PushAlertaToggle />
 
         {(!responsavel.enderecoLatitude || !responsavel.enderecoLongitude) && (
           <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">

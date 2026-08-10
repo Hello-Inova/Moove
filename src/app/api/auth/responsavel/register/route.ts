@@ -19,11 +19,16 @@ export async function POST(request: NextRequest) {
   const parsed = responsavelRegisterSchema.safeParse(body);
   if (!parsed.success) return jsonValidationError(parsed.error);
 
-  const { nome, email, telefone, senha, cep, logradouro, numero, complemento, bairro, cidade, estado } = parsed.data;
+  const { nome, email, telefone, cpf, senha, cep, logradouro, numero, complemento, bairro, cidade, estado } = parsed.data;
 
   const existente = await prisma.responsavel.findUnique({ where: { email } });
   if (existente) {
     return jsonError(409, "Já existe uma conta de responsável com este e-mail.");
+  }
+
+  const cpfExistente = await prisma.responsavel.findUnique({ where: { cpf } });
+  if (cpfExistente) {
+    return jsonError(409, "Já existe uma conta de responsável cadastrada com este CPF.");
   }
 
   const senhaHash = await hashPassword(senha);
@@ -45,6 +50,7 @@ export async function POST(request: NextRequest) {
       payload: {
         nome,
         telefone,
+        cpf,
         senhaHash,
         consentimentoLgpdAceitoEm: new Date().toISOString(),
         cep,

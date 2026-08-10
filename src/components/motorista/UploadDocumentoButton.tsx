@@ -4,7 +4,7 @@ import { useRef, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { apiPostForm } from "@/lib/api-client";
 
-export function UploadDocumentoButton({ veiculoId }: { veiculoId: string }) {
+export function UploadDocumentoButton({ veiculoId, onUploaded }: { veiculoId: string; onUploaded?: () => void }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
@@ -28,6 +28,7 @@ export function UploadDocumentoButton({ veiculoId }: { veiculoId: string }) {
       return;
     }
     router.refresh();
+    onUploaded?.();
   }
 
   return (

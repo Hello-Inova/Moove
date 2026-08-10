@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { cpfSchema } from "@/lib/validation/cpf";
+
 const senha = z
   .string()
   .min(8, "A senha deve ter no mínimo 8 caracteres.")
@@ -37,6 +39,7 @@ export const motoristaRegisterSchema = z
     nome: z.string().trim().min(2, "Informe o nome completo."),
     email: z.string().trim().toLowerCase().email("E-mail inválido."),
     telefone,
+    cpf: cpfSchema,
     senha,
     confirmarSenha: z.string().min(1, "Repita a senha."),
     // Escola inicial que o motorista atende — obrigatória no cadastro; ele
@@ -58,6 +61,7 @@ export const responsavelRegisterSchema = z
     nome: z.string().trim().min(2, "Informe o nome completo."),
     email: z.string().trim().toLowerCase().email("E-mail inválido."),
     telefone,
+    cpf: cpfSchema,
     senha,
     confirmarSenha: z.string().min(1, "Repita a senha."),
     ...enderecoCampos,
@@ -138,6 +142,22 @@ export const escolaSchema = z.object({
 export const atualizarLocalizacaoSchema = z.object({
   latitude: z.number().min(-90).max(90),
   longitude: z.number().min(-180).max(180),
+});
+
+export const pushSubscriptionSchema = z.object({
+  endpoint: z.string().trim().url("Inscrição de push inválida."),
+  keys: z.object({
+    p256dh: z.string().trim().min(1),
+    auth: z.string().trim().min(1),
+  }),
+});
+
+export const pushUnsubscribeSchema = z.object({
+  endpoint: z.string().trim().url("Inscrição de push inválida."),
+});
+
+export const alertaChegadaSchema = z.object({
+  alertaChegadaMinutos: z.number().int().min(1, "Mínimo de 1 minuto.").max(30, "Máximo de 30 minutos."),
 });
 
 export const criarCheckoutAssinaturaSchema = z.object({

@@ -2,9 +2,7 @@ import { redirect } from "next/navigation";
 
 import { getAuthenticatedMotorista } from "@/lib/auth/guards";
 import { prisma } from "@/lib/prisma";
-import { VeiculoForm } from "@/components/motorista/VeiculoForm";
-import { VerDocumentoButton } from "@/components/motorista/VerDocumentoButton";
-import { UploadDocumentoButton } from "@/components/motorista/UploadDocumentoButton";
+import { VeiculosClient } from "@/components/motorista/VeiculosClient";
 
 export default async function MotoristaVeiculosPage() {
   const motorista = await getAuthenticatedMotorista();
@@ -22,35 +20,14 @@ export default async function MotoristaVeiculosPage() {
         <p className="text-neutral-500 dark:text-neutral-400">Cadastre a placa e os documentos do seu veículo.</p>
       </div>
 
-      <div className="space-y-3">
-        {veiculos.length === 0 && (
-          <p className="text-sm text-neutral-500 dark:text-neutral-400">Nenhum veículo cadastrado ainda.</p>
-        )}
-        {veiculos.map((v) => (
-          <div
-            key={v.id}
-            className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-neutral-200 bg-white shadow-sm p-4 dark:bg-neutral-900 dark:border-neutral-700"
-          >
-            <div>
-              <p className="font-medium">{v.placa}</p>
-              <p className="text-sm text-neutral-500 dark:text-neutral-400">{v.modelo}</p>
-            </div>
-            <div className="flex items-center gap-4">
-              {v.documentoUrl ? (
-                <VerDocumentoButton veiculoId={v.id} />
-              ) : (
-                <span className="text-sm text-neutral-400">Sem documento</span>
-              )}
-              <UploadDocumentoButton veiculoId={v.id} />
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <section className="rounded-2xl border border-neutral-200 bg-white shadow-sm p-5 dark:bg-neutral-900 dark:border-neutral-700">
-        <h2 className="mb-4 font-medium">Cadastrar novo veículo</h2>
-        <VeiculoForm />
-      </section>
+      <VeiculosClient
+        veiculosIniciais={veiculos.map((v) => ({
+          id: v.id,
+          placa: v.placa,
+          modelo: v.modelo,
+          temDocumento: Boolean(v.documentoUrl),
+        }))}
+      />
     </div>
   );
 }

@@ -2,11 +2,14 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import { apiGet } from "@/lib/api-client";
+import { apiGet, apiPatchJson } from "@/lib/api-client";
 import { inputClass, primaryButtonClass, secondaryButtonClass } from "@/components/ui/form-elements";
 import { RotaMap } from "@/components/map/RotaMap";
 import { useLocationSharingContext } from "@/contexts/LocationSharingContext";
 import type { RotaResponse } from "@/app/api/motorista/rota/route";
+
+type StatusEmbarque = "EMBARCOU" | "AUSENTE";
+type EmbarqueRegistro = { vinculoId: string; status: StatusEmbarque };
 
 // Recalcula sozinho enquanto a rota está ativa, mas com um intervalo bem
 // mais espaçado que o envio de GPS (a cada 12s) — o cálculo de rota é uma
@@ -33,7 +36,10 @@ export function RotaPanel() {
   const [rota, setRota] = useState<RotaResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [concluidas, setConcluidas] = useState<Set<string>>(new Set());
+  // Status de hoje (Embarcou/Ausente) por vínculo — persistido no servidor
+  // (ver GET/PATCH /api/motorista/embarques), sobrevive a atualizar a
+  // página, diferente do que era antes (só existia em memória).
+  const [statusPorVinculo, setStatusPorVinculo] = useState<Record<string, StatusEmbarque>>({});
 
   const [escolas, setEscolas] = useState<Escola[]>([]);
   const [escolaSelecionada, setEscolaSelecionada] = useState<string>("");
@@ -65,6 +71,12 @@ export function RotaPanel() {
       }
     });
 
+    apiGet<EmbarqueRegistro[]>("/api/motorista/embarques").then((result) => {
+      if (result.ok) {
+        setStatusPorVinculo(Object.fromEntries(result.data.map((r) => [r.vinculoId, r.status])));
+      }
+    });
+
     // O recálculo automático só se aplica ao modo normal (todos os alunos)
     // — no modo "ir até escola" o motorista pediu explicitamente, não faz
     // sentido recalcular sozinho de tempos em tempos.
@@ -84,6 +96,24 @@ export function RotaPanel() {
   function voltarRotaNormal() {
     setModoEscolaAtivo("");
     void carregar();
+  }
+
+  async function marcarStatus(vinculoId: string, status: StatusEmbarque | null) {
+    // Atualização otimista — a UI muda na hora, sem esperar a resposta.
+    setStatusPorVinculo((prev) => {
+      const next = { ...prev };
+      if (status === null) delete next[vinculoId];
+      else next[vinculoId] = status;
+      return next;
+    });
+
+    const result = await apiPatchJson<{ ok: true }>("/api/motorista/embarques", { vinculoId, status });
+    if (!result.ok) {
+      // Reverte se a chamada falhar (ex: sem internet) — recarrega o estado
+      // real do servidor em vez de tentar adivinhar o valor anterior.
+      const retry = await apiGet<EmbarqueRegistro[]>("/api/motorista/embarques");
+      if (retry.ok) setStatusPorVinculo(Object.fromEntries(retry.data.map((r) => [r.vinculoId, r.status])));
+    }
   }
 
   if (!isSharing) {
@@ -161,7 +191,14 @@ export function RotaPanel() {
               (z-index até 1000) vazem por cima de menus/diálogos da
               aplicação — ver StopSharingDialog.tsx. */}
           <div className="isolate mt-3 h-[360px] overflow-hidden rounded-xl border border-neutral-200 dark:border-neutral-700">
-            <RotaMap motorista={rota.motorista} paradas={rota.paradas} concluidas={concluidas} geometria={rota.geometria} />
+            <RotaMap
+              motorista={rota.motorista}
+              paradas={rota.paradas}
+              concluidas={
+                new Set(Object.entries(statusPorVinculo).filter(([, s]) => s === "EMBARCOU").map(([id]) => id))
+              }
+              geometria={rota.geometria}
+            />
           </div>
 
           {rota.distanciaMetros !== null && rota.duracaoSegundos !== null && (
@@ -173,35 +210,50 @@ export function RotaPanel() {
           {!modoEscolaAtivo && (
             <ol className="mt-4 space-y-2">
               {rota.paradas.map((p) => {
-                const concluida = concluidas.has(p.vinculoId);
+                const status = statusPorVinculo[p.vinculoId];
                 return (
                   <li
                     key={p.vinculoId}
-                    className={`flex items-center justify-between gap-3 rounded-xl border p-3 text-sm ${
-                      concluida
+                    className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3 text-sm ${
+                      status === "EMBARCOU"
                         ? "border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950/30"
-                        : "border-neutral-200 dark:border-neutral-700"
+                        : status === "AUSENTE"
+                          ? "border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30"
+                          : "border-neutral-200 dark:border-neutral-700"
                     }`}
                   >
-                    <div className={`min-w-0 ${concluida ? "line-through opacity-60" : ""}`}>
+                    <div className={`min-w-0 ${status ? "line-through opacity-60" : ""}`}>
                       <p className="font-medium">
                         {p.sequencia}. {p.alunoNome}
+                        {status === "AUSENTE" && " (ausente hoje)"}
                       </p>
                       <p className="break-words text-neutral-500 dark:text-neutral-400">{p.enderecoResumo}</p>
                     </div>
-                    <button
-                      onClick={() =>
-                        setConcluidas((prev) => {
-                          const next = new Set(prev);
-                          if (next.has(p.vinculoId)) next.delete(p.vinculoId);
-                          else next.add(p.vinculoId);
-                          return next;
-                        })
-                      }
-                      className={secondaryButtonClass + " w-auto shrink-0 px-3 py-1.5 text-xs"}
-                    >
-                      {concluida ? "Desfazer" : "Embarcou"}
-                    </button>
+                    <div className="flex flex-wrap gap-2">
+                      {status ? (
+                        <button
+                          onClick={() => void marcarStatus(p.vinculoId, null)}
+                          className={secondaryButtonClass + " w-auto shrink-0 px-3 py-1.5 text-xs"}
+                        >
+                          Desfazer
+                        </button>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => void marcarStatus(p.vinculoId, "EMBARCOU")}
+                            className={secondaryButtonClass + " w-auto shrink-0 px-3 py-1.5 text-xs"}
+                          >
+                            Embarcou
+                          </button>
+                          <button
+                            onClick={() => void marcarStatus(p.vinculoId, "AUSENTE")}
+                            className={secondaryButtonClass + " w-auto shrink-0 px-3 py-1.5 text-xs border-amber-300 text-amber-800 dark:border-amber-800 dark:text-amber-400"}
+                          >
+                            Ausente
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </li>
                 );
               })}

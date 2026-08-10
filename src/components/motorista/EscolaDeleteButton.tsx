@@ -6,7 +6,15 @@ import { useRouter } from "next/navigation";
 import { apiDelete } from "@/lib/api-client";
 import { dangerButtonClass } from "@/components/ui/form-elements";
 
-export function EscolaDeleteButton({ id, nome }: { id: string; nome: string }) {
+export function EscolaDeleteButton({
+  id,
+  nome,
+  onDeleted,
+}: {
+  id: string;
+  nome: string;
+  onDeleted?: () => void;
+}) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -22,6 +30,7 @@ export function EscolaDeleteButton({ id, nome }: { id: string; nome: string }) {
       return;
     }
     router.refresh();
+    onDeleted?.();
   }
 
   return (

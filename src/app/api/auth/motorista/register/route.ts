@@ -19,11 +19,17 @@ export async function POST(request: NextRequest) {
   const parsed = motoristaRegisterSchema.safeParse(body);
   if (!parsed.success) return jsonValidationError(parsed.error);
 
-  const { nome, email, telefone, senha, nomeEscola, cep, logradouro, numero, complemento, bairro, cidade, estado } = parsed.data;
+  const { nome, email, telefone, cpf, senha, nomeEscola, cep, logradouro, numero, complemento, bairro, cidade, estado } =
+    parsed.data;
 
   const existente = await prisma.motorista.findUnique({ where: { email } });
   if (existente) {
     return jsonError(409, "Já existe uma conta de motorista com este e-mail.");
+  }
+
+  const cpfExistente = await prisma.motorista.findUnique({ where: { cpf } });
+  if (cpfExistente) {
+    return jsonError(409, "Já existe uma conta de motorista cadastrada com este CPF.");
   }
 
   const senhaHash = await hashPassword(senha);
@@ -43,6 +49,7 @@ export async function POST(request: NextRequest) {
       payload: {
         nome,
         telefone,
+        cpf,
         senhaHash,
         consentimentoLgpdAceitoEm: new Date().toISOString(),
         nomeEscola,

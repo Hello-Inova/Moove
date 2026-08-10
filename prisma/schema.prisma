@@ -72,6 +72,16 @@ enum PublicoPlano {
   @@map("publico_plano")
 }
 
+// Status do aluno na rota de um dia específico — marcado pelo motorista no
+// painel de rota. Existe só o registro do dia em que houve uma marcação
+// (sem registro = "normal", nem embarcou nem foi marcado ausente ainda).
+enum StatusEmbarqueDia {
+  EMBARCOU
+  AUSENTE
+
+  @@map("status_embarque_dia")
+}
+
 // Status da assinatura do responsável — sem período de teste (diferente da
 // Assinatura do motorista): o responsável precisa pagar antes de poder
 // vincular qualquer aluno a um motorista, então o estado inicial é
@@ -94,6 +104,11 @@ model Motorista {
   nome         String
   email        String      @unique
   telefone     String
+  // Único (quando preenchido) — impede que a mesma pessoa crie mais de uma
+  // conta de motorista. Nullable porque contas criadas antes desse campo
+  // existir não têm CPF; cadastros novos são obrigados a preencher (ver
+  // motoristaRegisterSchema).
+  cpf          String?     @unique
   senhaHash    String      @map("senha_hash")
   statusConta  StatusConta @default(ATIVA) @map("status_conta")
 
@@ -110,6 +125,12 @@ model Motorista {
   // passa (e sem uma Assinatura ATIVA) o motorista é bloqueado e direcionado
   // para a tela de planos (ver `motoristaTemAcesso` em subscription/service.ts).
   testeExpiraEm DateTime @map("teste_expira_em")
+
+  // Quantos minutos de antecedência (estimados) disparam o alerta sonoro de
+  // chegada pro responsável — configurável pelo motorista (ver
+  // LocationSharingPanel.tsx e POST /api/motorista/localizacao, que checa
+  // isso a cada atualização de GPS).
+  alertaChegadaMinutos Int @default(5) @map("alerta_chegada_minutos")
 
   criadoEm DateTime @default(now()) @map("criado_em")
 
@@ -153,6 +174,9 @@ model Responsavel {
   nome        String
   email       String      @unique
   telefone    String
+  // Único (quando preenchido) — mesma regra do Motorista.cpf: impede
+  // cadastro duplicado da mesma pessoa como responsável.
+  cpf         String?     @unique
   senhaHash   String      @map("senha_hash")
   statusConta StatusConta @default(ATIVA) @map("status_conta")
 
@@ -193,8 +217,29 @@ model Responsavel {
   convitesUsados  Convite[] @relation("ConviteUsadoPor")
   alunos          Aluno[]
   assinaturas     AssinaturaResponsavel[]
+  pushSubscriptions PushSubscription[]
 
   @@map("responsaveis")
+}
+
+// ---------------------------------------------------------------------------
+// PushSubscription — inscrição de push (Web Push API) de um navegador/
+// dispositivo do responsável, usada pro alerta sonoro de proximidade. Um
+// responsável pode ter mais de uma (celular + computador, por exemplo).
+// ---------------------------------------------------------------------------
+
+model PushSubscription {
+  id            String   @id @default(cuid())
+  responsavelId String   @map("responsavel_id")
+  endpoint      String   @unique
+  p256dh        String
+  auth          String
+  criadoEm      DateTime @default(now()) @map("criado_em")
+
+  responsavel Responsavel @relation(fields: [responsavelId], references: [id], onDelete: Cascade)
+
+  @@index([responsavelId])
+  @@map("push_subscriptions")
 }
 
 // ---------------------------------------------------------------------------
@@ -305,6 +350,8 @@ model Vinculo {
   aluno       Aluno       @relation(fields: [alunoId], references: [id], onDelete: Cascade)
   escola      Escola?     @relation(fields: [escolaId], references: [id])
   convite     Convite     @relation(fields: [conviteId], references: [id])
+  embarquesDia EmbarqueDia[]
+  alertasProximidade AlertaProximidade[]
 
   // Índice usado pela checagem crítica de segurança: existe vínculo ATIVO
   // entre este responsável e este motorista?
@@ -313,6 +360,45 @@ model Vinculo {
   @@index([alunoId, status])
   @@index([escolaId])
   @@map("vinculos")
+}
+
+// ---------------------------------------------------------------------------
+// EmbarqueDia — marcação do motorista (embarcou / ausente) por aluno, por
+// dia, na rota. Só existe uma linha quando o motorista marcou algo — sem
+// linha para o dia é o estado "normal" (ainda não passou pela parada).
+// ---------------------------------------------------------------------------
+
+model EmbarqueDia {
+  id        String            @id @default(cuid())
+  vinculoId String            @map("vinculo_id")
+  data      DateTime          @db.Date
+  status    StatusEmbarqueDia
+
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  vinculo Vinculo @relation(fields: [vinculoId], references: [id], onDelete: Cascade)
+
+  @@unique([vinculoId, data])
+  @@map("embarques_dia")
+}
+
+// ---------------------------------------------------------------------------
+// AlertaProximidade — registra que o alerta sonoro de chegada já foi
+// disparado para este vínculo hoje, pra não repetir a cada atualização de
+// GPS (12 em 12s) enquanto o motorista estiver dentro do raio configurado.
+// ---------------------------------------------------------------------------
+
+model AlertaProximidade {
+  id        String   @id @default(cuid())
+  vinculoId String   @map("vinculo_id")
+  data      DateTime @db.Date
+  criadoEm  DateTime @default(now()) @map("criado_em")
+
+  vinculo Vinculo @relation(fields: [vinculoId], references: [id], onDelete: Cascade)
+
+  @@unique([vinculoId, data])
+  @@map("alertas_proximidade")
 }
 
 // ---------------------------------------------------------------------------

@@ -1,7 +1,10 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 import { useLocationSharingContext } from "@/contexts/LocationSharingContext";
-import { primaryButtonClass, secondaryButtonClass } from "@/components/ui/form-elements";
+import { apiGet, apiPatchJson } from "@/lib/api-client";
+import { inputClass, primaryButtonClass, secondaryButtonClass } from "@/components/ui/form-elements";
 
 const STATUS_LABEL: Record<string, string> = {
   parado: "Localização desligada",
@@ -16,6 +19,56 @@ const STATUS_DOT: Record<string, string> = {
   compartilhando: "bg-green-500",
   erro: "bg-red-500",
 };
+
+function AlertaChegadaConfig() {
+  const [minutos, setMinutos] = useState<number | null>(null);
+  const [salvando, setSalvando] = useState(false);
+  const [salvo, setSalvo] = useState(false);
+
+  useEffect(() => {
+    apiGet<{ alertaChegadaMinutos: number }>("/api/motorista/alerta-chegada").then((result) => {
+      if (result.ok) setMinutos(result.data.alertaChegadaMinutos);
+    });
+  }, []);
+
+  async function salvar() {
+    if (minutos === null) return;
+    setSalvando(true);
+    setSalvo(false);
+    const result = await apiPatchJson("/api/motorista/alerta-chegada", { alertaChegadaMinutos: minutos });
+    setSalvando(false);
+    if (result.ok) setSalvo(true);
+  }
+
+  if (minutos === null) return null;
+
+  return (
+    <div className="mt-4 border-t border-neutral-200 pt-4 dark:border-neutral-700">
+      <p className="text-sm font-medium">Alerta sonoro de chegada</p>
+      <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+        Avisa o responsável (com som) quando você estiver a aproximadamente esses minutos do endereço dele.
+      </p>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <input
+          type="number"
+          min={1}
+          max={30}
+          value={minutos}
+          onChange={(e) => {
+            setMinutos(Number(e.target.value));
+            setSalvo(false);
+          }}
+          className={inputClass + " w-20"}
+        />
+        <span className="text-sm text-neutral-500 dark:text-neutral-400">minutos</span>
+        <button onClick={salvar} disabled={salvando} className={secondaryButtonClass + " w-auto px-4 py-1.5 text-sm"}>
+          {salvando ? "Salvando…" : "Salvar"}
+        </button>
+        {salvo && <span className="text-sm text-green-600 dark:text-green-400">Salvo.</span>}
+      </div>
+    </div>
+  );
+}
 
 export function LocationSharingPanel() {
   const { status, error, lastSentAt, start, isSharing, confirmAndRun } = useLocationSharingContext();
@@ -53,6 +106,8 @@ export function LocationSharingPanel() {
         celular: navegadores mobile (principalmente iOS/Safari) pausam o GPS nesses casos, o
         que é uma limitação do próprio celular/navegador, não do Moove.
       </p>
+
+      <AlertaChegadaConfig />
     </section>
   );
 }

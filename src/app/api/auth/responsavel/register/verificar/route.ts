@@ -23,6 +23,7 @@ export async function POST(request: NextRequest) {
   const payload = resultado.payload as {
     nome: string;
     telefone: string;
+    cpf: string;
     senhaHash: string;
     consentimentoLgpdAceitoEm: string;
     cep?: string;
@@ -47,6 +48,7 @@ export async function POST(request: NextRequest) {
         nome: payload.nome,
         email,
         telefone: payload.telefone,
+        cpf: payload.cpf,
         senhaHash: payload.senhaHash,
         consentimentoLgpdAceitoEm: new Date(payload.consentimentoLgpdAceitoEm),
         emailVerificadoEm: agora,
@@ -72,6 +74,10 @@ export async function POST(request: NextRequest) {
     );
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      const alvo = (err.meta?.target as string[] | undefined) ?? [];
+      if (alvo.some((c) => c.includes("cpf"))) {
+        return jsonError(409, "Já existe uma conta de responsável cadastrada com este CPF.");
+      }
       return jsonError(409, "Já existe uma conta de responsável com este e-mail.");
     }
     throw err;
