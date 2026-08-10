@@ -1,13 +1,12 @@
 "use client";
 
-import { useState, type MouseEvent } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 
 import { Logo } from "@/components/ui/Logo";
 import { LogoutButton } from "@/components/auth/LogoutButton";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
-import { useLocationSharingContext } from "@/contexts/LocationSharingContext";
 
 type NavItem = { href: string; label: string };
 
@@ -48,16 +47,14 @@ export function AppHeader({
 }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
-  const router = useRouter();
-  const { confirmAndRun } = useLocationSharingContext();
 
-  // Enquanto o motorista compartilha a localização, sair da rota atual
-  // (inclusive pelo próprio menu) precisa passar pelo alerta de confirmação
-  // — navegar embora desmonta o painel de compartilhamento e encerra o GPS.
-  function handleNavClick(event: MouseEvent<HTMLAnchorElement>, href: string) {
-    event.preventDefault();
+  // As páginas do motorista moram num layout compartilhado (ver
+  // src/app/motorista/(app)/layout.tsx), então o LocationSharingProvider —
+  // e o GPS — continuam ativos ao navegar entre elas; não precisa mais de
+  // confirmação nem de interceptar a navegação aqui, só fechar a gaveta
+  // mobile e deixar o <Link> normal cuidar do resto.
+  function handleNavClick() {
     setOpen(false);
-    confirmAndRun(() => router.push(href));
   }
 
   const iniciais = (userName ?? "")
@@ -69,7 +66,7 @@ export function AppHeader({
 
   const sidebarConteudo = (
     <div className="flex h-full flex-col">
-      <Link href={homeHref} className="flex items-center gap-2 px-4 py-4" onClick={(e) => handleNavClick(e, homeHref)}>
+      <Link href={homeHref} className="flex items-center gap-2 px-4 py-4" onClick={handleNavClick}>
         <Logo height={26} />
       </Link>
 
@@ -92,7 +89,7 @@ export function AppHeader({
             <Link
               key={item.href}
               href={item.href}
-              onClick={(e) => handleNavClick(e, item.href)}
+              onClick={handleNavClick}
               className={`block rounded-lg px-3 py-2 text-sm font-medium transition ${
                 active
                   ? "bg-brand-orange-soft text-brand-orange-dark dark:bg-brand-orange/15 dark:text-brand-orange-light"
@@ -121,7 +118,7 @@ export function AppHeader({
 
       {/* Barra superior + gaveta — abaixo de md */}
       <header className="sticky top-0 z-30 flex items-center justify-between border-b border-neutral-200 bg-white/90 px-4 py-2.5 backdrop-blur supports-[backdrop-filter]:bg-white/70 md:hidden dark:border-neutral-800 dark:bg-neutral-950/90 dark:supports-[backdrop-filter]:bg-neutral-950/70">
-        <Link href={homeHref} className="flex items-center gap-2" onClick={(e) => handleNavClick(e, homeHref)}>
+        <Link href={homeHref} className="flex items-center gap-2" onClick={handleNavClick}>
           <Logo height={24} />
         </Link>
         <div className="flex items-center gap-2">

@@ -47,10 +47,11 @@ export function LocationSharingPanel() {
       {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
 
       <p className="mt-4 text-sm text-neutral-500 dark:text-neutral-400">
-        Você precisa habilitar o compartilhamento a cada nova sessão. Mantenha esta aba
-        aberta e a tela do celular ligada durante a rota — navegadores mobile (principalmente
-        iOS/Safari) podem pausar o envio de localização se a aba for minimizada ou o
-        aparelho bloquear a tela.
+        Você precisa habilitar o compartilhamento a cada nova sessão. Navegar entre as páginas
+        do Moove (Vínculos, Convites, Escolas etc.) não interrompe o envio — pode usar o menu
+        à vontade durante a rota. Só evite trocar para outro aplicativo ou bloquear a tela do
+        celular: navegadores mobile (principalmente iOS/Safari) pausam o GPS nesses casos, o
+        que é uma limitação do próprio celular/navegador, não do Moove.
       </p>
     </section>
   );

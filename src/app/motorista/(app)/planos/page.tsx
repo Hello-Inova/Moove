@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 
 import { getAuthenticatedMotorista } from "@/lib/auth/guards";
 import { getAssinaturaAtual } from "@/lib/subscription/service";
-import { MotoristaShell } from "@/components/motorista/MotoristaShell";
 import { PlanosClient } from "@/components/motorista/PlanosClient";
 
 export default async function MotoristaPlanosPage() {
@@ -14,19 +13,17 @@ export default async function MotoristaPlanosPage() {
   const tipoPlanoAtual: string | null = assinatura?.status === "ATIVA" ? assinatura.tipoPlano : null;
 
   return (
-    <MotoristaShell>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-semibold">Planos</h1>
-          <p className="text-neutral-500 dark:text-neutral-400">
-            Escolha um plano e finalize o pagamento com segurança — valor fixo, independente da quantidade de alunos.
-          </p>
-        </div>
-
-        <Suspense fallback={null}>
-          <PlanosClient tipoPlanoAtual={tipoPlanoAtual} />
-        </Suspense>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-semibold">Planos</h1>
+        <p className="text-neutral-500 dark:text-neutral-400">
+          Escolha um plano e finalize o pagamento com segurança — valor fixo, independente da quantidade de alunos.
+        </p>
       </div>
-    </MotoristaShell>
+
+      <Suspense fallback={null}>
+        <PlanosClient tipoPlanoAtual={tipoPlanoAtual} />
+      </Suspense>
+    </div>
   );
 }
