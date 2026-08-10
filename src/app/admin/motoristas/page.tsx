@@ -5,6 +5,7 @@ import { isAdminAuthenticated } from "@/lib/auth/guards";
 import { prisma } from "@/lib/prisma";
 import { AdminShell } from "@/components/admin/AdminShell";
 import { StatusToggleButton } from "@/components/admin/StatusToggleButton";
+import { AdminDeleteButton } from "@/components/admin/AdminDeleteButton";
 import { inputClass } from "@/components/ui/form-elements";
 
 const STATUS_CLASS: Record<string, string> = {
@@ -59,6 +60,10 @@ export default async function AdminMotoristasPage({
                   {m.statusConta === "ATIVA" ? "Ativa" : "Suspensa"}
                 </span>
                 <StatusToggleButton url={`/api/admin/motoristas/${m.id}/status`} statusAtual={m.statusConta} />
+                <AdminDeleteButton
+                  url={`/api/admin/motoristas/${m.id}`}
+                  confirmMessage={`Excluir a conta de ${m.nome}? Isso apaga também veículos, convites, vínculos e assinaturas. Não pode ser desfeito.`}
+                />
               </div>
             </div>
           ))}
