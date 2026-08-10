@@ -6,10 +6,13 @@ import {
   calcularTesteExpiraEm,
   calcularValorAssinaturaMotorista,
   calcularValorAssinaturaResponsavel,
+  contaEmTeste,
 } from "@/lib/subscription/plans";
 import { buscarPlanoPorCodigo } from "@/lib/subscription/planos-service";
 import { createMercadoPagoPreference, getMercadoPagoPayment } from "@/lib/payment/mercadopago";
 import type { Assinatura, AssinaturaResponsavel } from "@prisma/client";
+
+export { contaEmTeste, diasRestantesConta } from "@/lib/subscription/plans";
 
 export class PlanoInexistenteError extends Error {}
 
@@ -37,14 +40,26 @@ export async function getAssinaturaAtual(motoristaId: string): Promise<Assinatur
   return assinatura;
 }
 
-export function diasRestantesTeste(assinatura: Pick<Assinatura, "status" | "testeExpiraEm"> | null): number | null {
-  if (!assinatura || assinatura.status !== "TESTE") return null;
-  const ms = assinatura.testeExpiraEm.getTime() - Date.now();
-  return Math.max(0, Math.ceil(ms / (24 * 60 * 60 * 1000)));
+/**
+ * Acesso ao sistema é liberado por dois caminhos independentes: o teste
+ * grátis de 7 dias em nível de conta (`testeExpiraEm`, ver schema) OU uma
+ * assinatura paga ATIVA. O status "TESTE" que uma Assinatura ainda pode ter
+ * (enquanto o checkout de um plano está pendente de pagamento) não conta
+ * mais pra liberar acesso — só existia pra granular o teste por plano
+ * escolhido, o que foi substituído pelo teste em nível de conta.
+ */
+export function motoristaTemAcesso(
+  motorista: { testeExpiraEm: Date },
+  assinatura: Pick<Assinatura, "status"> | null
+): boolean {
+  return contaEmTeste(motorista.testeExpiraEm) || assinatura?.status === "ATIVA";
 }
 
-export function assinaturaPermiteAcesso(assinatura: Pick<Assinatura, "status"> | null): boolean {
-  return assinatura?.status === "TESTE" || assinatura?.status === "ATIVA";
+export function responsavelTemAcesso(
+  responsavel: { testeExpiraEm: Date },
+  assinatura: Pick<AssinaturaResponsavel, "status"> | null
+): boolean {
+  return contaEmTeste(responsavel.testeExpiraEm) || assinatura?.status === "ATIVA";
 }
 
 /**
@@ -233,8 +248,19 @@ export async function getAssinaturaResponsavelAtual(responsavelId: string): Prom
  * Quantos "assentos" de aluno o responsável ainda pode vincular a um
  * motorista: quantidade contratada na assinatura ATIVA mais recente, menos
  * os vínculos ATIVOS que ele já tem. Nunca negativo.
+ *
+ * Durante o teste grátis de 7 dias (nível de conta, ver `testeExpiraEm`), o
+ * responsável pode vincular livremente — retorna um número "infinito" como
+ * sentinela (chamadores que exibem esse valor devem tratar esse caso à
+ * parte em vez de mostrar o número cru; ver `/api/responsavel/assinatura`).
  */
 export async function vagasDisponiveisParaVincular(responsavelId: string): Promise<number> {
+  const responsavel = await prisma.responsavel.findUnique({
+    where: { id: responsavelId },
+    select: { testeExpiraEm: true },
+  });
+  if (responsavel && contaEmTeste(responsavel.testeExpiraEm)) return Number.MAX_SAFE_INTEGER;
+
   const assinatura = await getAssinaturaResponsavelAtual(responsavelId);
   if (!assinatura || assinatura.status !== "ATIVA") return 0;
 

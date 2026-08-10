@@ -6,6 +6,7 @@ import { createSession } from "@/lib/auth/session";
 import { verificarCodigoSchema } from "@/lib/validation/schemas";
 import { jsonError, jsonValidationError } from "@/lib/http";
 import { verifyCode } from "@/lib/email/verification";
+import { calcularTesteExpiraEm } from "@/lib/subscription/plans";
 
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null);
@@ -40,6 +41,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const agora = new Date();
     const responsavel = await prisma.responsavel.create({
       data: {
         nome: payload.nome,
@@ -47,7 +49,8 @@ export async function POST(request: NextRequest) {
         telefone: payload.telefone,
         senhaHash: payload.senhaHash,
         consentimentoLgpdAceitoEm: new Date(payload.consentimentoLgpdAceitoEm),
-        emailVerificadoEm: new Date(),
+        emailVerificadoEm: agora,
+        testeExpiraEm: calcularTesteExpiraEm(agora),
         cep: payload.cep,
         logradouro: payload.logradouro,
         numero: payload.numero,

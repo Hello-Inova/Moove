@@ -19,7 +19,7 @@ export default async function MotoristaPlanosPage() {
         <div>
           <h1 className="text-2xl font-semibold">Planos</h1>
           <p className="text-neutral-500 dark:text-neutral-400">
-            Escolha um plano, informe a quantidade de alunos e finalize o pagamento com segurança.
+            Escolha um plano e finalize o pagamento com segurança — valor fixo, independente da quantidade de alunos.
           </p>
         </div>
 

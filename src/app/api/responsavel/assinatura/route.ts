@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthenticatedResponsavel } from "@/lib/auth/guards";
 import { jsonError } from "@/lib/http";
-import { getAssinaturaResponsavelAtual, vagasDisponiveisParaVincular } from "@/lib/subscription/service";
+import { contaEmTeste, getAssinaturaResponsavelAtual, vagasDisponiveisParaVincular } from "@/lib/subscription/service";
 
 export async function GET() {
   const responsavel = await getAuthenticatedResponsavel();
@@ -12,6 +12,7 @@ export async function GET() {
   const assinatura = await getAssinaturaResponsavelAtual(responsavel.id);
   const vagasDisponiveis = await vagasDisponiveisParaVincular(responsavel.id);
   const totalAlunos = await prisma.aluno.count({ where: { responsavelId: responsavel.id } });
+  const emTeste = contaEmTeste(responsavel.testeExpiraEm);
 
   return NextResponse.json({
     assinatura: assinatura
@@ -25,7 +26,12 @@ export async function GET() {
           expiraEm: assinatura.expiraEm,
         }
       : null,
-    vagasDisponiveis,
+    // Durante o teste grátis, vagas são ilimitadas — não faz sentido mostrar
+    // o número cru (sentinela gigante), então o front trata `null` como
+    // "ilimitado, em teste" (ver AlunosClient).
+    vagasDisponiveis: emTeste ? null : vagasDisponiveis,
     totalAlunos,
+    emTeste,
+    testeExpiraEm: responsavel.testeExpiraEm,
   });
 }

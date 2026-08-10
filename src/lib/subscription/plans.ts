@@ -115,6 +115,20 @@ export function calcularTesteExpiraEm(from: Date = new Date()): Date {
   return d;
 }
 
+/**
+ * Teste grátis em nível de conta (motorista/responsável) — ver
+ * `Motorista.testeExpiraEm`/`Responsavel.testeExpiraEm`. Começa
+ * automaticamente no cadastro, não depende de escolher um plano.
+ */
+export function contaEmTeste(testeExpiraEm: Date, agora: Date = new Date()): boolean {
+  return testeExpiraEm.getTime() > agora.getTime();
+}
+
+export function diasRestantesConta(testeExpiraEm: Date, agora: Date = new Date()): number {
+  const ms = testeExpiraEm.getTime() - agora.getTime();
+  return Math.max(0, Math.ceil(ms / (24 * 60 * 60 * 1000)));
+}
+
 export function formatarBRL(value: number): string {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
 }

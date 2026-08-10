@@ -105,6 +105,12 @@ model Motorista {
   // login também exige um código novo enviado por e-mail.
   emailVerificadoEm DateTime? @map("email_verificado_em")
 
+  // Teste grátis de 7 dias, contado a partir do cadastro — dá acesso total
+  // ao sistema sem precisar escolher/pagar um plano. Só depois que essa data
+  // passa (e sem uma Assinatura ATIVA) o motorista é bloqueado e direcionado
+  // para a tela de planos (ver `motoristaTemAcesso` em subscription/service.ts).
+  testeExpiraEm DateTime @map("teste_expira_em")
+
   criadoEm DateTime @default(now()) @map("criado_em")
 
   veiculos    Veiculo[]
@@ -174,6 +180,12 @@ model Responsavel {
   consentimentoLgpdAceitoEm DateTime @map("consentimento_lgpd_aceito_em")
 
   emailVerificadoEm DateTime? @map("email_verificado_em")
+
+  // Mesmo teste grátis de 7 dias do motorista — ver `Motorista.testeExpiraEm`
+  // e `responsavelTemAcesso` em subscription/service.ts. Durante o teste, o
+  // responsável pode cadastrar alunos e vinculá-los a motoristas sem
+  // precisar de uma AssinaturaResponsavel ainda.
+  testeExpiraEm DateTime @map("teste_expira_em")
 
   criadoEm DateTime @default(now()) @map("criado_em")
 

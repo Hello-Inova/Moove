@@ -22,8 +22,10 @@ type AssinaturaResumo = {
     valorTotal: number;
     expiraEm: string | null;
   } | null;
-  vagasDisponiveis: number;
+  vagasDisponiveis: number | null;
   totalAlunos: number;
+  emTeste: boolean;
+  testeExpiraEm: string;
 };
 
 export function AlunosClient() {
@@ -94,9 +96,14 @@ export function AlunosClient() {
               Plano {resumo.assinatura.planoLabel} ativo · {resumo.assinatura.qtdAlunosContratados} aluno(s) pago(s) ·{" "}
               {resumo.vagasDisponiveis} vaga(s) disponível(is) para vincular a um motorista.
             </p>
+          ) : resumo.emTeste ? (
+            <p className="mt-1 text-sm text-brand-navy dark:text-neutral-300">
+              Você está no período de teste grátis (até {new Date(resumo.testeExpiraEm).toLocaleDateString("pt-BR")}) —
+              pode vincular alunos a motoristas livremente. Depois disso, será necessário assinar um plano.
+            </p>
           ) : (
             <p className="mt-1 text-sm text-amber-700 dark:text-amber-400">
-              Você ainda não tem uma assinatura ativa — sem ela, não é possível vincular nenhum aluno a um motorista.
+              Seu período de teste acabou — assine um plano para continuar vinculando alunos a motoristas.
             </p>
           )}
           <Link href="/responsavel/assinatura" className={primaryButtonClass + " mt-3 w-auto px-4"}>
