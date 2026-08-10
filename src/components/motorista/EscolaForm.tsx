@@ -3,12 +3,23 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
-import { apiPostJson } from "@/lib/api-client";
-import { FieldError, inputClass, primaryButtonClass } from "@/components/ui/form-elements";
-import { EnderecoFields } from "@/components/ui/EnderecoFields";
+import { apiPatchJson, apiPostJson } from "@/lib/api-client";
+import { FieldError, inputClass, primaryButtonClass, secondaryButtonClass } from "@/components/ui/form-elements";
+import { EnderecoFields, type EnderecoValores } from "@/components/ui/EnderecoFields";
 
-export function EscolaForm() {
+export type EscolaEditavel = {
+  id: string;
+  nome: string;
+} & Partial<EnderecoValores>;
+
+/**
+ * Formulário de escola — serve tanto pra cadastrar (sem `escola`) quanto
+ * editar (`escola` com os valores atuais pré-preenchidos). Em modo edição,
+ * `onCancel` fecha o formulário sem salvar.
+ */
+export function EscolaForm({ escola, onSaved, onCancel }: { escola?: EscolaEditavel; onSaved?: () => void; onCancel?: () => void }) {
   const router = useRouter();
+  const editando = Boolean(escola);
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
@@ -33,7 +44,9 @@ export function EscolaForm() {
       estado: form.get("estado"),
     };
 
-    const result = await apiPostJson<{ geocodificada: boolean }>("/api/motorista/escolas", payload);
+    const result = editando
+      ? await apiPatchJson<{ geocodificada: boolean }>(`/api/motorista/escolas/${escola!.id}`, payload)
+      : await apiPostJson<{ geocodificada: boolean }>("/api/motorista/escolas", payload);
     setLoading(false);
 
     if (!result.ok) {
@@ -48,8 +61,9 @@ export function EscolaForm() {
       );
     }
 
-    event.currentTarget.reset();
+    if (!editando) event.currentTarget.reset();
     router.refresh();
+    onSaved?.();
   }
 
   return (
@@ -58,18 +72,40 @@ export function EscolaForm() {
         <label className="mb-1 block text-sm font-medium" htmlFor="nome">
           Nome da escola
         </label>
-        <input id="nome" name="nome" required className={inputClass} />
+        <input id="nome" name="nome" required defaultValue={escola?.nome} className={inputClass} />
         <FieldError message={issues.nome?.[0]} />
       </div>
 
-      <EnderecoFields issues={issues} />
+      <EnderecoFields
+        issues={issues}
+        defaultValues={
+          escola
+            ? {
+                cep: escola.cep ?? "",
+                logradouro: escola.logradouro ?? "",
+                numero: escola.numero ?? "",
+                complemento: escola.complemento ?? "",
+                bairro: escola.bairro ?? "",
+                cidade: escola.cidade ?? "",
+                estado: escola.estado ?? "",
+              }
+            : undefined
+        }
+      />
 
       {formError && <p className="text-sm text-red-600">{formError}</p>}
       {warning && <p className="text-sm text-amber-700 dark:text-amber-400">{warning}</p>}
 
-      <button type="submit" disabled={loading} className={primaryButtonClass}>
-        {loading ? "Salvando…" : "Cadastrar escola"}
-      </button>
+      <div className="flex gap-3">
+        <button type="submit" disabled={loading} className={primaryButtonClass}>
+          {loading ? "Salvando…" : editando ? "Salvar alterações" : "Cadastrar escola"}
+        </button>
+        {editando && (
+          <button type="button" onClick={onCancel} className={secondaryButtonClass}>
+            Cancelar
+          </button>
+        )}
+      </div>
     </form>
   );
 }
