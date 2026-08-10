@@ -37,7 +37,10 @@ export async function POST() {
 
   const assinatura = await getAssinaturaAtual(motorista.id);
   if (!assinaturaPermiteAcesso(assinatura)) {
-    return jsonError(402, "Seu período de teste ou assinatura expirou. Assine um plano para gerar novos convites.");
+    const mensagem = assinatura
+      ? "Seu período de teste ou assinatura expirou. Assine um plano para gerar novos convites."
+      : "Escolha um plano para começar seu teste grátis de 7 dias e liberar a geração de convites.";
+    return jsonError(402, mensagem);
   }
 
   // Gera um código único; em caso de colisão (extremamente improvável dado o
