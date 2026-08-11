@@ -41,9 +41,15 @@ describe("enderecoSchema / CEP", () => {
     if (resultado.success) expect(resultado.data.cep).toBe("01310100");
   });
 
-  it("rejeita CEP com menos de 8 dígitos", () => {
+  it("rejeita CEP com menos de 8 dígitos (mas preenchido)", () => {
     const resultado = enderecoSchema.safeParse({ ...enderecoValido, cep: "1234" });
     expect(resultado.success).toBe(false);
+  });
+
+  it("aceita CEP em branco — endereço buscado direto por rua/número/bairro/cidade/UF", () => {
+    const resultado = enderecoSchema.safeParse({ ...enderecoValido, cep: "" });
+    expect(resultado.success).toBe(true);
+    if (resultado.success) expect(resultado.data.cep).toBe("");
   });
 
   it("converte UF para maiúsculas", () => {

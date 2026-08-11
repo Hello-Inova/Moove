@@ -1,22 +1,27 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { apiGet, apiPatchJson, apiPostJson } from "@/lib/api-client";
 import { inputClass, primaryButtonClass, secondaryButtonClass, dangerButtonClass } from "@/components/ui/form-elements";
 import { RotaMap } from "@/components/map/RotaMap";
 import { useLocationSharingContext } from "@/contexts/LocationSharingContext";
+import { haversineMetros } from "@/lib/geo/distancia";
 import type { RotaResponse } from "@/app/api/motorista/rota/route";
 
 type StatusEmbarque = "EMBARCOU" | "AUSENTE";
 type EmbarqueRegistro = { vinculoId: string; status: StatusEmbarque };
 
-// Recalcula sozinho enquanto a rota está ativa, mas com um intervalo bem
-// mais espaçado que o envio de GPS (a cada 12s) — o cálculo de rota é uma
-// chamada bem mais pesada (geocodificação já resolvida, mas o OSRM público
-// tem uso justo limitado), então só faz sentido recalcular de tempos em
-// tempos, não a cada atualização de posição.
-const RECALCULO_AUTOMATICO_MS = 3 * 60_000;
+// Recálculo automático da rota tem dois gatilhos: distância percorrida (o
+// que de fato importa — a rota só muda de verdade quando o motorista se
+// afasta o bastante do ponto onde ela foi traçada) e um teto de tempo como
+// rede de segurança (cobre o caso raro de ficar parado tempo suficiente pra
+// algo mudar por fora, ex: um responsável acabou de cadastrar endereço).
+// Os dois respeitam o uso justo do OSRM público — não recalcula a cada
+// atualização de GPS (12s), só quando um dos dois critérios bate.
+const RECALCULO_DISTANCIA_MINIMA_M = 400;
+const RECALCULO_COOLDOWN_MS = 30_000;
+const RECALCULO_TETO_MS = 3 * 60_000;
 
 type Escola = { id: string; nome: string };
 
@@ -55,6 +60,23 @@ export function RotaPanel() {
   // "" = rota normal (todos os alunos); id = modo "ir até uma escola".
   const [modoEscolaAtivo, setModoEscolaAtivo] = useState<string>("");
 
+  // Posição (ao vivo, do GPS) e horário do último recálculo bem-sucedido —
+  // é a partir daqui que decidimos se já andou longe/tempo o suficiente pra
+  // valer a pena recalcular de novo. Refs porque só são lidos dentro de
+  // callbacks/efeitos, não precisam disparar re-render sozinhos.
+  const posicaoUltimoCalculoRef = useRef<{ latitude: number; longitude: number } | null>(null);
+  const ultimoCalculoEmRef = useRef<number>(0);
+  const posicaoAtualRef = useRef(position);
+  useEffect(() => {
+    posicaoAtualRef.current = position;
+  }, [position]);
+  // Lido dentro do interval de segurança (ver efeito abaixo) — precisa ser
+  // ref pra não ficar "preso" no valor de quando o interval foi criado.
+  const modoEscolaAtivoRef = useRef(modoEscolaAtivo);
+  useEffect(() => {
+    modoEscolaAtivoRef.current = modoEscolaAtivo;
+  }, [modoEscolaAtivo]);
+
   const carregar = useCallback(async (escolaId?: string) => {
     setLoading(true);
     const url = escolaId ? `/api/motorista/rota?escolaId=${encodeURIComponent(escolaId)}` : "/api/motorista/rota";
@@ -67,6 +89,8 @@ export function RotaPanel() {
     }
     setError(null);
     setRota(result.data);
+    posicaoUltimoCalculoRef.current = posicaoAtualRef.current;
+    ultimoCalculoEmRef.current = Date.now();
   }, []);
 
   useEffect(() => {
@@ -86,15 +110,42 @@ export function RotaPanel() {
       }
     });
 
-    // O recálculo automático só se aplica ao modo normal (todos os alunos)
-    // — no modo "ir até escola" o motorista pediu explicitamente, não faz
-    // sentido recalcular sozinho de tempos em tempos.
-    const interval = setInterval(() => {
-      if (!modoEscolaAtivo) void carregar();
-    }, RECALCULO_AUTOMATICO_MS);
-    return () => clearInterval(interval);
+    // Rede de segurança independente do GPS: se por algum motivo o
+    // navegador parar de disparar `watchPosition` (ex: parado, sem
+    // movimento suficiente pro sensor considerar "mudou"), ainda garante um
+    // recálculo periódico no modo normal — mesma garantia que já existia
+    // antes do recálculo por distância.
+    const tetoInterval = setInterval(() => {
+      if (!modoEscolaAtivoRef.current && Date.now() - ultimoCalculoEmRef.current >= RECALCULO_TETO_MS) {
+        void carregar();
+      }
+    }, 30_000);
+    return () => clearInterval(tetoInterval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSharing, carregar]);
+
+  // Recálculo automático conforme o motorista se move — dispara quando ele
+  // se afasta o bastante do ponto onde a rota foi traçada por último (não
+  // a cada tick de GPS: teria custo alto no OSRM público pra um ganho
+  // mínimo, já que a rota mal muda de um quarteirão pro outro). O teto de
+  // tempo é só uma rede de segurança pro caso raro de ficar parado tempo
+  // demais. Só se aplica ao modo normal — no modo "ir até escola" o
+  // motorista pediu explicitamente, não faz sentido recalcular sozinho.
+  useEffect(() => {
+    if (!isSharing || modoEscolaAtivo || loading || !position) return;
+
+    const ultimaPosicao = posicaoUltimoCalculoRef.current;
+    if (!ultimaPosicao) return; // ainda não teve o primeiro cálculo bem-sucedido
+
+    const desdeUltimoCalculo = Date.now() - ultimoCalculoEmRef.current;
+    if (desdeUltimoCalculo < RECALCULO_COOLDOWN_MS) return;
+
+    const distanciaPercorrida = haversineMetros(ultimaPosicao, position);
+    const deveRecalcular =
+      distanciaPercorrida >= RECALCULO_DISTANCIA_MINIMA_M || desdeUltimoCalculo >= RECALCULO_TETO_MS;
+
+    if (deveRecalcular) void carregar();
+  }, [position, isSharing, modoEscolaAtivo, loading, carregar]);
 
   function irParaEscola() {
     if (!escolaSelecionada) return;

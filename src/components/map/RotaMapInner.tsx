@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
 import type { ParadaRota } from "@/app/api/motorista/rota/route";
+import { FullscreenButton, InvalidateOnResize, useFecharComEsc } from "@/components/map/MapFullscreen";
 
 const motoristaIcon = L.icon({
   iconUrl: "/leaflet/marker-icon.png",
@@ -138,39 +139,50 @@ export function RotaMapInner({
     ...paradas.map((p): [number, number] => [p.latitude, p.longitude]),
   ];
 
+  const [expandido, setExpandido] = useState(false);
+  const fecharFullscreen = useCallback(() => setExpandido(false), []);
+  useFecharComEsc(expandido, fecharFullscreen);
+
   return (
-    <MapContainer center={pontos[0]} zoom={14} scrollWheelZoom className="h-full w-full">
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
+    // `position: fixed` escapa do wrapper com altura fixa/overflow-hidden
+    // que a página (RotaPanel.tsx) usa em volta do mapa — cobre a tela
+    // inteira independente de onde o componente está montado no layout.
+    <div className={expandido ? "fixed inset-0 z-[1500] bg-white dark:bg-neutral-950" : "relative h-full w-full"}>
+      <MapContainer center={pontos[0]} zoom={14} scrollWheelZoom className="h-full w-full">
+        <TileLayer
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
 
-      <Marker position={[motorista.latitude, motorista.longitude]} icon={motoristaIcon}>
-        <Popup>Você está aqui</Popup>
-      </Marker>
-
-      {paradas.map((p) => (
-        <Marker
-          key={p.vinculoId}
-          position={[p.latitude, p.longitude]}
-          icon={paradaIcon(p.sequencia, concluidas.has(p.vinculoId))}
-        >
-          <Popup>
-            <strong>
-              {p.sequencia}. {p.alunoNome}
-            </strong>
-            <br />
-            {p.enderecoResumo}
-          </Popup>
+        <Marker position={[motorista.latitude, motorista.longitude]} icon={motoristaIcon}>
+          <Popup>Você está aqui</Popup>
         </Marker>
-      ))}
 
-      {geometria && geometria.length > 1 && (
-        <Polyline positions={geometria} pathOptions={{ color: "#1e293b", weight: 4, opacity: 0.8 }} />
-      )}
+        {paradas.map((p) => (
+          <Marker
+            key={p.vinculoId}
+            position={[p.latitude, p.longitude]}
+            icon={paradaIcon(p.sequencia, concluidas.has(p.vinculoId))}
+          >
+            <Popup>
+              <strong>
+                {p.sequencia}. {p.alunoNome}
+              </strong>
+              <br />
+              {p.enderecoResumo}
+            </Popup>
+          </Marker>
+        ))}
 
-      <FitBounds motorista={motorista} paradas={paradas.map((p): [number, number] => [p.latitude, p.longitude])} />
-      <FollowControl motorista={motorista} />
-    </MapContainer>
+        {geometria && geometria.length > 1 && (
+          <Polyline positions={geometria} pathOptions={{ color: "#1e293b", weight: 4, opacity: 0.8 }} />
+        )}
+
+        <FitBounds motorista={motorista} paradas={paradas.map((p): [number, number] => [p.latitude, p.longitude])} />
+        <FollowControl motorista={motorista} />
+        <FullscreenButton expandido={expandido} onToggle={() => setExpandido((e) => !e)} />
+        <InvalidateOnResize watch={expandido} />
+      </MapContainer>
+    </div>
   );
 }

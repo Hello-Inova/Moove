@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+
+import { FullscreenButton, InvalidateOnResize, useFecharComEsc } from "@/components/map/MapFullscreen";
 
 // Os ícones padrão do Leaflet referenciam URLs relativas ao pacote que não
 // resolvem no bundler do Next.js. Servimos as mesmas imagens via /public.
@@ -67,39 +69,51 @@ export function VehicleMapInner({
 }) {
   const temDestino = !!destino;
 
+  const [expandido, setExpandido] = useState(false);
+  const fecharFullscreen = useCallback(() => setExpandido(false), []);
+  useFecharComEsc(expandido, fecharFullscreen);
+
   return (
-    <MapContainer
-      center={[latitude, longitude]}
-      zoom={16}
-      scrollWheelZoom
-      className="h-full w-full"
-    >
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
-      <Marker position={[latitude, longitude]} icon={vehicleIcon}>
-        <Popup>{label}</Popup>
-      </Marker>
-
-      {destino && (
-        <Marker position={[destino.latitude, destino.longitude]} icon={destinoIcon}>
-          <Popup>Seu endereço</Popup>
+    // `position: fixed` escapa do wrapper com altura fixa/overflow-hidden
+    // que a página (BuscarPlacaClient.tsx) usa em volta do mapa — cobre a
+    // tela inteira independente de onde o componente está montado no layout.
+    <div className={expandido ? "fixed inset-0 z-[1500] bg-white dark:bg-neutral-950" : "relative h-full w-full"}>
+      <MapContainer
+        center={[latitude, longitude]}
+        zoom={16}
+        scrollWheelZoom
+        className="h-full w-full"
+      >
+        <TileLayer
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
+        <Marker position={[latitude, longitude]} icon={vehicleIcon}>
+          <Popup>{label}</Popup>
         </Marker>
-      )}
 
-      {geometria && geometria.length > 1 && (
-        <Polyline positions={geometria} pathOptions={{ color: "#1e293b", weight: 4, opacity: 0.8 }} />
-      )}
+        {destino && (
+          <Marker position={[destino.latitude, destino.longitude]} icon={destinoIcon}>
+            <Popup>Seu endereço</Popup>
+          </Marker>
+        )}
 
-      {/* Sem destino, mantém o comportamento de antes (recentraliza no
-          veículo a cada atualização); com destino, ajusta o zoom pra
-          mostrar as duas pontas do trajeto de uma vez. */}
-      {temDestino ? (
-        <FitBounds pontos={[[latitude, longitude], [destino!.latitude, destino!.longitude]]} />
-      ) : (
-        <Recenter latitude={latitude} longitude={longitude} />
-      )}
-    </MapContainer>
+        {geometria && geometria.length > 1 && (
+          <Polyline positions={geometria} pathOptions={{ color: "#1e293b", weight: 4, opacity: 0.8 }} />
+        )}
+
+        {/* Sem destino, mantém o comportamento de antes (recentraliza no
+            veículo a cada atualização); com destino, ajusta o zoom pra
+            mostrar as duas pontas do trajeto de uma vez. */}
+        {temDestino ? (
+          <FitBounds pontos={[[latitude, longitude], [destino!.latitude, destino!.longitude]]} />
+        ) : (
+          <Recenter latitude={latitude} longitude={longitude} />
+        )}
+
+        <FullscreenButton expandido={expandido} onToggle={() => setExpandido((e) => !e)} />
+        <InvalidateOnResize watch={expandido} />
+      </MapContainer>
+    </div>
   );
 }

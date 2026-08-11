@@ -30,15 +30,21 @@ function formatarCep(v: string): string {
 }
 
 /**
- * Campos de endereço com autocomplete por CEP (ViaCEP — gratuito, sem
- * chave). Ao completar os 8 dígitos, busca rua/bairro/cidade/UF e preenche
- * os campos (o usuário ainda pode editar, caso o CEP retorne algo
- * impreciso). Número e complemento são sempre digitados manualmente.
+ * Campos de endereço com autocomplete OPCIONAL por CEP (ViaCEP — gratuito,
+ * sem chave). Ao completar os 8 dígitos, busca rua/bairro/cidade/UF e
+ * preenche os campos (o usuário ainda pode editar, caso o CEP retorne algo
+ * impreciso). Quem não souber o CEP (ou preferir não usá-lo) pode deixá-lo
+ * em branco e preencher rua/número/bairro/cidade/UF direto — a
+ * geocodificação (`src/lib/geocoding.ts`) busca a coordenada a partir
+ * desses campos estruturados mesmo sem CEP nenhum. Número e complemento são
+ * sempre digitados manualmente.
  *
- * Usado tanto no cadastro do responsável (`RegisterForm`) quanto na tela
- * "Meu endereço" (edição posterior) — os `name` dos inputs batem com
- * `enderecoSchema` em `src/lib/validation/schemas.ts`, então funciona só
- * com `FormData` do formulário pai, sem precisar levantar estado.
+ * Usado no cadastro de motorista e responsável (`RegisterForm`), na tela
+ * "Meu endereço" do responsável (edição posterior) e no cadastro de escola
+ * do motorista (`EscolaForm`) — os `name` dos inputs batem com
+ * `enderecoSchema`/`enderecoCampos` em `src/lib/validation/schemas.ts`,
+ * então funciona só com `FormData` do formulário pai, sem precisar levantar
+ * estado.
  */
 export function EnderecoFields({
   defaultValues,
@@ -87,23 +93,42 @@ export function EnderecoFields({
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3 sm:gap-4">
+      <div>
+        <label className="mb-1 block text-sm font-medium" htmlFor="cep">
+          CEP <span className="font-normal text-neutral-400">(opcional — preenche o resto sozinho)</span>
+        </label>
+        <input
+          id="cep"
+          name="cep"
+          inputMode="numeric"
+          placeholder="00000-000 — ou deixe em branco"
+          value={valores.cep}
+          onChange={(e) => set("cep", formatarCep(e.target.value))}
+          onBlur={(e) => buscarCep(e.target.value)}
+          className={inputClass}
+        />
+        <FieldError message={cepErro ?? issues?.cep?.[0]} />
+        {buscandoCep && <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">Buscando endereço…</p>}
+      </div>
+
+      <p className="text-xs text-neutral-500 dark:text-neutral-400">
+        Não sabe o CEP? Sem problema — preencha rua, número, bairro, cidade e UF abaixo direto.
+      </p>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_100px] sm:gap-4">
         <div>
-          <label className="mb-1 block text-sm font-medium" htmlFor="cep">
-            CEP
+          <label className="mb-1 block text-sm font-medium" htmlFor="logradouro">
+            Rua / Avenida
           </label>
           <input
-            id="cep"
-            name="cep"
+            id="logradouro"
+            name="logradouro"
             required
-            inputMode="numeric"
-            placeholder="00000-000"
-            value={valores.cep}
-            onChange={(e) => set("cep", formatarCep(e.target.value))}
-            onBlur={(e) => buscarCep(e.target.value)}
+            value={valores.logradouro}
+            onChange={(e) => set("logradouro", e.target.value)}
             className={inputClass}
           />
-          <FieldError message={cepErro ?? issues?.cep?.[0]} />
+          <FieldError message={issues?.logradouro?.[0]} />
         </div>
         <div>
           <label className="mb-1 block text-sm font-medium" htmlFor="estado">
@@ -114,6 +139,7 @@ export function EnderecoFields({
             name="estado"
             required
             maxLength={2}
+            placeholder="SP"
             value={valores.estado}
             onChange={(e) => set("estado", e.target.value.toUpperCase())}
             className={inputClass + " uppercase"}
@@ -122,24 +148,7 @@ export function EnderecoFields({
         </div>
       </div>
 
-      {buscandoCep && <p className="text-xs text-neutral-500 dark:text-neutral-400">Buscando endereço…</p>}
-
-      <div>
-        <label className="mb-1 block text-sm font-medium" htmlFor="logradouro">
-          Rua / Avenida
-        </label>
-        <input
-          id="logradouro"
-          name="logradouro"
-          required
-          value={valores.logradouro}
-          onChange={(e) => set("logradouro", e.target.value)}
-          className={inputClass}
-        />
-        <FieldError message={issues?.logradouro?.[0]} />
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 sm:gap-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
         <div>
           <label className="mb-1 block text-sm font-medium" htmlFor="numero">
             Número

@@ -13,19 +13,24 @@ const telefone = z
   .min(8, "Telefone inválido.")
   .max(20, "Telefone inválido.");
 
+// CEP é opcional — serve só de atalho pra autopreencher rua/bairro/cidade/UF
+// (ver EnderecoFields.tsx, autocomplete via ViaCEP). Quem preferir (ou não
+// souber o CEP) pode preencher rua/número/bairro/cidade/UF direto; a
+// geocodificação (src/lib/geocoding.ts) já busca por esses campos
+// estruturados mesmo sem CEP, então não há motivo pra exigi-lo.
 const cep = z
   .string()
   .trim()
   .transform((v) => v.replace(/\D/g, ""))
-  .refine((v) => v.length === 8, "CEP inválido — use 8 dígitos.");
+  .refine((v) => v.length === 0 || v.length === 8, "CEP inválido — use 8 dígitos, ou deixe em branco.");
 
 const enderecoCampos = {
   cep,
-  logradouro: z.string().trim().min(2, "Endereço inválido — confira o CEP."),
+  logradouro: z.string().trim().min(2, "Informe a rua/avenida."),
   numero: z.string().trim().min(1, "Informe o número."),
   complemento: z.string().trim().max(80).optional(),
-  bairro: z.string().trim().min(1, "Bairro inválido — confira o CEP."),
-  cidade: z.string().trim().min(1, "Cidade inválida — confira o CEP."),
+  bairro: z.string().trim().min(1, "Informe o bairro."),
+  cidade: z.string().trim().min(1, "Informe a cidade."),
   estado: z.string().trim().length(2, "UF inválida.").toUpperCase(),
 };
 
