@@ -3,8 +3,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyPassword } from "@/lib/auth/password";
 import { loginSchema } from "@/lib/validation/schemas";
-import { jsonError, jsonValidationError } from "@/lib/http";
+import { jsonError, jsonValidationError, jsonRateLimited } from "@/lib/http";
 import { issueVerificationCode, EmailSendError, ResendCooldownError } from "@/lib/email/verification";
+import { aplicarRateLimitLogin, clientIp } from "@/lib/rate-limit";
 
 /**
  * Primeira etapa do login: valida e-mail+senha e, se ok, envia um código de
@@ -19,6 +20,17 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) return jsonValidationError(parsed.error);
 
   const { email, senha } = parsed.data;
+
+  // Limite por e-mail (protege UMA conta de força bruta de senha) e por IP
+  // (protege contra alguém testando várias contas em sequência).
+  const rateLimit = await aplicarRateLimitLogin({
+    escopo: "login:motorista",
+    identificador: email,
+    ip: clientIp(request),
+    porIdentificador: { max: 8, janelaMinutos: 15 },
+    porIp: { max: 20, janelaMinutos: 15 },
+  });
+  if (!rateLimit.ok) return jsonRateLimited(rateLimit.retryAfterSegundos);
 
   const motorista = await prisma.motorista.findUnique({ where: { email } });
   const senhaOk = motorista ? await verifyPassword(senha, motorista.senhaHash) : false;

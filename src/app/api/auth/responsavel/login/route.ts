@@ -3,8 +3,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyPassword } from "@/lib/auth/password";
 import { loginSchema } from "@/lib/validation/schemas";
-import { jsonError, jsonValidationError } from "@/lib/http";
+import { jsonError, jsonValidationError, jsonRateLimited } from "@/lib/http";
 import { issueVerificationCode, EmailSendError, ResendCooldownError } from "@/lib/email/verification";
+import { aplicarRateLimitLogin, clientIp } from "@/lib/rate-limit";
 
 /**
  * Primeira etapa do login: valida e-mail+senha e, se ok, envia um código de
@@ -19,6 +20,15 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) return jsonValidationError(parsed.error);
 
   const { email, senha } = parsed.data;
+
+  const rateLimit = await aplicarRateLimitLogin({
+    escopo: "login:responsavel",
+    identificador: email,
+    ip: clientIp(request),
+    porIdentificador: { max: 8, janelaMinutos: 15 },
+    porIp: { max: 20, janelaMinutos: 15 },
+  });
+  if (!rateLimit.ok) return jsonRateLimited(rateLimit.retryAfterSegundos);
 
   const responsavel = await prisma.responsavel.findUnique({ where: { email } });
   const senhaOk = responsavel ? await verifyPassword(senha, responsavel.senhaHash) : false;

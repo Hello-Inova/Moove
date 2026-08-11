@@ -2,9 +2,10 @@ import { timingSafeEqual } from "crypto";
 
 import { NextRequest, NextResponse } from "next/server";
 
-import { jsonError, jsonValidationError } from "@/lib/http";
+import { jsonError, jsonValidationError, jsonRateLimited } from "@/lib/http";
 import { adminLoginSchema } from "@/lib/validation/schemas";
 import { createSession } from "@/lib/auth/session";
+import { aplicarRateLimitLogin, clientIp } from "@/lib/rate-limit";
 
 function timingSafeCompare(a: string, b: string): boolean {
   const bufA = Buffer.from(a);
@@ -27,6 +28,17 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) return jsonValidationError(parsed.error);
 
   const { email, senha } = parsed.data;
+
+  // Credencial única e fixa (sem tabela de admins) — o alvo de força bruta
+  // mais valioso do sistema, então o limite aqui é o mais rígido de todos.
+  const rateLimit = await aplicarRateLimitLogin({
+    escopo: "login:admin",
+    identificador: "admin",
+    ip: clientIp(request),
+    porIdentificador: { max: 5, janelaMinutos: 15 },
+    porIp: { max: 5, janelaMinutos: 15 },
+  });
+  if (!rateLimit.ok) return jsonRateLimited(rateLimit.retryAfterSegundos);
 
   const emailOk = timingSafeCompare(email, adminEmail.toLowerCase());
   const senhaOk = timingSafeCompare(senha, adminSenha);

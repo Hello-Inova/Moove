@@ -615,6 +615,25 @@ model PagamentoResponsavel {
 }
 
 // ---------------------------------------------------------------------------
+// TentativaAcesso — registro cru de cada tentativa de login (motorista,
+// responsável, admin), usado só para rate limiting (ver src/lib/rate-limit.ts).
+// Linhas somem sozinhas na limpeza diária (ver /api/cron/limpeza) — não tem
+// valor nenhum depois da janela de contagem (15 min).
+// ---------------------------------------------------------------------------
+
+model TentativaAcesso {
+  id       String   @id @default(cuid())
+  // Ex: "login:motorista:fulano@x.com" ou "login:admin:ip:187.1.2.3" — uma
+  // linha por combinação de escopo+identificador+tentativa, contada dentro
+  // de uma janela de tempo curta.
+  chave    String
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  @@index([chave, criadoEm])
+  @@map("tentativas_acesso")
+}
+
+// ---------------------------------------------------------------------------
 // CodigoVerificacao — código de 6 dígitos enviado por e-mail, usado tanto
 // para confirmar o cadastro (a conta só é criada depois de validado) quanto
 // como segundo fator obrigatório em todo login.
