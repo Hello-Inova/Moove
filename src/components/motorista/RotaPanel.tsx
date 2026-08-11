@@ -39,7 +39,7 @@ type ResumoPercurso = {
 };
 
 export function RotaPanel() {
-  const { isSharing, confirmAndRun } = useLocationSharingContext();
+  const { isSharing, confirmAndRun, position } = useLocationSharingContext();
   const [rota, setRota] = useState<RotaResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -237,7 +237,12 @@ export function RotaPanel() {
               aplicação — ver StopSharingDialog.tsx. */}
           <div className="isolate mt-3 h-[360px] overflow-hidden rounded-xl border border-neutral-200 dark:border-neutral-700">
             <RotaMap
-              motorista={rota.motorista}
+              // Posição "ao vivo" do GPS do navegador (atualiza a cada
+              // poucos segundos) em vez da posição de quando a rota foi
+              // calculada por último (só a cada 3 min) — é o que faz o
+              // próprio motorista se ver de fato se movendo no mapa,
+              // sem depender de recalcular a rota inteira no OSRM.
+              motorista={position ?? rota.motorista}
               paradas={rota.paradas}
               concluidas={
                 new Set(Object.entries(statusPorVinculo).filter(([, s]) => s === "EMBARCOU").map(([id]) => id))

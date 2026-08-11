@@ -33,17 +33,33 @@ function paradaIcon(sequencia: number, concluida: boolean) {
   });
 }
 
-function FitBounds({ pontos }: { pontos: [number, number][] }) {
+/**
+ * Ajusta o zoom/enquadramento pra mostrar motorista + paradas de uma vez —
+ * mas só quando a ROTA muda (paradas/traçado), não a cada tick de GPS do
+ * motorista (que agora atualiza a cada poucos segundos, não mais só a cada
+ * 3min — ver RotaPanel.tsx). Se recalculasse o enquadramento a cada tick, o
+ * mapa ficaria "puxando" o zoom/posição sozinho o tempo todo enquanto o
+ * motorista dirige, brigando com quem está tentando olhar o mapa manualmente.
+ * A posição atual do motorista ainda entra na conta (lida no momento em que
+ * o efeito roda), só não é o que "dispara" o reenquadramento.
+ */
+function FitBounds({
+  motorista,
+  paradas,
+}: {
+  motorista: { latitude: number; longitude: number };
+  paradas: [number, number][];
+}) {
   const map = useMap();
   useEffect(() => {
-    if (pontos.length === 0) return;
+    const pontos: [number, number][] = [[motorista.latitude, motorista.longitude], ...paradas];
     if (pontos.length === 1) {
       map.setView(pontos[0], 16);
       return;
     }
     map.fitBounds(L.latLngBounds(pontos), { padding: [32, 32] });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [JSON.stringify(pontos)]);
+  }, [JSON.stringify(paradas)]);
   return null;
 }
 
@@ -153,7 +169,7 @@ export function RotaMapInner({
         <Polyline positions={geometria} pathOptions={{ color: "#1e293b", weight: 4, opacity: 0.8 }} />
       )}
 
-      <FitBounds pontos={pontos} />
+      <FitBounds motorista={motorista} paradas={paradas.map((p): [number, number] => [p.latitude, p.longitude])} />
       <FollowControl motorista={motorista} />
     </MapContainer>
   );

@@ -2,13 +2,16 @@
 
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 
-import { useLocationSharing, type LocationSharingStatus } from "@/hooks/useLocationSharing";
+import { useLocationSharing, type LocationSharingStatus, type LatLng } from "@/hooks/useLocationSharing";
 import { StopSharingDialog } from "@/components/motorista/StopSharingDialog";
 
 type LocationSharingContextValue = {
   status: LocationSharingStatus;
   error: string | null;
   lastSentAt: Date | null;
+  /** Posição "ao vivo" do GPS do navegador (não throttled) — ver
+   * useLocationSharing.ts. `null` antes da primeira leitura do GPS. */
+  position: LatLng | null;
   isSharing: boolean;
   start: () => void;
   /**
@@ -26,6 +29,7 @@ const LocationSharingCtx = createContext<LocationSharingContextValue>({
   status: "parado",
   error: null,
   lastSentAt: null,
+  position: null,
   isSharing: false,
   start: () => {},
   confirmAndRun: (action) => action(),
@@ -36,7 +40,7 @@ export function useLocationSharingContext() {
 }
 
 export function LocationSharingProvider({ children }: { children: ReactNode }) {
-  const { status, error, lastSentAt, start, stop } = useLocationSharing();
+  const { status, error, lastSentAt, position, start, stop } = useLocationSharing();
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
   const isSharing = status === "ativando" || status === "compartilhando";
 
@@ -64,7 +68,7 @@ export function LocationSharingProvider({ children }: { children: ReactNode }) {
   }, [isSharing]);
 
   return (
-    <LocationSharingCtx.Provider value={{ status, error, lastSentAt, isSharing, start, confirmAndRun }}>
+    <LocationSharingCtx.Provider value={{ status, error, lastSentAt, position, isSharing, start, confirmAndRun }}>
       {children}
       <StopSharingDialog
         open={pendingAction !== null}

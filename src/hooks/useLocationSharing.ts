@@ -10,10 +10,18 @@ const SEND_INTERVAL_MS = 12_000;
 
 export type LocationSharingStatus = "parado" | "ativando" | "compartilhando" | "erro";
 
+export type LatLng = { latitude: number; longitude: number };
+
 export function useLocationSharing() {
   const [status, setStatus] = useState<LocationSharingStatus>("parado");
   const [error, setError] = useState<string | null>(null);
   const [lastSentAt, setLastSentAt] = useState<Date | null>(null);
+  // Posição "ao vivo" do GPS do navegador — atualizada a cada leitura do
+  // `watchPosition`, sem o throttle de 12s do envio ao servidor. Usada para
+  // o próprio motorista se ver se movendo no mapa em tempo real (ver
+  // RotaPanel.tsx); o envio ao servidor continua throttled normalmente, só
+  // o marcador local na tela do motorista é que não precisa esperar isso.
+  const [position, setPosition] = useState<LatLng | null>(null);
 
   const watchIdRef = useRef<number | null>(null);
   const lastSentRef = useRef(0);
@@ -73,6 +81,7 @@ export function useLocationSharing() {
       watchIdRef.current = null;
     }
     releaseWakeLock();
+    setPosition(null);
     setStatus("parado");
   }, [releaseWakeLock]);
 
@@ -95,6 +104,7 @@ export function useLocationSharing() {
     const id = navigator.geolocation.watchPosition(
       (pos) => {
         setStatus("compartilhando");
+        setPosition({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
         void sendPosition(pos);
       },
       (err) => {
@@ -141,5 +151,5 @@ export function useLocationSharing() {
     };
   }, [releaseWakeLock]);
 
-  return { status, error, lastSentAt, start, stop };
+  return { status, error, lastSentAt, position, start, stop };
 }
