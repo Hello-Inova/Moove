@@ -19,6 +19,7 @@ import "server-only";
 
 const LOCATIONIQ_URL = "https://us1.locationiq.com/v1/search";
 const NOMINATIM_URL = "https://nominatim.openstreetmap.org/search";
+const BRASILAPI_CEP_URL = "https://brasilapi.com.br/api/cep/v2";
 
 export type GeocodeResult = { latitude: number; longitude: number };
 
@@ -198,6 +199,57 @@ async function buscar(params: Record<string, string>): Promise<ResultadoBruto | 
   return buscarNominatim(params);
 }
 
+/**
+ * Coordenada associada diretamente ao CEP, via BrasilAPI (agrega Correios,
+ * ViaCEP e outras bases — cobertura melhor que qualquer uma isolada,
+ * inclusive para CEPs de loteamentos/condomínios fechados recentes que o
+ * OpenStreetMap não tem mapeado rua a rua).
+ *
+ * Importante: essa coordenada costuma ser do CENTRO do CEP (que pode cobrir
+ * só uma rua/quadra em bairros fechados, ou uma área maior em zonas rurais),
+ * não do número exato da casa. Por isso ela entra DEPOIS da busca
+ * estruturada (que acerta o número quando encontra), mas ANTES do texto
+ * livre — que é o passo mais propenso a "chutar" um lugar de outra rua
+ * inteiramente, só porque o nome bate.
+ */
+async function buscarCoordenadaPorCep(cepDigitos: string): Promise<GeocodeResult | null> {
+  if (cepDigitos.length !== 8) return null;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 6_000);
+
+  try {
+    const response = await fetch(`${BRASILAPI_CEP_URL}/${cepDigitos}`, {
+      headers: { "User-Agent": userAgent(), Accept: "application/json" },
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      console.warn(`[geocoding:brasilapi] ${response.status} para CEP ${cepDigitos}`);
+      return null;
+    }
+
+    const data = (await response.json()) as {
+      location?: { coordinates?: { latitude?: string | number; longitude?: string | number } };
+    };
+    const latitude = Number(data.location?.coordinates?.latitude);
+    const longitude = Number(data.location?.coordinates?.longitude);
+
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || (latitude === 0 && longitude === 0)) {
+      console.warn(`[geocoding:brasilapi] CEP ${cepDigitos} sem coordenada disponível na resposta.`);
+      return null;
+    }
+
+    console.info(`[geocoding:brasilapi] CEP ${cepDigitos} -> ${latitude},${longitude}`);
+    return { latitude, longitude };
+  } catch (err) {
+    console.warn(`[geocoding:brasilapi] falha ao consultar CEP ${cepDigitos}`, err);
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 // Remove acentos/maiúsculas pra comparar nomes de cidade sem depender de
 // grafia idêntica ("São Paulo" vs "Sao Paulo").
 function normalizar(texto: string): string {
@@ -220,6 +272,20 @@ function normalizar(texto: string): string {
 function cidadeBate(resultado: ResultadoBruto, cidadeEsperada: string): boolean {
   if (!resultado.displayName) return true; // sem texto pra checar, aceita
   return normalizar(resultado.displayName).includes(normalizar(cidadeEsperada));
+}
+
+/**
+ * Checagem extra, mais rigorosa que `cidadeBate` — usada só no passo de
+ * texto livre (o mais propenso a "chutar" errado). Além da cidade, exige que
+ * o bairro também apareça no resultado quando ele foi informado. Evita o
+ * caso "cidade certa, bairro errado" — ex.: pedir um endereço em "Portal dos
+ * Ipês, Cajamar" e receber de volta um lugar qualquer só porque também fica
+ * em Cajamar.
+ */
+function bairroTambemBate(resultado: ResultadoBruto, bairroEsperado?: string | null): boolean {
+  if (!bairroEsperado || !bairroEsperado.trim()) return true; // sem bairro informado, não dá pra exigir
+  if (!resultado.displayName) return true;
+  return normalizar(resultado.displayName).includes(normalizar(bairroEsperado));
 }
 
 /**
@@ -291,25 +357,55 @@ export async function geocodeEndereco(endereco: EnderecoParaGeocodificar): Promi
     );
   }
 
-  // 3) Texto livre como último recurso — menos preciso pro número exato,
-  // mas melhor do que não ter coordenada nenhuma.
+  // 3) Coordenada pelo CEP via BrasilAPI — não acerta o número exato da
+  // casa (é o centro do CEP), mas é bem mais confiável do que o texto livre
+  // do próximo passo, principalmente pra loteamentos/condomínios fechados
+  // que o OpenStreetMap não mapeia rua a rua (caso comum fora dos grandes
+  // centros). Não depende do OSM ter o bairro indexado, então funciona
+  // mesmo quando as etapas 1 e 2 não encontram nada.
+  const cepDigitos = endereco.cep.replace(/\D/g, "");
+  if (cepDigitos.length === 8) {
+    const porCep = await buscarCoordenadaPorCep(cepDigitos);
+    if (porCep) {
+      console.info("[geocoding] resolvido na ETAPA 3 (coordenada do CEP via BrasilAPI) — nível de precisão do CEP, não da casa");
+      return porCep;
+    }
+  }
+
+  // 4) Texto livre como último recurso — o mais propenso a "chutar" um
+  // lugar errado, então além de bater a cidade exige que o bairro (quando
+  // informado) também apareça no resultado.
   const textoLivre = [ruaComNumero, endereco.bairro, endereco.cidade, estado, endereco.cep, "Brasil"]
     .filter(Boolean)
     .join(", ");
 
   const viaTextoLivre = await buscar({ q: textoLivre, countrycodes: "br" });
-  if (viaTextoLivre && cidadeBate(viaTextoLivre, endereco.cidade)) {
+  if (viaTextoLivre && cidadeBate(viaTextoLivre, endereco.cidade) && bairroTambemBate(viaTextoLivre, endereco.bairro)) {
     console.warn(
-      "[geocoding] resolvido na ETAPA 3 (texto livre) — MENOS CONFIÁVEL pro número exato, mas cidade confere."
+      "[geocoding] resolvido na ETAPA 4 (texto livre) — MENOS CONFIÁVEL pro número exato, mas cidade/bairro conferem."
     );
     return viaTextoLivre;
   }
   if (viaTextoLivre) {
     console.warn(
-      `[geocoding] ETAPA 3 descartada: provedor devolveu um lugar de outra cidade ("${viaTextoLivre.displayName}", esperado "${endereco.cidade}"). Nenhuma etapa encontrou coordenada confiável — endereço fica sem geocodificação.`
+      `[geocoding] ETAPA 4 descartada: provedor devolveu um lugar que não bate cidade/bairro ("${viaTextoLivre.displayName}", esperado bairro "${endereco.bairro ?? "(não informado)"}" em "${endereco.cidade}"). Nenhuma etapa encontrou coordenada confiável — endereço fica sem geocodificação.`
     );
   }
   return null;
+}
+
+/**
+ * Busca uma coordenada aproximada só pela cidade/UF — usada exclusivamente
+ * para centralizar o mapa de ajuste manual (`PinPicker`) quando
+ * `geocodeEndereco` não encontra nada, em vez de deixar a pessoa sem mapa
+ * nenhum pra posicionar o pino. NUNCA deve ser salva como se fosse a
+ * localização real do endereço — é só um ponto de partida pro usuário
+ * arrastar o pino até o lugar certo.
+ */
+export async function geocodeCidadeAproximado(cidade: string, estado: string): Promise<GeocodeResult | null> {
+  if (!cidade.trim()) return null;
+  const resultado = await buscar({ city: cidade, state: nomeEstado(estado), country: "Brazil" });
+  return resultado ? { latitude: resultado.latitude, longitude: resultado.longitude } : null;
 }
 
 /** Monta a string de endereço padrão usada para exibir na UI (lista de

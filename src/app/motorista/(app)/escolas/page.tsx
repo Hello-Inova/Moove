@@ -34,6 +34,8 @@ export default async function MotoristaEscolasPage() {
           bairro: e.bairro,
           cidade: e.cidade,
           estado: e.estado,
+          enderecoLatitude: e.enderecoLatitude,
+          enderecoLongitude: e.enderecoLongitude,
           geocodificada: e.enderecoLatitude !== null && e.enderecoLongitude !== null,
         }))}
       />

@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getAuthenticatedMotorista } from "@/lib/auth/guards";
 import { escolaSchema } from "@/lib/validation/schemas";
 import { jsonError, jsonValidationError } from "@/lib/http";
-import { geocodeEndereco } from "@/lib/geocoding";
+import { geocodeCidadeAproximado, geocodeEndereco } from "@/lib/geocoding";
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const motorista = await getAuthenticatedMotorista();
@@ -55,10 +55,16 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     },
   });
 
+  const centroAproximado =
+    atualizada.enderecoLatitude === null ? await geocodeCidadeAproximado(cidade, estado) : null;
+
   return NextResponse.json({
     id: atualizada.id,
     nome: atualizada.nome,
     geocodificada: atualizada.enderecoLatitude !== null,
+    enderecoLatitude: atualizada.enderecoLatitude,
+    enderecoLongitude: atualizada.enderecoLongitude,
+    centroAproximado,
   });
 }
 

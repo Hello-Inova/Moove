@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getAuthenticatedMotorista } from "@/lib/auth/guards";
 import { escolaSchema } from "@/lib/validation/schemas";
 import { jsonError, jsonValidationError } from "@/lib/http";
-import { geocodeEndereco } from "@/lib/geocoding";
+import { geocodeCidadeAproximado, geocodeEndereco } from "@/lib/geocoding";
 
 export async function GET() {
   const motorista = await getAuthenticatedMotorista();
@@ -26,6 +26,8 @@ export async function GET() {
       bairro: e.bairro,
       cidade: e.cidade,
       estado: e.estado,
+      enderecoLatitude: e.enderecoLatitude,
+      enderecoLongitude: e.enderecoLongitude,
       geocodificada: e.enderecoLatitude !== null && e.enderecoLongitude !== null,
     }))
   );
@@ -61,11 +63,20 @@ export async function POST(request: NextRequest) {
     },
   });
 
+  // Quando a geocodificação automática falha por completo, ainda buscamos um
+  // centro aproximado (só cidade/UF) pra pelo menos centralizar o mapa de
+  // ajuste manual (PinPicker) no lugar certo, em vez de deixar o motorista
+  // sem mapa nenhum pra posicionar o pino.
+  const centroAproximado = coordenadas === null ? await geocodeCidadeAproximado(cidade, estado) : null;
+
   return NextResponse.json(
     {
       id: escola.id,
       nome: escola.nome,
       geocodificada: coordenadas !== null,
+      enderecoLatitude: escola.enderecoLatitude,
+      enderecoLongitude: escola.enderecoLongitude,
+      centroAproximado,
     },
     { status: 201 }
   );

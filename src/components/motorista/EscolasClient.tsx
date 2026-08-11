@@ -17,6 +17,8 @@ export type EscolaListagem = {
   bairro: string | null;
   cidade: string | null;
   estado: string | null;
+  enderecoLatitude: number | null;
+  enderecoLongitude: number | null;
   geocodificada: boolean;
 };
 
@@ -52,6 +54,8 @@ export function EscolasClient({ escolasIniciais }: { escolasIniciais: EscolaList
               bairro: e.bairro ?? "",
               cidade: e.cidade ?? "",
               estado: e.estado ?? "",
+              enderecoLatitude: e.enderecoLatitude,
+              enderecoLongitude: e.enderecoLongitude,
               geocodificada: e.geocodificada,
             }}
             onChanged={recarregar}

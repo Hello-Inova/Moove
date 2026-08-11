@@ -72,18 +72,37 @@ export function EnderecoFields({
       const response = await fetch(`https://viacep.com.br/ws/${digitos}/json/`);
       const data = await response.json();
 
-      if (data.erro) {
-        setCepErro("CEP não encontrado. Confira e tente de novo, ou preencha manualmente.");
+      if (!data.erro) {
+        setValores((v) => ({
+          ...v,
+          logradouro: data.logradouro || v.logradouro,
+          bairro: data.bairro || v.bairro,
+          cidade: data.localidade || v.cidade,
+          estado: data.uf || v.estado,
+        }));
         return;
       }
 
-      setValores((v) => ({
-        ...v,
-        logradouro: data.logradouro || v.logradouro,
-        bairro: data.bairro || v.bairro,
-        cidade: data.localidade || v.cidade,
-        estado: data.uf || v.estado,
-      }));
+      // ViaCEP não achou — acontece com alguma frequência em CEPs novos de
+      // loteamentos/condomínios fechados que ainda não caíram na base dele.
+      // A BrasilAPI agrega Correios + outras fontes e costuma ter cobertura
+      // melhor nesses casos, então tentamos ela antes de desistir.
+      const brasilApi = await fetch(`https://brasilapi.com.br/api/cep/v2/${digitos}`);
+      if (brasilApi.ok) {
+        const dataBrasilApi = await brasilApi.json();
+        setValores((v) => ({
+          ...v,
+          logradouro: dataBrasilApi.street || v.logradouro,
+          bairro: dataBrasilApi.neighborhood || v.bairro,
+          cidade: dataBrasilApi.city || v.cidade,
+          estado: dataBrasilApi.state || v.estado,
+        }));
+        return;
+      }
+
+      setCepErro(
+        "CEP não encontrado nas bases consultadas. Isso é comum em condomínios/loteamentos fechados recém-criados — preencha rua, número, bairro, cidade e UF manualmente."
+      );
     } catch {
       setCepErro("Não foi possível consultar o CEP agora. Preencha o endereço manualmente.");
     } finally {
