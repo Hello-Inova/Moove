@@ -6,6 +6,7 @@ import { buscarPlacaSchema } from "@/lib/validation/schemas";
 import { jsonError, jsonValidationError } from "@/lib/http";
 import { isLocationStale } from "@/lib/location";
 import { calcularRotaSimples } from "@/lib/routing/osrm";
+import { haversineMetros } from "@/lib/geo/distancia";
 
 export type RotaAteResponsavel = {
   destino: { latitude: number; longitude: number };
@@ -20,6 +21,24 @@ export type BuscaPlacaResponse = {
   localizacao: { latitude: number; longitude: number; atualizadoEm: string; desatualizada: boolean } | null;
   rota: RotaAteResponsavel | null;
 };
+
+// O mapa do responsável faz polling desta rota a cada 10s enquanto a tela
+// fica aberta (ver BuscarPlacaClient) — recalcular o trajeto no OSRM
+// (serviço público, de uso justo limitado) a cada um desses ciclos, para
+// cada responsável olhando o mapa ao mesmo tempo, é pesado demais e ainda
+// arrisca deixar a resposta lenta bem na hora que mais importa ser rápida
+// (o carro se movendo). Como o traçado da rua muda pouco de um poll pro
+// outro, só recalculamos quando o motorista andou uma distância relevante
+// ou o cache ficou velho — o resto do tempo só repetimos o último traçado
+// já calculado, e a resposta fica rápida (só leitura no banco). Cache em
+// memória por instância — reseta em cold start, o que é inofensivo (só
+// recalcula uma vez a mais).
+const ROTA_CACHE_TTL_MS = 25_000;
+const ROTA_CACHE_DISTANCIA_MINIMA_M = 40;
+const rotaCache = new Map<
+  string,
+  { calculadoEm: number; origem: { latitude: number; longitude: number }; rota: RotaAteResponsavel | null }
+>();
 
 /**
  * Ponto de segurança mais crítico do sistema (regra de negócio 4): nenhuma
@@ -65,32 +84,50 @@ export async function GET(request: NextRequest) {
 
   if (localizacao && responsavel.enderecoLatitude !== null && responsavel.enderecoLongitude !== null) {
     const destino = { latitude: responsavel.enderecoLatitude, longitude: responsavel.enderecoLongitude };
-    const resultado = await calcularRotaSimples(
-      { latitude: localizacao.latitude, longitude: localizacao.longitude },
-      destino
-    );
-    if (resultado) {
-      rota = {
-        destino,
-        distanciaMetros: resultado.distanciaMetros,
-        duracaoSegundos: resultado.duracaoSegundos,
-        // GeoJSON vem como [lon, lat] — Leaflet espera [lat, lon].
-        geometria: resultado.geometria.coordinates.map(([lon, lat]) => [lat, lon]),
-      };
+    const origem = { latitude: localizacao.latitude, longitude: localizacao.longitude };
+    const chaveCache = `${veiculo.motoristaId}:${responsavel.id}`;
+    const emCache = rotaCache.get(chaveCache);
+
+    const podeReaproveitar =
+      emCache &&
+      Date.now() - emCache.calculadoEm < ROTA_CACHE_TTL_MS &&
+      haversineMetros(emCache.origem, origem) < ROTA_CACHE_DISTANCIA_MINIMA_M;
+
+    if (podeReaproveitar) {
+      rota = emCache.rota;
+    } else {
+      // Timeout curto (4s, não os 10s padrão) — isso aqui roda dentro do
+      // caminho de polling a cada 10s; se o OSRM travar, preferimos devolver
+      // rápido só com a posição do carro (sem o traçado) a segurar a
+      // resposta inteira e atrasar a atualização do marcador no mapa.
+      const resultado = await calcularRotaSimples(origem, destino, 4_000);
+      if (resultado) {
+        rota = {
+          destino,
+          distanciaMetros: resultado.distanciaMetros,
+          duracaoSegundos: resultado.duracaoSegundos,
+          // GeoJSON vem como [lon, lat] — Leaflet espera [lat, lon].
+          geometria: resultado.geometria.coordinates.map(([lon, lat]) => [lat, lon]),
+        };
+      }
+      rotaCache.set(chaveCache, { calculadoEm: Date.now(), origem, rota });
     }
   }
 
-  return NextResponse.json({
-    veiculo: { placa: veiculo.placa, modelo: veiculo.modelo },
-    motorista: { nome: veiculo.motorista.nome },
-    localizacao: localizacao
-      ? {
-          latitude: localizacao.latitude,
-          longitude: localizacao.longitude,
-          atualizadoEm: localizacao.atualizadoEm,
-          desatualizada: isLocationStale(localizacao.atualizadoEm),
-        }
-      : null,
-    rota,
-  });
+  return NextResponse.json(
+    {
+      veiculo: { placa: veiculo.placa, modelo: veiculo.modelo },
+      motorista: { nome: veiculo.motorista.nome },
+      localizacao: localizacao
+        ? {
+            latitude: localizacao.latitude,
+            longitude: localizacao.longitude,
+            atualizadoEm: localizacao.atualizadoEm,
+            desatualizada: isLocationStale(localizacao.atualizadoEm),
+          }
+        : null,
+      rota,
+    },
+    { headers: { "Cache-Control": "no-store" } }
+  );
 }

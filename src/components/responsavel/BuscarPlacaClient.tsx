@@ -75,11 +75,17 @@ export function BuscarPlacaClient({ placaInicial }: { placaInicial?: string }) {
     const result = await apiGet<BuscaResponse>(`/api/responsavel/buscar-placa?placa=${encodeURIComponent(placa)}`);
     if (!result.ok) {
       setError(result.error);
-      setData(null);
-      // Se o vínculo foi revogado no meio do polling, paramos de tentar.
-      if (intervalRef.current) {
+      // Só paramos de tentar de vez quando o erro é definitivo (403 = vínculo
+      // revogado no meio do polling — tentar de novo nunca vai funcionar).
+      // Qualquer outra falha (queda de conexão do celular em movimento, 5xx
+      // passageiro, timeout) é tratada como soluço temporário: mantemos a
+      // última posição conhecida no mapa (não zera `data`) e o próximo tick
+      // do polling tenta de novo sozinho — é exatamente esse tipo de falha
+      // passageira que fazia o mapa "congelar" no meio de uma rota.
+      if (result.status === 403 && intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
+        setData(null);
       }
       return;
     }
@@ -134,7 +140,17 @@ export function BuscarPlacaClient({ placaInicial }: { placaInicial?: string }) {
       )}
 
       {loading && !data && !error && <p className="text-sm text-neutral-500 dark:text-neutral-400">Buscando…</p>}
-      {error && <p className="text-sm text-red-600">{error}</p>}
+
+      {/* Com `data` ainda em mãos, uma falha é só um soluço passageiro do
+          polling — mostramos um aviso discreto e continuamos exibindo a
+          última posição conhecida, em vez de sumir com o mapa inteiro. */}
+      {error && !data && <p className="text-sm text-red-600">{error}</p>}
+      {error && data && (
+        <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+          Não foi possível atualizar agora ({error}) — mostrando a última posição conhecida, tentando de
+          novo em instantes.
+        </p>
+      )}
 
       {data && (
         <div className="space-y-3">

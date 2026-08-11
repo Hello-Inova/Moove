@@ -106,7 +106,11 @@ export type RotaSimples = {
  * dele, ao contrário de `calcularRotaOtimizada` (mapa do motorista, que
  * visita vários alunos). Usa o serviço `route` do OSRM em vez de `trip`.
  */
-export async function calcularRotaSimples(origem: Ponto, destino: Ponto): Promise<RotaSimples | null> {
+export async function calcularRotaSimples(
+  origem: Ponto,
+  destino: Ponto,
+  timeoutMs = 10_000
+): Promise<RotaSimples | null> {
   const coordenadas = [origem, destino]
     .map((p) => `${p.longitude.toFixed(6)},${p.latitude.toFixed(6)}`)
     .join(";");
@@ -116,7 +120,7 @@ export async function calcularRotaSimples(origem: Ponto, destino: Ponto): Promis
   url.searchParams.set("geometries", "geojson");
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10_000);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const response = await fetch(url.toString(), { signal: controller.signal });

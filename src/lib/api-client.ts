@@ -5,7 +5,11 @@ export type ApiErrorBody = {
 
 export type ApiResult<T> =
   | { ok: true; data: T }
-  | { ok: false; error: string; issues?: Record<string, string[] | undefined> };
+  // `status` vem undefined quando a falha foi de rede (nem chegou a ter uma
+  // resposta HTTP) — usado por quem faz polling pra distinguir "erro
+  // definitivo" (ex: 403 vínculo revogado) de "falha passageira" (queda de
+  // conexão, 5xx) e decidir se continua tentando ou desiste de vez.
+  | { ok: false; error: string; issues?: Record<string, string[] | undefined>; status?: number };
 
 async function request<T>(url: string, init?: RequestInit): Promise<ApiResult<T>> {
   let response: Response;
@@ -24,7 +28,12 @@ async function request<T>(url: string, init?: RequestInit): Promise<ApiResult<T>
 
   if (!response.ok) {
     const errorBody = (body ?? {}) as ApiErrorBody;
-    return { ok: false, error: errorBody.error || "Ocorreu um erro inesperado.", issues: errorBody.issues };
+    return {
+      ok: false,
+      error: errorBody.error || "Ocorreu um erro inesperado.",
+      issues: errorBody.issues,
+      status: response.status,
+    };
   }
 
   return { ok: true, data: body as T };
