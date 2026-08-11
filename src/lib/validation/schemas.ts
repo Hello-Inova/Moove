@@ -92,6 +92,25 @@ export const reenviarCodigoSchema = z.object({
   proposito: z.enum(["CADASTRO", "LOGIN"]),
 });
 
+export const recuperarSenhaSchema = z.object({
+  email: z.string().trim().toLowerCase().email("E-mail inválido."),
+});
+
+export const redefinirSenhaSchema = z
+  .object({
+    email: z.string().trim().toLowerCase().email("E-mail inválido."),
+    codigo: z
+      .string()
+      .trim()
+      .regex(/^\d{6}$/, "Código inválido. Digite os 6 números recebidos por e-mail."),
+    novaSenha: senha,
+    confirmarNovaSenha: z.string().min(1, "Repita a nova senha."),
+  })
+  .refine((data) => data.novaSenha === data.confirmarNovaSenha, {
+    message: "As senhas não coincidem.",
+    path: ["confirmarNovaSenha"],
+  });
+
 const placaRegex = /^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$/; // Mercosul ou padrão antigo (LLLNLNN / LLLNNNN)
 
 export const veiculoSchema = z.object({

@@ -1,6 +1,6 @@
 import "server-only";
 
-export type VerificationPurpose = "CADASTRO" | "LOGIN";
+export type VerificationPurpose = "CADASTRO" | "LOGIN" | "RECUPERAR_SENHA";
 
 export class EmailSendError extends Error {}
 
@@ -16,14 +16,22 @@ export interface Mailer {
 const ASSUNTO: Record<VerificationPurpose, string> = {
   CADASTRO: "Confirme seu cadastro no Moove",
   LOGIN: "Seu código de acesso ao Moove",
+  RECUPERAR_SENHA: "Código para redefinir sua senha no Moove",
 };
 
 function renderHtml(nome: string, codigo: string, proposito: VerificationPurpose): string {
-  const titulo = proposito === "CADASTRO" ? "Confirme seu cadastro" : "Confirme seu login";
+  const titulo =
+    proposito === "CADASTRO"
+      ? "Confirme seu cadastro"
+      : proposito === "LOGIN"
+        ? "Confirme seu login"
+        : "Redefinir sua senha";
   const texto =
     proposito === "CADASTRO"
       ? "Use o código abaixo para confirmar seu e-mail e concluir o seu cadastro no Moove."
-      : "Use o código abaixo para concluir o seu login no Moove.";
+      : proposito === "LOGIN"
+        ? "Use o código abaixo para concluir o seu login no Moove."
+        : "Use o código abaixo para confirmar que é você e escolher uma nova senha. Se você não pediu isso, ignore este e-mail — sua senha atual continua funcionando normalmente.";
 
   return `
     <div style="font-family:Arial,Helvetica,sans-serif;max-width:420px;margin:0 auto;padding:24px;color:#1e293b;">

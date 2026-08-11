@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 import { apiPostJson } from "@/lib/api-client";
 import { inputClass, primaryButtonClass } from "@/components/ui/form-elements";
@@ -69,9 +70,17 @@ export function LoginForm({ role }: { role: Role }) {
       </div>
 
       <div>
-        <label className="mb-1 block text-sm font-medium" htmlFor="senha">
-          Senha
-        </label>
+        <div className="mb-1 flex items-center justify-between gap-2">
+          <label className="block text-sm font-medium" htmlFor="senha">
+            Senha
+          </label>
+          <Link
+            href={`/${role}/recuperar-senha`}
+            className="text-sm text-brand-orange-dark underline underline-offset-2"
+          >
+            Esqueci minha senha
+          </Link>
+        </div>
         <PasswordInput id="senha" name="senha" required className={inputClass} autoComplete="current-password" />
       </div>
 

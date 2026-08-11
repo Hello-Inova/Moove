@@ -18,11 +18,25 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Moove — rastreamento de transporte escolar",
   description: "Acompanhe em tempo real a van, ônibus ou perua escolar do seu filho.",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Moove",
+  },
+  icons: {
+    icon: [
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  themeColor: "#1e293b",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

@@ -6,6 +6,7 @@ import { jsonError, jsonValidationError, jsonRateLimited } from "@/lib/http";
 import { adminLoginSchema } from "@/lib/validation/schemas";
 import { createSession } from "@/lib/auth/session";
 import { aplicarRateLimitLogin, clientIp } from "@/lib/rate-limit";
+import { registrarAuditoria } from "@/lib/audit-log";
 
 function timingSafeCompare(a: string, b: string): boolean {
   const bufA = Buffer.from(a);
@@ -48,6 +49,8 @@ export async function POST(request: NextRequest) {
   }
 
   await createSession("admin", "admin");
+
+  await registrarAuditoria({ acao: "LOGIN_ADMIN", entidade: "Admin", request });
 
   return NextResponse.json({ ok: true });
 }

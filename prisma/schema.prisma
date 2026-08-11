@@ -659,3 +659,26 @@ model CodigoVerificacao {
   @@index([email, role, proposito, usadoEm])
   @@map("codigos_verificacao")
 }
+
+// ---------------------------------------------------------------------------
+// LogAuditoria — trilha de ações sensíveis feitas no painel admin (suspender/
+// reativar conta, excluir motorista/responsável, forçar assinatura, criar/
+// editar/ativar/excluir plano, login). Não há tabela de admins — a
+// credencial é única e fixa (ADMIN_EMAIL/ADMIN_SENHA) — então todo registro
+// aqui é sempre do mesmo "ator"; o valor de `acao` e `detalhes` é que conta
+// a história de quem fez o quê.
+// ---------------------------------------------------------------------------
+
+model LogAuditoria {
+  id         String   @id @default(cuid())
+  acao       String
+  entidade   String
+  entidadeId String?  @map("entidade_id")
+  detalhes   Json?
+  ip         String?
+  criadoEm   DateTime @default(now()) @map("criado_em")
+
+  @@index([criadoEm])
+  @@index([entidade, entidadeId])
+  @@map("logs_auditoria")
+}

@@ -4,6 +4,7 @@ import { isAdminAuthenticated } from "@/lib/auth/guards";
 import { jsonError, jsonValidationError } from "@/lib/http";
 import { atualizarStatusContaSchema } from "@/lib/validation/schemas";
 import { prisma } from "@/lib/prisma";
+import { registrarAuditoria } from "@/lib/audit-log";
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   if (!(await isAdminAuthenticated())) return jsonError(401, "Não autenticado.");
@@ -20,6 +21,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!motorista) return jsonError(404, "Motorista não encontrado.");
 
   await prisma.motorista.update({ where: { id }, data: { statusConta: parsed.data.statusConta } });
+
+  await registrarAuditoria({
+    acao: parsed.data.statusConta === "SUSPENSA" ? "SUSPENDER_CONTA" : "REATIVAR_CONTA",
+    entidade: "Motorista",
+    entidadeId: id,
+    detalhes: { nome: motorista.nome, email: motorista.email, statusConta: parsed.data.statusConta },
+    request,
+  });
 
   return NextResponse.json({ ok: true });
 }

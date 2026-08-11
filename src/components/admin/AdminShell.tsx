@@ -13,6 +13,7 @@ const NAV = [
   { href: "/admin/motoristas", label: "Motoristas" },
   { href: "/admin/responsaveis", label: "Responsáveis" },
   { href: "/admin/planos", label: "Planos" },
+  { href: "/admin/auditoria", label: "Auditoria" },
 ];
 
 function MenuIcon() {

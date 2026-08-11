@@ -10,6 +10,8 @@ import {
   PlanoCodigoDuplicadoError,
   PlanoEmUsoError,
 } from "@/lib/subscription/planos-service";
+import { registrarAuditoria } from "@/lib/audit-log";
+import { prisma } from "@/lib/prisma";
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   if (!(await isAdminAuthenticated())) return jsonError(401, "Não autenticado.");
@@ -24,6 +26,15 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
   try {
     const plano = await atualizarPlano(id, parsed.data);
+
+    await registrarAuditoria({
+      acao: "ATUALIZAR_PLANO",
+      entidade: "Plano",
+      entidadeId: id,
+      detalhes: { codigo: plano.codigo, label: plano.label },
+      request,
+    });
+
     return NextResponse.json({ plano });
   } catch (err) {
     if (err instanceof PlanoCodigoDuplicadoError) return jsonError(409, err.message);
@@ -44,16 +55,37 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   if (!parsed.success) return jsonValidationError(parsed.error);
 
   const plano = await definirAtivoPlano(id, parsed.data.ativo);
+
+  await registrarAuditoria({
+    acao: parsed.data.ativo ? "ATIVAR_PLANO" : "DESATIVAR_PLANO",
+    entidade: "Plano",
+    entidadeId: id,
+    detalhes: { codigo: plano.codigo, label: plano.label },
+    request,
+  });
+
   return NextResponse.json({ plano });
 }
 
-export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   if (!(await isAdminAuthenticated())) return jsonError(401, "Não autenticado.");
 
   const { id } = await params;
 
   try {
+    const planoAntesDeExcluir = await prisma.planoAssinatura.findUnique({ where: { id } });
     await excluirPlano(id);
+
+    await registrarAuditoria({
+      acao: "EXCLUIR_PLANO",
+      entidade: "Plano",
+      entidadeId: id,
+      detalhes: planoAntesDeExcluir
+        ? { codigo: planoAntesDeExcluir.codigo, label: planoAntesDeExcluir.label }
+        : undefined,
+      request,
+    });
+
     return NextResponse.json({ ok: true });
   } catch (err) {
     if (err instanceof PlanoEmUsoError) return jsonError(409, err.message);
