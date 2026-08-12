@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { FieldError, inputClass } from "@/components/ui/form-elements";
+import { GoogleEnderecoAutocomplete } from "@/components/ui/GoogleEnderecoAutocomplete";
 
 export type EnderecoValores = {
   cep: string;
@@ -30,8 +31,11 @@ function formatarCep(v: string): string {
 }
 
 /**
- * Campos de endereço com autocomplete OPCIONAL por CEP (ViaCEP — gratuito,
- * sem chave). Ao completar os 8 dígitos, busca rua/bairro/cidade/UF e
+ * Campos de endereço com dois autocompletes OPCIONAIS, que se completam:
+ * busca livre por texto via Google Places (`GoogleEnderecoAutocomplete` —
+ * só aparece se `NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY` estiver configurada)
+ * e por CEP via ViaCEP/BrasilAPI (gratuito, sem chave). Ao completar os 8
+ * dígitos do CEP, busca rua/bairro/cidade/UF e
  * preenche os campos (o usuário ainda pode editar, caso o CEP retorne algo
  * impreciso). Quem não souber o CEP (ou preferir não usá-lo) pode deixá-lo
  * em branco e preencher rua/número/bairro/cidade/UF direto — a
@@ -112,6 +116,21 @@ export function EnderecoFields({
 
   return (
     <div className="space-y-4">
+      <GoogleEnderecoAutocomplete
+        onSelecionado={(endereco) => {
+          setValores((v) => ({
+            ...v,
+            logradouro: endereco.logradouro || v.logradouro,
+            numero: endereco.numero || v.numero,
+            bairro: endereco.bairro || v.bairro,
+            cidade: endereco.cidade || v.cidade,
+            estado: endereco.estado || v.estado,
+            cep: endereco.cep ? formatarCep(endereco.cep) : v.cep,
+          }));
+          setCepErro(null);
+        }}
+      />
+
       <div>
         <label className="mb-1 block text-sm font-medium" htmlFor="cep">
           CEP <span className="font-normal text-neutral-400">(opcional — preenche o resto sozinho)</span>

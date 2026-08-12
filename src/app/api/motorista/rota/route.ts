@@ -5,6 +5,7 @@ import { getAuthenticatedMotorista } from "@/lib/auth/guards";
 import { jsonError } from "@/lib/http";
 import { montarEnderecoTexto } from "@/lib/geocoding";
 import { calcularRotaOtimizada, calcularRotaSimples } from "@/lib/routing/osrm";
+import { calcularRotaOtimizadaGoogle, calcularRotaSimplesGoogle } from "@/lib/routing/google-directions";
 
 export type ParadaRota = {
   vinculoId: string;
@@ -104,7 +105,12 @@ export async function GET(request: NextRequest) {
     })),
   ];
 
-  const resultado = await calcularRotaOtimizada(pontos);
+  let resultado = await calcularRotaOtimizada(pontos);
+  if (!resultado) {
+    // OSRM (gratuito) falhou — tenta o fallback pago (Google Routes API),
+    // só aqui no painel do motorista (nunca no polling do responsável).
+    resultado = await calcularRotaOtimizadaGoogle(pontos);
+  }
   if (!resultado) {
     return jsonError(502, "Não foi possível calcular a rota agora. Tente novamente em instantes.");
   }
@@ -153,10 +159,13 @@ async function rotaAteEscola(
   }
 
   const destino = { latitude: escola.enderecoLatitude, longitude: escola.enderecoLongitude };
-  const resultado = await calcularRotaSimples(
-    { latitude: localizacao.latitude, longitude: localizacao.longitude },
-    destino
-  );
+  const origem = { latitude: localizacao.latitude, longitude: localizacao.longitude };
+  let resultado = await calcularRotaSimples(origem, destino);
+  if (!resultado) {
+    // OSRM (gratuito) falhou — tenta o fallback pago (Google Routes API),
+    // só aqui no painel do motorista (nunca no polling do responsável).
+    resultado = await calcularRotaSimplesGoogle(origem, destino);
+  }
   if (!resultado) {
     return jsonError(502, "Não foi possível calcular a rota até a escola agora. Tente novamente em instantes.");
   }
