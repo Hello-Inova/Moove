@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import { Users, UserRound, Sparkles, ShieldCheck, Gauge, type LucideIcon } from "lucide-react";
 
 import { Logo } from "@/components/ui/Logo";
 import { AdminLogoutButton } from "@/components/admin/AdminLogoutButton";
@@ -11,12 +12,12 @@ import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import type { ResumoApi } from "@/lib/uso-api-externa";
 import { piorNivel } from "@/lib/uso-api-externa-cores";
 
-const NAV = [
-  { href: "/admin/motoristas", label: "Motoristas" },
-  { href: "/admin/responsaveis", label: "Responsáveis" },
-  { href: "/admin/planos", label: "Planos" },
-  { href: "/admin/auditoria", label: "Auditoria" },
-  { href: "/admin/uso-google", label: "Uso Google" },
+const NAV: { href: string; label: string; icon: LucideIcon }[] = [
+  { href: "/admin/motoristas", label: "Motoristas", icon: Users },
+  { href: "/admin/responsaveis", label: "Responsáveis", icon: UserRound },
+  { href: "/admin/planos", label: "Planos", icon: Sparkles },
+  { href: "/admin/auditoria", label: "Auditoria", icon: ShieldCheck },
+  { href: "/admin/uso-google", label: "Uso Google", icon: Gauge },
 ];
 
 function MenuIcon() {
@@ -77,8 +78,9 @@ export function AdminShell({ children }: { children: ReactNode }) {
               <Link
                 key={item.href}
                 href={item.href}
-                className="rounded-lg px-3 py-1.5 text-sm font-medium text-neutral-600 transition hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-neutral-600 transition hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
               >
+                <item.icon className="h-4 w-4" aria-hidden="true" />
                 {item.label}
               </Link>
             ))}
@@ -110,12 +112,13 @@ export function AdminShell({ children }: { children: ReactNode }) {
                   key={item.href}
                   href={item.href}
                   onClick={() => setOpen(false)}
-                  className={`block rounded-lg px-3 py-2 text-sm font-medium ${
+                  className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium ${
                     active
                       ? "bg-brand-orange-soft text-brand-orange-dark dark:bg-brand-orange/15 dark:text-brand-orange-light"
                       : "text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
                   }`}
                 >
+                  <item.icon className="h-4 w-4" aria-hidden="true" />
                   {item.label}
                 </Link>
               );

@@ -2,9 +2,11 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 import { apiPostJson } from "@/lib/api-client";
 import { primaryButtonClass } from "@/components/ui/form-elements";
+import { useConfirm } from "@/components/ui/ConfirmProvider";
 import type { PlanoDefinicao } from "@/lib/subscription/plans";
 
 export function ForcarAssinaturaForm({
@@ -15,8 +17,8 @@ export function ForcarAssinaturaForm({
   planos: Pick<PlanoDefinicao, "codigo" | "label">[];
 }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   if (planos.length === 0) {
     return <p className="text-sm text-neutral-500 dark:text-neutral-400">Nenhum plano ativo cadastrado ainda.</p>;
@@ -27,23 +29,21 @@ export function ForcarAssinaturaForm({
     const form = new FormData(event.currentTarget);
     const tipoPlano = form.get("tipoPlano");
 
-    if (
-      !window.confirm(
-        "Ativar essa assinatura manualmente, sem passar pelo Mercado Pago? Isso cancela qualquer assinatura em aberto do motorista."
-      )
-    ) {
-      return;
-    }
+    const confirmado = await confirm(
+      "Ativar essa assinatura manualmente, sem passar pelo Mercado Pago? Isso cancela qualquer assinatura em aberto do motorista.",
+      { confirmLabel: "Ativar" }
+    );
+    if (!confirmado) return;
 
     setLoading(true);
-    setError(null);
     const result = await apiPostJson(`/api/admin/motoristas/${motoristaId}/assinatura/forcar`, { tipoPlano });
     setLoading(false);
 
     if (!result.ok) {
-      setError(result.error);
+      toast.error(result.error);
       return;
     }
+    toast.success("Assinatura ativada.");
     router.refresh();
   }
 
@@ -68,7 +68,6 @@ export function ForcarAssinaturaForm({
       <button type="submit" disabled={loading} className={primaryButtonClass + " w-auto px-4 py-2"}>
         {loading ? "Ativando…" : "Forçar ativação"}
       </button>
-      {error && <p className="w-full text-xs text-red-600">{error}</p>}
     </form>
   );
 }

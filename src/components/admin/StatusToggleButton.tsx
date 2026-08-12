@@ -2,14 +2,16 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 import { apiPostJson } from "@/lib/api-client";
 import { secondaryButtonClass } from "@/components/ui/form-elements";
+import { useConfirm } from "@/components/ui/ConfirmProvider";
 
 export function StatusToggleButton({ url, statusAtual }: { url: string; statusAtual: "ATIVA" | "SUSPENSA" }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const proximoStatus = statusAtual === "ATIVA" ? "SUSPENSA" : "ATIVA";
   const label = statusAtual === "ATIVA" ? "Suspender" : "Reativar";
@@ -19,26 +21,23 @@ export function StatusToggleButton({ url, statusAtual }: { url: string; statusAt
       : "Reativar esta conta?";
 
   async function handleClick() {
-    if (!window.confirm(confirmMessage)) return;
+    if (!(await confirm(confirmMessage, { confirmLabel: label, danger: statusAtual === "ATIVA" }))) return;
 
     setLoading(true);
-    setError(null);
     const result = await apiPostJson(url, { statusConta: proximoStatus });
     setLoading(false);
 
     if (!result.ok) {
-      setError(result.error);
+      toast.error(result.error);
       return;
     }
+    toast.success(statusAtual === "ATIVA" ? "Conta suspensa." : "Conta reativada.");
     router.refresh();
   }
 
   return (
-    <div>
-      <button onClick={handleClick} disabled={loading} className={secondaryButtonClass}>
-        {loading ? "Aguarde…" : label}
-      </button>
-      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
-    </div>
+    <button onClick={handleClick} disabled={loading} className={secondaryButtonClass}>
+      {loading ? "Aguarde…" : label}
+    </button>
   );
 }

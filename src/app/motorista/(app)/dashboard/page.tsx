@@ -5,13 +5,15 @@ import { getAuthenticatedMotorista } from "@/lib/auth/guards";
 import { prisma } from "@/lib/prisma";
 import { LocationSharingPanel } from "@/components/motorista/LocationSharingPanel";
 import { RotaPanel } from "@/components/motorista/RotaPanel";
+import { OnboardingChecklist } from "@/components/motorista/OnboardingChecklist";
 
 export default async function MotoristaDashboardPage() {
   const motorista = await getAuthenticatedMotorista();
   if (!motorista) redirect("/motorista/login");
 
-  const [veiculosCount, vinculosAtivos, convitesPendentes, escolaNaoConfirmada] = await Promise.all([
+  const [veiculosCount, escolasCount, vinculosAtivos, convitesPendentes, escolaNaoConfirmada] = await Promise.all([
     prisma.veiculo.count({ where: { motoristaId: motorista.id } }),
+    prisma.escola.count({ where: { motoristaId: motorista.id } }),
     prisma.vinculo.count({ where: { motoristaId: motorista.id, status: "ATIVO" } }),
     prisma.convite.count({ where: { motoristaId: motorista.id, status: "PENDENTE" } }),
     // Só conta escola que JÁ foi geocodificada (tem coordenada) mas ainda não
@@ -22,6 +24,16 @@ export default async function MotoristaDashboardPage() {
     }),
   ]);
 
+  const checklist = [
+    { label: "Cadastrar um veículo", href: "/motorista/veiculos", done: veiculosCount > 0 },
+    { label: "Cadastrar uma escola", href: "/motorista/escolas", done: escolasCount > 0 },
+    ...(escolasCount > 0
+      ? [{ label: "Confirmar a localização da escola no mapa", href: "/motorista/escolas", done: escolaNaoConfirmada === 0 }]
+      : []),
+    { label: "Configurar sua chave PIX", href: "/motorista/vinculos", done: Boolean(motorista.chavePix) },
+    { label: "Vincular seu primeiro aluno (gerar um convite)", href: "/motorista/convites", done: vinculosAtivos > 0 },
+  ];
+
   return (
     <div className="space-y-6">
       <div>
@@ -29,25 +41,7 @@ export default async function MotoristaDashboardPage() {
         <p className="text-neutral-500 dark:text-neutral-400">Painel do motorista</p>
       </div>
 
-      {veiculosCount === 0 && (
-        <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
-          Você ainda não cadastrou um veículo.{" "}
-          <Link href="/motorista/veiculos" className="font-medium underline">
-            Cadastrar veículo
-          </Link>
-        </div>
-      )}
-
-      {escolaNaoConfirmada > 0 && (
-        <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
-          {escolaNaoConfirmada === 1
-            ? "O endereço de uma escola ainda não foi confirmado no mapa — a localização automática pode estar imprecisa."
-            : `O endereço de ${escolaNaoConfirmada} escolas ainda não foi confirmado no mapa — a localização automática pode estar imprecisa.`}{" "}
-          <Link href="/motorista/escolas" className="font-medium underline">
-            Confirmar localização
-          </Link>
-        </div>
-      )}
+      <OnboardingChecklist items={checklist} />
 
       <LocationSharingPanel />
 

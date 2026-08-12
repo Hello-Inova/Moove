@@ -2,35 +2,45 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { RotateCcw } from "lucide-react";
 import { apiPostJson } from "@/lib/api-client";
 import { secondaryButtonClass } from "@/components/ui/form-elements";
+import { useConfirm } from "@/components/ui/ConfirmProvider";
 
 export function ReativarButton({ url }: { url: string }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   async function handleClick() {
-    if (!window.confirm("Reativar este vínculo? Um novo ciclo de 30 dias de cobrança começa a contar agora.")) return;
+    if (
+      !(await confirm("Reativar este vínculo? Um novo ciclo de 30 dias de cobrança começa a contar agora.", {
+        confirmLabel: "Reativar",
+      }))
+    )
+      return;
 
     setLoading(true);
-    setError(null);
     const result = await apiPostJson(url, {});
     setLoading(false);
 
     if (!result.ok) {
-      setError(result.error);
+      toast.error(result.error);
       return;
     }
+    toast.success("Vínculo reativado.");
     router.refresh();
   }
 
   return (
-    <div>
-      <button onClick={handleClick} disabled={loading} className={secondaryButtonClass + " w-auto px-3 py-1.5 text-xs"}>
-        {loading ? "Reativando…" : "Reativar"}
-      </button>
-      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
-    </div>
+    <button
+      onClick={handleClick}
+      disabled={loading}
+      className={secondaryButtonClass + " inline-flex w-auto items-center gap-1.5 px-3 py-1.5 text-xs"}
+    >
+      <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+      {loading ? "Reativando…" : "Reativar"}
+    </button>
   );
 }

@@ -1,9 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { toast } from "sonner";
 
 import { apiGet, apiPostJson, apiDelete } from "@/lib/api-client";
 import { FieldError, inputClass, primaryButtonClass, dangerButtonClass } from "@/components/ui/form-elements";
+import { useConfirm } from "@/components/ui/ConfirmProvider";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 type Aluno = {
   id: string;
@@ -14,6 +17,7 @@ type Aluno = {
 };
 
 export function AlunosClient() {
+  const confirm = useConfirm();
   const [alunos, setAlunos] = useState<Aluno[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -51,16 +55,18 @@ export function AlunosClient() {
     }
 
     event.currentTarget.reset();
+    toast.success("Aluno adicionado.");
     void carregar();
   }
 
   async function handleDelete(id: string, nome: string) {
-    if (!window.confirm(`Remover "${nome}" da sua lista de alunos?`)) return;
+    if (!(await confirm(`Remover "${nome}" da sua lista de alunos?`, { danger: true, confirmLabel: "Remover" }))) return;
     const result = await apiDelete(`/api/responsavel/alunos/${id}`);
     if (!result.ok) {
-      window.alert(result.error);
+      toast.error(result.error);
       return;
     }
+    toast.success("Aluno removido.");
     void carregar();
   }
 
@@ -71,7 +77,12 @@ export function AlunosClient() {
       <section className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm dark:border-neutral-700 dark:bg-neutral-900">
         <h2 className="mb-3 font-medium">Meus alunos</h2>
 
-        {!alunos && <p className="text-sm text-neutral-500 dark:text-neutral-400">Carregando…</p>}
+        {!alunos && (
+          <div className="space-y-2">
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-12 w-full" />
+          </div>
+        )}
         {alunos && alunos.length === 0 && (
           <p className="text-sm text-neutral-500 dark:text-neutral-400">Nenhum aluno cadastrado ainda.</p>
         )}

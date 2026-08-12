@@ -137,14 +137,15 @@ model Motorista {
 
   criadoEm DateTime @default(now()) @map("criado_em")
 
-  veiculos       Veiculo[]
-  convites       Convite[]
-  vinculos       Vinculo[]
-  localizacao    Localizacao?
-  assinaturas    Assinatura[]
-  escolas        Escola[]
-  percursos      PercursoDia[]
-  cobrancasAluno CobrancaAluno[]
+  veiculos          Veiculo[]
+  convites          Convite[]
+  vinculos          Vinculo[]
+  localizacao       Localizacao?
+  assinaturas       Assinatura[]
+  escolas           Escola[]
+  percursos         PercursoDia[]
+  cobrancasAluno    CobrancaAluno[]
+  pushSubscriptions PushSubscription[]
 
   @@map("motoristas")
 }
@@ -251,17 +252,26 @@ model Responsavel {
 // responsável pode ter mais de uma (celular + computador, por exemplo).
 // ---------------------------------------------------------------------------
 
+// Generalizada pra também aceitar motorista (originalmente só existia pro
+// alerta de chegada do responsável) — usada agora também pra avisar o
+// motorista de eventos como convite aceito e cobrança de aluno gerada (ver
+// src/lib/push/notificar.ts). Exatamente um dos dois ids é preenchido,
+// nunca os dois nem nenhum — checado na aplicação (não dá pra expressar
+// XOR em constraint do Postgres sem trigger, não vale a complexidade aqui).
 model PushSubscription {
   id            String   @id @default(cuid())
-  responsavelId String   @map("responsavel_id")
+  responsavelId String?  @map("responsavel_id")
+  motoristaId   String?  @map("motorista_id")
   endpoint      String   @unique
   p256dh        String
   auth          String
   criadoEm      DateTime @default(now()) @map("criado_em")
 
-  responsavel Responsavel @relation(fields: [responsavelId], references: [id], onDelete: Cascade)
+  responsavel Responsavel? @relation(fields: [responsavelId], references: [id], onDelete: Cascade)
+  motorista   Motorista?   @relation(fields: [motoristaId], references: [id], onDelete: Cascade)
 
   @@index([responsavelId])
+  @@index([motoristaId])
   @@map("push_subscriptions")
 }
 

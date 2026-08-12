@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 
 import { apiGet, apiPostJson } from "@/lib/api-client";
 import { primaryButtonClass, secondaryButtonClass } from "@/components/ui/form-elements";
+import { SkeletonCard } from "@/components/ui/Skeleton";
 import { PlanCard } from "@/components/motorista/PlanCard";
 import { calcularValorAssinaturaMotorista, formatarBRL, type PlanoDefinicao } from "@/lib/subscription/plans";
 
@@ -81,7 +82,13 @@ export function PlanosClient({ tipoPlanoAtual }: { tipoPlanoAtual: string | null
   }
 
   if (!planos) {
-    return <p className="text-sm text-neutral-500 dark:text-neutral-400">Carregando planos…</p>;
+    return (
+      <div className="grid gap-6 sm:grid-cols-3">
+        <SkeletonCard />
+        <SkeletonCard />
+        <SkeletonCard />
+      </div>
+    );
   }
 
   if (planos.length === 0) {

@@ -2,38 +2,39 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { CheckCircle2 } from "lucide-react";
 import { apiPostJson } from "@/lib/api-client";
+import { useConfirm } from "@/components/ui/ConfirmProvider";
 
 export function MarcarPagaButton({ url }: { url: string }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   async function handleClick() {
-    if (!window.confirm("Confirmar que recebeu o PIX desta cobrança?")) return;
+    if (!(await confirm("Confirmar que recebeu o PIX desta cobrança?", { confirmLabel: "Confirmar" }))) return;
 
     setLoading(true);
-    setError(null);
     const result = await apiPostJson(url, {});
     setLoading(false);
 
     if (!result.ok) {
-      setError(result.error);
+      toast.error(result.error);
       return;
     }
+    toast.success("Cobrança marcada como paga.");
     router.refresh();
   }
 
   return (
-    <div>
-      <button
-        onClick={handleClick}
-        disabled={loading}
-        className="rounded-lg border border-green-200 bg-green-50 px-3 py-1.5 text-xs font-medium text-green-700 transition hover:bg-green-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-green-900 dark:bg-green-950/40 dark:text-green-400 dark:hover:bg-green-950/70"
-      >
-        {loading ? "Confirmando…" : "Marcar como paga"}
-      </button>
-      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
-    </div>
+    <button
+      onClick={handleClick}
+      disabled={loading}
+      className="inline-flex items-center gap-1.5 rounded-lg border border-green-200 bg-green-50 px-3 py-1.5 text-xs font-medium text-green-700 transition hover:bg-green-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-green-900 dark:bg-green-950/40 dark:text-green-400 dark:hover:bg-green-950/70"
+    >
+      <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+      {loading ? "Confirmando…" : "Marcar como paga"}
+    </button>
   );
 }

@@ -1,6 +1,8 @@
 import "server-only";
 
 import { prisma } from "@/lib/prisma";
+import { notificarPush } from "@/lib/push/notificar";
+import { formatarBRL } from "@/lib/subscription/plans";
 
 export function adicionarDias(data: Date, dias: number): Date {
   const resultado = new Date(data);
@@ -68,6 +70,11 @@ export async function processarCobrancasAlunoVencidas(
 
     const vinculosDoMotorista = vinculosVencidos.filter((v) => v.motoristaId === motoristaId);
 
+    // Soma pra avisar o motorista com um único push resumindo o que foi
+    // gerado nesta rodada do cron, em vez de um push por cobrança.
+    let cobrancasDoMotorista = 0;
+    let valorTotalDoMotorista = 0;
+
     for (const vinculo of vinculosDoMotorista) {
       if (!vinculo.proximaCobrancaEm) continue;
 
@@ -91,6 +98,8 @@ export async function processarCobrancasAlunoVencidas(
             },
           });
           cobrancasGeradas++;
+          cobrancasDoMotorista++;
+          valorTotalDoMotorista += Number(assinatura.valorPorAlunoExcedente);
         }
         cicloFim = adicionarDias(cicloFim, 30);
       }
@@ -99,6 +108,20 @@ export async function processarCobrancasAlunoVencidas(
         where: { id: vinculo.id },
         data: { proximaCobrancaEm: cicloFim },
       });
+    }
+
+    if (cobrancasDoMotorista > 0) {
+      await notificarPush(
+        { motoristaId },
+        {
+          title: "Novas cobranças de alunos geradas",
+          body:
+            cobrancasDoMotorista === 1
+              ? `1 cobrança de ${formatarBRL(valorTotalDoMotorista)} pronta pra enviar — veja em "Alunos".`
+              : `${cobrancasDoMotorista} cobranças (total ${formatarBRL(valorTotalDoMotorista)}) prontas pra enviar — veja em "Alunos".`,
+          tag: `cobrancas-aluno-${motoristaId}-${agora.toISOString().slice(0, 10)}`,
+        }
+      );
     }
   }
 

@@ -1,14 +1,15 @@
 import type { ReactNode } from "react";
+import { Link2, Users, Ticket, MapPin, Home } from "lucide-react";
 
-import { AppHeader } from "@/components/layout/AppHeader";
+import { AppHeader, type NavItem } from "@/components/layout/AppHeader";
 import { getAuthenticatedResponsavel } from "@/lib/auth/guards";
 
-const NAV = [
-  { href: "/responsavel/dashboard", label: "Meus vínculos" },
-  { href: "/responsavel/alunos", label: "Meus alunos" },
-  { href: "/responsavel/vincular", label: "Usar convite" },
-  { href: "/responsavel/buscar", label: "Ver localização" },
-  { href: "/responsavel/endereco", label: "Meu endereço" },
+const NAV: NavItem[] = [
+  { href: "/responsavel/dashboard", label: "Meus vínculos", icon: Link2 },
+  { href: "/responsavel/alunos", label: "Meus alunos", icon: Users },
+  { href: "/responsavel/vincular", label: "Usar convite", icon: Ticket },
+  { href: "/responsavel/buscar", label: "Ver localização", icon: MapPin },
+  { href: "/responsavel/endereco", label: "Meu endereço", icon: Home },
 ];
 
 /**

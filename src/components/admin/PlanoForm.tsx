@@ -2,9 +2,11 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 import { apiPostJson, apiDelete } from "@/lib/api-client";
 import { FieldError, inputClass, primaryButtonClass, dangerButtonClass } from "@/components/ui/form-elements";
+import { useConfirm } from "@/components/ui/ConfirmProvider";
 import type { PlanoDefinicao } from "@/lib/subscription/plans";
 
 type ApiResult<T> =
@@ -38,6 +40,7 @@ const CICLOS = [
 
 export function PlanoForm({ planoExistente }: { planoExistente?: PlanoDefinicao }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const editando = Boolean(planoExistente);
 
   const [loading, setLoading] = useState(false);
@@ -91,23 +94,28 @@ export function PlanoForm({ planoExistente }: { planoExistente?: PlanoDefinicao 
       return;
     }
 
+    toast.success(editando ? "Plano atualizado." : "Plano criado.");
     router.push("/admin/planos");
     router.refresh();
   }
 
   async function handleDelete() {
     if (!planoExistente) return;
-    if (!window.confirm(`Excluir definitivamente o plano "${planoExistente.label}"?`)) return;
+    const confirmado = await confirm(`Excluir definitivamente o plano "${planoExistente.label}"?`, {
+      danger: true,
+      confirmLabel: "Excluir",
+    });
+    if (!confirmado) return;
 
     setDeleting(true);
-    setFormError(null);
     const result = await apiDelete(`/api/admin/planos/${planoExistente.id}`);
     setDeleting(false);
 
     if (!result.ok) {
-      setFormError(result.error);
+      toast.error(result.error);
       return;
     }
+    toast.success("Plano excluído.");
     router.push("/admin/planos");
     router.refresh();
   }

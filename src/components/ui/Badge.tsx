@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import type { LucideIcon } from "lucide-react";
 
 const VARIANTS = {
   neutral: "bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300",
@@ -8,9 +9,18 @@ const VARIANTS = {
   blue: "bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400",
 } as const;
 
-export function Badge({ children, variant = "neutral" }: { children: ReactNode; variant?: keyof typeof VARIANTS }) {
+export function Badge({
+  children,
+  variant = "neutral",
+  icon: Icon,
+}: {
+  children: ReactNode;
+  variant?: keyof typeof VARIANTS;
+  icon?: LucideIcon;
+}) {
   return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${VARIANTS[variant]}`}>
+    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${VARIANTS[variant]}`}>
+      {Icon && <Icon className="h-3 w-3" aria-hidden="true" />}
       {children}
     </span>
   );

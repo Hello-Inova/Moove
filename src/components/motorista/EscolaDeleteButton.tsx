@@ -2,9 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { Trash2 } from "lucide-react";
 
 import { apiDelete } from "@/lib/api-client";
 import { dangerButtonClass } from "@/components/ui/form-elements";
+import { useConfirm } from "@/components/ui/ConfirmProvider";
 
 export function EscolaDeleteButton({
   id,
@@ -16,29 +19,31 @@ export function EscolaDeleteButton({
   onDeleted?: () => void;
 }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   async function handleDelete() {
-    if (!window.confirm(`Excluir a escola "${nome}"?`)) return;
+    if (!(await confirm(`Excluir a escola "${nome}"?`, { danger: true, confirmLabel: "Excluir" }))) return;
     setLoading(true);
-    setError(null);
     const result = await apiDelete(`/api/motorista/escolas/${id}`);
     setLoading(false);
     if (!result.ok) {
-      setError(result.error);
+      toast.error(result.error);
       return;
     }
+    toast.success("Escola excluída.");
     router.refresh();
     onDeleted?.();
   }
 
   return (
-    <div className="flex flex-col items-end gap-1">
-      <button onClick={handleDelete} disabled={loading} className={dangerButtonClass + " w-auto px-3 py-1.5 text-xs"}>
-        {loading ? "Excluindo…" : "Excluir"}
-      </button>
-      {error && <p className="text-xs text-red-600">{error}</p>}
-    </div>
+    <button
+      onClick={handleDelete}
+      disabled={loading}
+      className={dangerButtonClass + " inline-flex w-auto items-center gap-1.5 px-3 py-1.5 text-xs"}
+    >
+      <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+      {loading ? "Excluindo…" : "Excluir"}
+    </button>
   );
 }

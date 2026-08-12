@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { CheckCircle2, XCircle, Gift, CircleDollarSign, Clock } from "lucide-react";
 
 import { getAuthenticatedMotorista } from "@/lib/auth/guards";
 import { getAssinaturaAtual } from "@/lib/subscription/service";
@@ -6,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { cardClass } from "@/components/ui/form-elements";
 import { Badge } from "@/components/ui/Badge";
 import { PixKeyForm } from "@/components/motorista/PixKeyForm";
+import { PushToggle } from "@/components/ui/PushToggle";
 import { RevogarButton } from "@/components/motorista/RevogarButton";
 import { ReativarButton } from "@/components/motorista/ReativarButton";
 import { MarcarPagaButton } from "@/components/motorista/MarcarPagaButton";
@@ -65,9 +67,18 @@ export default async function MotoristaVinculosPage() {
         </p>
       </div>
 
-      <section className={cardClass}>
-        <PixKeyForm chavePixAtual={motorista.chavePix} />
-      </section>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <section className={cardClass}>
+          <PixKeyForm chavePixAtual={motorista.chavePix} />
+        </section>
+
+        <PushToggle
+          title="Notificações"
+          description="Receba um aviso quando um convite for aceito ou uma cobrança de aluno for gerada — mesmo com o app fechado."
+          subscribeUrl="/api/motorista/push/subscribe"
+          unsubscribeUrl="/api/motorista/push/unsubscribe"
+        />
+      </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {vinculos.length === 0 && (
@@ -88,16 +99,25 @@ export default async function MotoristaVinculosPage() {
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {v.status === "ATIVO" ? (
-                    <Badge variant="green">Ativo</Badge>
+                    <Badge variant="green" icon={CheckCircle2}>Ativo</Badge>
                   ) : (
-                    <Badge variant="red">Revogado</Badge>
+                    <Badge variant="red" icon={XCircle}>Revogado</Badge>
                   )}
-                  {v.status === "ATIVO" && assinaturaAtiva && (gratis ? <Badge variant="blue">Grátis</Badge> : <Badge variant="amber">Cobrado</Badge>)}
+                  {v.status === "ATIVO" &&
+                    assinaturaAtiva &&
+                    (gratis ? (
+                      <Badge variant="blue" icon={Gift}>Grátis</Badge>
+                    ) : (
+                      <Badge variant="amber" icon={CircleDollarSign}>Cobrado</Badge>
+                    ))}
                 </div>
               </div>
 
               {v.status === "ATIVO" && v.proximaCobrancaEm && (
-                <p className="text-xs text-neutral-500 dark:text-neutral-400">Próximo corte: {formatarData(v.proximaCobrancaEm)}</p>
+                <p className="flex items-center gap-1.5 text-xs text-neutral-500 dark:text-neutral-400">
+                  <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+                  Próximo corte: {formatarData(v.proximaCobrancaEm)}
+                </p>
               )}
 
               {v.cobrancas.length > 0 && (

@@ -7,7 +7,7 @@ import { atualizarLocalizacaoSchema } from "@/lib/validation/schemas";
 import { jsonError, jsonValidationError } from "@/lib/http";
 import { isLocationStale } from "@/lib/location";
 import { haversineMetros, estimarEtaMinutos } from "@/lib/geo/distancia";
-import { enviarNotificacaoPush, PushNaoConfiguradoError, PushSubscriptionInvalidaError } from "@/lib/push/webpush";
+import { notificarPush } from "@/lib/push/notificar";
 
 /** Se houver um percurso aberto (ver /api/motorista/percurso/iniciar),
  * registra este ponto de GPS nele — é o que alimenta a distância percorrida
@@ -88,30 +88,13 @@ async function verificarAlertasProximidade(
       throw err;
     }
 
-    const subscriptions = await prisma.pushSubscription.findMany({
-      where: { responsavelId: vinculo.responsavelId },
-    });
-
-    await Promise.all(
-      subscriptions.map(async (sub) => {
-        try {
-          await enviarNotificacaoPush(sub, {
-            title: "O transporte está chegando",
-            body: `Faltam cerca de ${motorista.alertaChegadaMinutos} min para o motorista chegar — ${vinculo.aluno.nome}.`,
-            tag: `chegada-${vinculo.id}`,
-          });
-        } catch (err) {
-          if (err instanceof PushSubscriptionInvalidaError) {
-            await prisma.pushSubscription.delete({ where: { id: sub.id } }).catch(() => {});
-            return;
-          }
-          if (err instanceof PushNaoConfiguradoError) {
-            console.warn("[alerta-proximidade]", err.message);
-            return;
-          }
-          console.error("[alerta-proximidade] falha ao enviar push", err);
-        }
-      })
+    await notificarPush(
+      { responsavelId: vinculo.responsavelId },
+      {
+        title: "O transporte está chegando",
+        body: `Faltam cerca de ${motorista.alertaChegadaMinutos} min para o motorista chegar — ${vinculo.aluno.nome}.`,
+        tag: `chegada-${vinculo.id}`,
+      }
     );
   }
 }

@@ -1,3 +1,4 @@
+import { MessageCircle } from "lucide-react";
 import { linkWhatsApp } from "@/lib/whatsapp";
 
 /**
@@ -39,6 +40,7 @@ export function WhatsAppCobrancaButton({
       rel="noopener noreferrer"
       className="inline-flex items-center gap-1.5 rounded-lg border border-green-200 bg-green-50 px-3 py-1.5 text-xs font-medium text-green-700 transition hover:bg-green-100 dark:border-green-900 dark:bg-green-950/40 dark:text-green-400 dark:hover:bg-green-950/70"
     >
+      <MessageCircle className="h-3.5 w-3.5" aria-hidden="true" />
       Cobrar no WhatsApp
     </a>
   );

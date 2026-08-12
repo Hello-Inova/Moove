@@ -1,21 +1,22 @@
 import type { ReactNode } from "react";
+import { MapPin, School, Truck, Send, Users, FileBarChart, CreditCard, Sparkles } from "lucide-react";
 
-import { AppHeader } from "@/components/layout/AppHeader";
+import { AppHeader, type NavItem } from "@/components/layout/AppHeader";
 import { AccessGate } from "@/components/layout/AccessGate";
 import { TrialBanner } from "@/components/layout/TrialBanner";
 import { LocationSharingProvider } from "@/contexts/LocationSharingContext";
 import { getAuthenticatedMotorista } from "@/lib/auth/guards";
 import { contaEmTeste, diasRestantesConta, getAssinaturaAtual, motoristaTemAcesso } from "@/lib/subscription/service";
 
-const NAV = [
-  { href: "/motorista/dashboard", label: "Rota" },
-  { href: "/motorista/escolas", label: "Escolas" },
-  { href: "/motorista/veiculos", label: "Veículo" },
-  { href: "/motorista/convites", label: "Convites" },
-  { href: "/motorista/vinculos", label: "Alunos" },
-  { href: "/motorista/relatorios", label: "Relatórios" },
-  { href: "/motorista/cobrancas", label: "Cobranças" },
-  { href: "/motorista/planos", label: "Planos" },
+const NAV: NavItem[] = [
+  { href: "/motorista/dashboard", label: "Rota", icon: MapPin },
+  { href: "/motorista/escolas", label: "Escolas", icon: School },
+  { href: "/motorista/veiculos", label: "Veículo", icon: Truck },
+  { href: "/motorista/convites", label: "Convites", icon: Send },
+  { href: "/motorista/vinculos", label: "Alunos", icon: Users },
+  { href: "/motorista/relatorios", label: "Relatórios", icon: FileBarChart },
+  { href: "/motorista/cobrancas", label: "Cobranças", icon: CreditCard },
+  { href: "/motorista/planos", label: "Planos", icon: Sparkles },
 ];
 
 // Rotas liberadas mesmo com o teste vencido — precisa dar pra ver/assinar um

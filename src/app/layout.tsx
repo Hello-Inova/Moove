@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
 import { THEME_INIT_SCRIPT } from "@/components/ui/ThemeToggle";
+import { Providers } from "@/components/ui/Providers";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -56,7 +57,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         className="min-h-full flex flex-col bg-neutral-50 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100"
         suppressHydrationWarning
       >
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

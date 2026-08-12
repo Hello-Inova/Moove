@@ -3,12 +3,13 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import type { LucideIcon } from "lucide-react";
 
 import { Logo } from "@/components/ui/Logo";
 import { LogoutButton } from "@/components/auth/LogoutButton";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 
-type NavItem = { href: string; label: string };
+export type NavItem = { href: string; label: string; icon?: LucideIcon };
 
 function MenuIcon() {
   return (
@@ -85,17 +86,19 @@ export function AppHeader({
       <nav className="flex-1 space-y-1 px-3">
         {nav.map((item) => {
           const active = pathname === item.href;
+          const Icon = item.icon;
           return (
             <Link
               key={item.href}
               href={item.href}
               onClick={handleNavClick}
-              className={`block rounded-lg px-3 py-2 text-sm font-medium transition ${
+              className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition ${
                 active
                   ? "bg-brand-orange-soft text-brand-orange-dark dark:bg-brand-orange/15 dark:text-brand-orange-light"
                   : "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-white"
               }`}
             >
+              {Icon && <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />}
               {item.label}
             </Link>
           );

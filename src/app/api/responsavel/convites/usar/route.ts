@@ -5,6 +5,7 @@ import { getAuthenticatedResponsavel } from "@/lib/auth/guards";
 import { usarConviteSchema } from "@/lib/validation/schemas";
 import { jsonError, jsonValidationError } from "@/lib/http";
 import { adicionarDias } from "@/lib/subscription/cobranca-aluno";
+import { notificarPush } from "@/lib/push/notificar";
 
 export async function POST(request: NextRequest) {
   const responsavel = await getAuthenticatedResponsavel();
@@ -85,6 +86,15 @@ export async function POST(request: NextRequest) {
         include: { motorista: { select: { nome: true } } },
       });
     });
+
+    await notificarPush(
+      { motoristaId: convite.motoristaId },
+      {
+        title: "Novo aluno vinculado",
+        body: `${responsavel.nome} vinculou ${aluno.nome} usando seu convite.`,
+        tag: `convite-aceito-${vinculo.id}`,
+      }
+    );
 
     return NextResponse.json(
       {

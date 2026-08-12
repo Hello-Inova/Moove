@@ -2,9 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { Trash2 } from "lucide-react";
 
 import { apiDelete } from "@/lib/api-client";
 import { dangerButtonClass } from "@/components/ui/form-elements";
+import { useConfirm } from "@/components/ui/ConfirmProvider";
 
 export function AdminDeleteButton({
   url,
@@ -16,22 +19,22 @@ export function AdminDeleteButton({
   redirectTo?: string;
 }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   async function handleClick() {
-    if (!window.confirm(confirmMessage)) return;
+    if (!(await confirm(confirmMessage, { danger: true, confirmLabel: "Excluir" }))) return;
 
     setLoading(true);
-    setError(null);
     const result = await apiDelete(url);
     setLoading(false);
 
     if (!result.ok) {
-      setError(result.error);
+      toast.error(result.error);
       return;
     }
 
+    toast.success("Excluído com sucesso.");
     if (redirectTo) {
       router.push(redirectTo);
     }
@@ -39,11 +42,9 @@ export function AdminDeleteButton({
   }
 
   return (
-    <div>
-      <button onClick={handleClick} disabled={loading} className={dangerButtonClass}>
-        {loading ? "Excluindo…" : "Excluir"}
-      </button>
-      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
-    </div>
+    <button onClick={handleClick} disabled={loading} className={dangerButtonClass + " inline-flex items-center gap-1.5"}>
+      <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+      {loading ? "Excluindo…" : "Excluir"}
+    </button>
   );
 }
