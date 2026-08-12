@@ -39,12 +39,19 @@ export async function createMercadoPagoPreference(params: {
   valor: number;
   externalReference: string;
   payerEmail: string;
+  /** CPF do pagador (só dígitos) — obrigatório pro Mercado Pago liberar Pix
+   * como forma de pagamento no Brasil. Sem isso, o Checkout Pro mostra o Pix
+   * como opção mas o botão "Criar Pix" fica travado (cinza), sem dar erro
+   * nenhum explicando o motivo. Opcional aqui só por segurança de contas
+   * antigas sem CPF cadastrado — nesse caso Pix pode não funcionar. */
+  payerCpf?: string | null;
   /** Caminho (sem domínio) para onde o Mercado Pago redireciona depois do
    * pagamento — por padrão a vitrine de planos do motorista (único fluxo de
    * pagamento pela plataforma; o responsável não paga nada). */
   backUrlPath?: string;
 }): Promise<MercadoPagoPreference> {
   const appUrl = getAppUrl();
+  const cpfDigitos = params.payerCpf?.replace(/\D/g, "");
   const backUrlPath = params.backUrlPath ?? "/motorista/planos";
   // `auto_return` exige back_urls públicas em https — em dev local
   // (http://localhost) o Mercado Pago recusa a preference inteira com um
@@ -67,7 +74,10 @@ export async function createMercadoPagoPreference(params: {
           currency_id: "BRL",
         },
       ],
-      payer: { email: params.payerEmail },
+      payer: {
+        email: params.payerEmail,
+        ...(cpfDigitos && cpfDigitos.length === 11 ? { identification: { type: "CPF", number: cpfDigitos } } : {}),
+      },
       external_reference: params.externalReference,
       back_urls: {
         success: `${appUrl}${backUrlPath}?pagamento=sucesso`,

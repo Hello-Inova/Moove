@@ -76,6 +76,7 @@ export async function criarAssinaturaComCheckout(params: {
   motoristaId: string;
   motoristaNome: string;
   motoristaEmail: string;
+  motoristaCpf?: string | null;
   tipoPlano: string;
   anosAdicionais?: number;
 }) {
@@ -120,6 +121,7 @@ export async function criarAssinaturaComCheckout(params: {
     valor: resumo.valorTotal,
     externalReference: pagamento.id,
     payerEmail: params.motoristaEmail,
+    payerCpf: params.motoristaCpf,
   });
 
   await prisma.pagamento.update({

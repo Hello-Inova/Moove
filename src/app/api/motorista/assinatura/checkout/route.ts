@@ -33,6 +33,7 @@ export async function POST(request: NextRequest) {
       motoristaId: motorista.id,
       motoristaNome: motorista.nome,
       motoristaEmail: motorista.email,
+      motoristaCpf: motorista.cpf,
       tipoPlano,
       anosAdicionais,
     });
