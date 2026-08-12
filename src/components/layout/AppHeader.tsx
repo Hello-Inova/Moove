@@ -1,15 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { LucideIcon } from "lucide-react";
 
 import { Logo } from "@/components/ui/Logo";
 import { LogoutButton } from "@/components/auth/LogoutButton";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 
-export type NavItem = { href: string; label: string; icon?: LucideIcon };
+// `icon` é um elemento já renderizado (ReactNode), não o componente em si —
+// MotoristaShell/ResponsavelShell são Server Components e AppHeader é
+// Client Component ("use client" abaixo); passar a referência da função do
+// ícone (ex: `icon: MapPin`) através dessa fronteira quebra em produção
+// ("Functions cannot be passed directly to Client Components"). Um elemento
+// React já instanciado (ex: `icon: <MapPin className="h-4 w-4" />`) é só
+// dado serializável, então atravessa a fronteira sem problema — mesmo
+// mecanismo usado por `children`.
+export type NavItem = { href: string; label: string; icon?: ReactNode };
 
 function MenuIcon() {
   return (
@@ -86,7 +93,6 @@ export function AppHeader({
       <nav className="flex-1 space-y-1 px-3">
         {nav.map((item) => {
           const active = pathname === item.href;
-          const Icon = item.icon;
           return (
             <Link
               key={item.href}
@@ -98,7 +104,7 @@ export function AppHeader({
                   : "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-white"
               }`}
             >
-              {Icon && <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />}
+              {item.icon}
               {item.label}
             </Link>
           );

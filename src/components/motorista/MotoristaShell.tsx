@@ -8,15 +8,17 @@ import { LocationSharingProvider } from "@/contexts/LocationSharingContext";
 import { getAuthenticatedMotorista } from "@/lib/auth/guards";
 import { contaEmTeste, diasRestantesConta, getAssinaturaAtual, motoristaTemAcesso } from "@/lib/subscription/service";
 
+const ICON_CLASS = "h-4 w-4 shrink-0";
+
 const NAV: NavItem[] = [
-  { href: "/motorista/dashboard", label: "Rota", icon: MapPin },
-  { href: "/motorista/escolas", label: "Escolas", icon: School },
-  { href: "/motorista/veiculos", label: "Veículo", icon: Truck },
-  { href: "/motorista/convites", label: "Convites", icon: Send },
-  { href: "/motorista/vinculos", label: "Alunos", icon: Users },
-  { href: "/motorista/relatorios", label: "Relatórios", icon: FileBarChart },
-  { href: "/motorista/cobrancas", label: "Cobranças", icon: CreditCard },
-  { href: "/motorista/planos", label: "Planos", icon: Sparkles },
+  { href: "/motorista/dashboard", label: "Rota", icon: <MapPin className={ICON_CLASS} aria-hidden="true" /> },
+  { href: "/motorista/escolas", label: "Escolas", icon: <School className={ICON_CLASS} aria-hidden="true" /> },
+  { href: "/motorista/veiculos", label: "Veículo", icon: <Truck className={ICON_CLASS} aria-hidden="true" /> },
+  { href: "/motorista/convites", label: "Convites", icon: <Send className={ICON_CLASS} aria-hidden="true" /> },
+  { href: "/motorista/vinculos", label: "Alunos", icon: <Users className={ICON_CLASS} aria-hidden="true" /> },
+  { href: "/motorista/relatorios", label: "Relatórios", icon: <FileBarChart className={ICON_CLASS} aria-hidden="true" /> },
+  { href: "/motorista/cobrancas", label: "Cobranças", icon: <CreditCard className={ICON_CLASS} aria-hidden="true" /> },
+  { href: "/motorista/planos", label: "Planos", icon: <Sparkles className={ICON_CLASS} aria-hidden="true" /> },
 ];
 
 // Rotas liberadas mesmo com o teste vencido — precisa dar pra ver/assinar um
