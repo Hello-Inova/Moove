@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { Ponto, RotaOtimizada, RotaSimples } from "@/lib/routing/osrm";
+import { registrarUsoApi } from "@/lib/uso-api-externa";
 
 // Fallback PAGO (Google Routes API v2) para o cálculo de rota — usado só
 // quando o OSRM (gratuito, ver osrm.ts) falha ou não retorna resultado,
@@ -52,6 +53,11 @@ async function chamarComputeRoutes(
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  // Registrado aqui (antes do fetch) porque a chamada já consome a cota
+  // gratuita do Google mesmo se der erro/timeout — só não conta se nem
+  // chegou a sair (sem key configurada, já retornou acima).
+  void registrarUsoApi("routes_directions");
 
   try {
     const response = await fetch(COMPUTE_ROUTES_URL, {

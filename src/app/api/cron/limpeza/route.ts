@@ -67,6 +67,12 @@ export async function GET(request: NextRequest) {
   const codigosApagados = await prisma.codigoVerificacao.deleteMany({
     where: { criadoEm: { lt: new Date(agora.getTime() - 7 * 24 * 60 * 60 * 1000) } },
   });
+  // Uso das APIs do Google (ver /admin/uso-google) só conta o mês corrente —
+  // 40 dias de folga garante que nunca apaga nada que ainda esteja dentro do
+  // mês em contagem, mesmo perto da virada.
+  const usoApiApagado = await prisma.usoApiExterna.deleteMany({
+    where: { criadoEm: { lt: new Date(agora.getTime() - 40 * 24 * 60 * 60 * 1000) } },
+  });
 
   return NextResponse.json({
     ok: true,
@@ -74,5 +80,6 @@ export async function GET(request: NextRequest) {
     pontosGpsApagados: pontosApagados.count,
     tentativasLoginApagadas: tentativasApagadas.count,
     codigosVerificacaoApagados: codigosApagados.count,
+    usoApiExternaApagado: usoApiApagado.count,
   });
 }

@@ -1,5 +1,7 @@
 import "server-only";
 
+import { registrarUsoApi } from "@/lib/uso-api-externa";
+
 // Geocodificação de endereço → coordenadas.
 //
 // Provedor principal: LocationIQ (https://locationiq.com), gratuito até
@@ -322,6 +324,11 @@ async function buscarGoogle(
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 6_000);
+
+  // Registrado aqui (não no `return` de sucesso) porque a chamada já
+  // consome a cota gratuita do Google mesmo quando o resultado é
+  // ZERO_RESULTS ou dá erro — só não conta se nem chegou a sair (sem key).
+  void registrarUsoApi("geocoding");
 
   try {
     const response = await fetch(url.toString(), { signal: controller.signal });

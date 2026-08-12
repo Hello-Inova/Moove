@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
@@ -8,12 +8,15 @@ import type { ReactNode } from "react";
 import { Logo } from "@/components/ui/Logo";
 import { AdminLogoutButton } from "@/components/admin/AdminLogoutButton";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import type { ResumoApi } from "@/lib/uso-api-externa";
+import { piorNivel } from "@/lib/uso-api-externa-cores";
 
 const NAV = [
   { href: "/admin/motoristas", label: "Motoristas" },
   { href: "/admin/responsaveis", label: "Responsáveis" },
   { href: "/admin/planos", label: "Planos" },
   { href: "/admin/auditoria", label: "Auditoria" },
+  { href: "/admin/uso-google", label: "Uso Google" },
 ];
 
 function MenuIcon() {
@@ -36,11 +39,28 @@ function CloseIcon() {
  * Barra do admin — nav horizontal em telas médias/grandes; em telas
  * pequenas vira um botão de hambúrguer que abre os links num menu solto
  * embaixo da barra (mesma ideia do AppHeader, só que sem gaveta lateral
- * porque aqui são só 3 links + logout).
+ * porque aqui são poucos links + logout). Também busca o resumo de uso das
+ * APIs do Google (ver /admin/uso-google) e mostra um banner de aviso logo
+ * abaixo do header, em qualquer página do admin, quando alguma delas está
+ * perto do limite gratuito mensal.
  */
 export function AdminShell({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  const [usoApis, setUsoApis] = useState<ResumoApi[] | null>(null);
+
+  // Aviso de limite gratuito do Google — busca uma vez ao montar (qualquer
+  // página admin, já que todas passam por aqui) e fica quieto se falhar:
+  // é só um aviso, não pode travar o painel se a rota de uso cair.
+  useEffect(() => {
+    fetch("/api/admin/uso-google")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: ResumoApi[] | null) => setUsoApis(data))
+      .catch(() => setUsoApis(null));
+  }, []);
+
+  const nivel = usoApis ? piorNivel(usoApis) : "ok";
+  const itensParaAvisar = usoApis?.filter((i) => i.configurada && i.percentual >= 70) ?? [];
 
   return (
     <div className="flex min-h-full flex-1 flex-col bg-neutral-50 dark:bg-neutral-950">
@@ -107,6 +127,27 @@ export function AdminShell({ children }: { children: ReactNode }) {
           </nav>
         )}
       </header>
+
+      {itensParaAvisar.length > 0 && nivel !== "ok" && (
+        <div className="mx-auto w-full max-w-4xl px-4 pt-4">
+          <Link
+            href="/admin/uso-google"
+            className={`flex flex-wrap items-center gap-2 rounded-xl border p-3 text-sm transition hover:opacity-90 ${
+              nivel === "critico"
+                ? "border-red-300 bg-red-50 text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300"
+                : "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300"
+            }`}
+          >
+            <span className="font-medium">
+              {nivel === "critico" ? "Perto do limite grátis do Google:" : "Atenção ao uso do Google:"}
+            </span>
+            <span>
+              {itensParaAvisar.map((i) => `${i.label} (${i.percentual}%)`).join(" · ")} — ver detalhes
+            </span>
+          </Link>
+        </div>
+      )}
+
       <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-6">{children}</main>
     </div>
   );

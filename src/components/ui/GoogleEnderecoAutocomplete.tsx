@@ -56,6 +56,14 @@ declare global {
   }
 }
 
+/** Avisa o servidor (telemetria, "fire and forget") que uma nova sessão de
+ * busca começou — usado pelo painel admin pra acompanhar o uso mensal em
+ * `/admin/uso-google` (ver src/lib/uso-api-externa.ts). Nunca bloqueia nem
+ * derruba a busca em si se falhar. */
+function avisarNovaSessao() {
+  fetch("/api/uso-google/autocomplete", { method: "POST" }).catch(() => {});
+}
+
 let carregamentoScript: Promise<void> | null = null;
 
 /** Injeta o script de bootstrap oficial do Google Maps uma única vez por
@@ -151,7 +159,10 @@ export function GoogleEnderecoAutocomplete({
       try {
         const places = await garantirPlaces();
         if (!places) return;
-        if (!sessionTokenRef.current) sessionTokenRef.current = new places.AutocompleteSessionToken();
+        if (!sessionTokenRef.current) {
+          sessionTokenRef.current = new places.AutocompleteSessionToken();
+          avisarNovaSessao();
+        }
 
         const { suggestions } = await places.AutocompleteSuggestion.fetchAutocompleteSuggestions({
           input: valor,
