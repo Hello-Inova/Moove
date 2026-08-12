@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getAuthenticatedResponsavel } from "@/lib/auth/guards";
 import { enderecoSchema } from "@/lib/validation/schemas";
 import { jsonError, jsonValidationError } from "@/lib/http";
-import { geocodeEndereco } from "@/lib/geocoding";
+import { geocodeCidadeAproximado, geocodeEndereco } from "@/lib/geocoding";
 
 export async function GET() {
   const responsavel = await getAuthenticatedResponsavel();
@@ -20,6 +20,8 @@ export async function GET() {
     estado: responsavel.estado,
     enderecoLatitude: responsavel.enderecoLatitude,
     enderecoLongitude: responsavel.enderecoLongitude,
+    enderecoTextoEncontrado: responsavel.enderecoTextoEncontrado,
+    enderecoConfirmado: responsavel.enderecoConfirmado,
   });
 }
 
@@ -54,14 +56,25 @@ export async function PATCH(request: NextRequest) {
       estado,
       enderecoLatitude: coordenadas?.latitude ?? null,
       enderecoLongitude: coordenadas?.longitude ?? null,
+      enderecoTextoEncontrado: coordenadas?.enderecoEncontrado ?? null,
+      // Todo endereço recém-(re)geocodificado começa como NÃO confirmado —
+      // mesmo que a coordenada esteja certa, ninguém olhou o pino ainda.
+      enderecoConfirmado: false,
       enderecoAtualizadoEm: new Date(),
     },
   });
+
+  // Se a geocodificação falhou de vez, busca um centro aproximado (só
+  // cidade/UF) pra pelo menos centralizar o mapa de ajuste manual — sem
+  // isso a pessoa fica sem mapa nenhum pra posicionar o pino.
+  const centroAproximado = coordenadas === null ? await geocodeCidadeAproximado(cidade, estado) : null;
 
   return NextResponse.json({
     ok: true,
     geocodificado: coordenadas !== null,
     enderecoLatitude: atualizado.enderecoLatitude,
     enderecoLongitude: atualizado.enderecoLongitude,
+    enderecoTextoEncontrado: atualizado.enderecoTextoEncontrado,
+    centroAproximado,
   });
 }

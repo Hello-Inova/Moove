@@ -36,6 +36,7 @@ export async function POST(request: NextRequest) {
     estado: string;
     enderecoLatitude: number | null;
     enderecoLongitude: number | null;
+    enderecoTextoEncontrado?: string | null;
   } | null;
 
   if (!payload) {
@@ -66,6 +67,7 @@ export async function POST(request: NextRequest) {
             estado: payload.estado,
             enderecoLatitude: payload.enderecoLatitude,
             enderecoLongitude: payload.enderecoLongitude,
+            enderecoTextoEncontrado: payload.enderecoTextoEncontrado ?? null,
           },
         },
       },

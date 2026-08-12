@@ -10,10 +10,16 @@ export default async function MotoristaDashboardPage() {
   const motorista = await getAuthenticatedMotorista();
   if (!motorista) redirect("/motorista/login");
 
-  const [veiculosCount, vinculosAtivos, convitesPendentes] = await Promise.all([
+  const [veiculosCount, vinculosAtivos, convitesPendentes, escolaNaoConfirmada] = await Promise.all([
     prisma.veiculo.count({ where: { motoristaId: motorista.id } }),
     prisma.vinculo.count({ where: { motoristaId: motorista.id, status: "ATIVO" } }),
     prisma.convite.count({ where: { motoristaId: motorista.id, status: "PENDENTE" } }),
+    // Só conta escola que JÁ foi geocodificada (tem coordenada) mas ainda não
+    // foi confirmada por uma pessoa no mapa — escola sem coordenada nenhuma
+    // já tem seu próprio aviso na tela "Minhas escolas".
+    prisma.escola.count({
+      where: { motoristaId: motorista.id, enderecoConfirmado: false, enderecoLatitude: { not: null } },
+    }),
   ]);
 
   return (
@@ -28,6 +34,17 @@ export default async function MotoristaDashboardPage() {
           Você ainda não cadastrou um veículo.{" "}
           <Link href="/motorista/veiculos" className="font-medium underline">
             Cadastrar veículo
+          </Link>
+        </div>
+      )}
+
+      {escolaNaoConfirmada > 0 && (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
+          {escolaNaoConfirmada === 1
+            ? "O endereço de uma escola ainda não foi confirmado no mapa — a localização automática pode estar imprecisa."
+            : `O endereço de ${escolaNaoConfirmada} escolas ainda não foi confirmado no mapa — a localização automática pode estar imprecisa.`}{" "}
+          <Link href="/motorista/escolas" className="font-medium underline">
+            Confirmar localização
           </Link>
         </div>
       )}

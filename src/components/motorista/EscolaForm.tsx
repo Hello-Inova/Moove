@@ -13,6 +13,8 @@ export type EscolaEditavel = {
   nome: string;
   enderecoLatitude?: number | null;
   enderecoLongitude?: number | null;
+  enderecoTextoEncontrado?: string | null;
+  enderecoConfirmado?: boolean;
   geocodificada?: boolean;
 } & Partial<EnderecoValores>;
 
@@ -23,6 +25,7 @@ type SalvarResposta = {
   geocodificada: boolean;
   enderecoLatitude: number | null;
   enderecoLongitude: number | null;
+  enderecoTextoEncontrado: string | null;
   centroAproximado: Coords | null;
 };
 
@@ -56,15 +59,14 @@ export function EscolaForm({ escola, onSaved, onCancel }: { escola?: EscolaEdita
   // true quando o pino não veio de geocodificação real, só de um centro
   // aproximado (cidade/UF) pra ter algum mapa pra posicionar manualmente.
   const [pinAproximado, setPinAproximado] = useState(false);
-  const [pinAlterado, setPinAlterado] = useState(false);
+  const [textoEncontrado, setTextoEncontrado] = useState<string | null>(escola?.enderecoTextoEncontrado ?? null);
+  const [confirmado, setConfirmado] = useState(Boolean(escola?.enderecoConfirmado));
   const [salvandoPin, setSalvandoPin] = useState(false);
-  const [pinSalvo, setPinSalvo] = useState(false);
 
   const handlePinChange = useCallback((lat: number, lng: number) => {
     setCoords({ latitude: lat, longitude: lng });
     setPinAproximado(false);
-    setPinAlterado(true);
-    setPinSalvo(false);
+    setConfirmado(false);
   }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -73,8 +75,6 @@ export function EscolaForm({ escola, onSaved, onCancel }: { escola?: EscolaEdita
     setFormError(null);
     setWarning(null);
     setIssues({});
-    setPinAlterado(false);
-    setPinSalvo(false);
 
     const form = new FormData(event.currentTarget);
     const payload = {
@@ -101,20 +101,27 @@ export function EscolaForm({ escola, onSaved, onCancel }: { escola?: EscolaEdita
 
     if (result.data.id) setEscolaId(result.data.id);
 
+    // Todo (re)geocode reseta a confirmação — é um pino novo, ninguém olhou
+    // ele ainda.
+    setConfirmado(false);
+
     if (result.data.geocodificada) {
       setCoords({ latitude: result.data.enderecoLatitude!, longitude: result.data.enderecoLongitude! });
+      setTextoEncontrado(result.data.enderecoTextoEncontrado);
       setPinAproximado(false);
       setWarning(
-        "Escola salva. Confira o pino no mapa abaixo — se ele não estiver exatamente no endereço certo, arraste (ou toque no lugar certo) e confirme."
+        "Escola salva. Confira o pino e o texto encontrado abaixo — se não for exatamente o endereço certo, arraste o pino (ou toque no lugar certo) e confirme."
       );
     } else if (result.data.centroAproximado) {
       setCoords(result.data.centroAproximado);
+      setTextoEncontrado(null);
       setPinAproximado(true);
       setWarning(
         "Não conseguimos localizar esse endereço automaticamente — comum em condomínios/loteamentos fechados recém-criados. Posicione o pino manualmente no mapa abaixo (ele começa só no centro aproximado da cidade) e confirme."
       );
     } else {
       setCoords(null);
+      setTextoEncontrado(null);
       setWarning(
         "Escola salva, mas não conseguimos localizá-la no mapa automaticamente. Confira o endereço — sem isso, a rota até essa escola não funciona."
       );
@@ -139,8 +146,8 @@ export function EscolaForm({ escola, onSaved, onCancel }: { escola?: EscolaEdita
     }
 
     setPinAproximado(false);
-    setPinAlterado(false);
-    setPinSalvo(true);
+    setTextoEncontrado(null);
+    setConfirmado(true);
     router.refresh();
   }
 
@@ -154,6 +161,13 @@ export function EscolaForm({ escola, onSaved, onCancel }: { escola?: EscolaEdita
           <input id="nome" name="nome" required defaultValue={escola?.nome} className={inputClass} />
           <FieldError message={issues.nome?.[0]} />
         </div>
+
+        {escola?.geocodificada && !confirmado && !warning && (
+          <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+            Este endereço ainda não foi confirmado no mapa — confira o pino abaixo e clique em &quot;Confirmar
+            localização&quot;. Enquanto isso, a rota até essa escola pode estar imprecisa.
+          </p>
+        )}
 
         <EnderecoFields
           issues={issues}
@@ -196,6 +210,11 @@ export function EscolaForm({ escola, onSaved, onCancel }: { escola?: EscolaEdita
                 ? "Mapa centralizado só na cidade — toque no ponto certo do mapa (ou arraste o pino) e confirme."
                 : "Se o pino não estiver no lugar certo, arraste-o (ou toque no ponto certo do mapa) e confirme."}
             </p>
+            {textoEncontrado && (
+              <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+                Endereço encontrado pelo sistema: <span className="italic">{textoEncontrado}</span>
+              </p>
+            )}
           </div>
 
           <div className="h-64 w-full overflow-hidden rounded-xl border border-neutral-200 dark:border-neutral-700">
@@ -206,12 +225,12 @@ export function EscolaForm({ escola, onSaved, onCancel }: { escola?: EscolaEdita
             <button
               type="button"
               onClick={handleConfirmarPin}
-              disabled={salvandoPin || !pinAlterado}
+              disabled={salvandoPin || confirmado}
               className={secondaryButtonClass + " w-auto px-4"}
             >
-              {salvandoPin ? "Salvando…" : "Confirmar localização"}
+              {salvandoPin ? "Salvando…" : confirmado ? "Localização confirmada" : "Confirmar localização"}
             </button>
-            {pinSalvo && <span className="text-sm text-green-600 dark:text-green-400">Localização confirmada.</span>}
+            {confirmado && <span className="text-sm text-green-600 dark:text-green-400">✓ Confirmado</span>}
           </div>
         </div>
       )}

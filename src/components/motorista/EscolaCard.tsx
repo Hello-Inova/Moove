@@ -45,6 +45,11 @@ export function EscolaCard({ escola, onChanged }: { escola: EscolaListagem; onCh
             Endereço não localizado no mapa — rota até essa escola não vai funcionar.
           </p>
         )}
+        {escola.geocodificada && !escola.enderecoConfirmado && (
+          <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
+            Localização ainda não confirmada no mapa — clique em &quot;Editar&quot; e confirme o pino.
+          </p>
+        )}
       </div>
       <div className="flex items-center gap-2">
         <button type="button" onClick={() => setEditando(true)} className={secondaryButtonClass + " w-auto px-3 py-1.5 text-xs"}>

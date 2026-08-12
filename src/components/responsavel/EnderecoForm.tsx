@@ -10,16 +10,29 @@ import { PinPicker } from "@/components/map/PinPicker";
 
 type Coords = { latitude: number; longitude: number };
 
+type SalvarResposta = {
+  ok: true;
+  geocodificado: boolean;
+  enderecoLatitude: number | null;
+  enderecoLongitude: number | null;
+  enderecoTextoEncontrado: string | null;
+  centroAproximado: Coords | null;
+};
+
 export function EnderecoForm({
   defaultValues,
   geocodificado,
   enderecoLatitude,
   enderecoLongitude,
+  enderecoTextoEncontrado,
+  enderecoConfirmado,
 }: {
   defaultValues: Partial<EnderecoValores>;
   geocodificado: boolean;
   enderecoLatitude?: number | null;
   enderecoLongitude?: number | null;
+  enderecoTextoEncontrado?: string | null;
+  enderecoConfirmado?: boolean;
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -29,20 +42,22 @@ export function EnderecoForm({
 
   // Coordenada mostrada no mapa — vem do endereço já salvo (se geocodificado)
   // e é atualizada sempre que o endereço é regeocodificado ou o pino é
-  // arrastado/clicado. Ficar `null` só quando nunca houve geocodificação.
+  // arrastado/clicado. Ficar `null` só quando nunca houve geocodificação (e
+  // nenhum centro aproximado disponível).
   const [coords, setCoords] = useState<Coords | null>(
     geocodificado && enderecoLatitude != null && enderecoLongitude != null
       ? { latitude: enderecoLatitude, longitude: enderecoLongitude }
       : null
   );
-  const [pinAlterado, setPinAlterado] = useState(false);
+  const [pinAproximado, setPinAproximado] = useState(false);
+  const [textoEncontrado, setTextoEncontrado] = useState<string | null>(enderecoTextoEncontrado ?? null);
+  const [confirmado, setConfirmado] = useState(Boolean(enderecoConfirmado));
   const [salvandoPin, setSalvandoPin] = useState(false);
-  const [pinSalvo, setPinSalvo] = useState(false);
 
   const handlePinChange = useCallback((lat: number, lng: number) => {
     setCoords({ latitude: lat, longitude: lng });
-    setPinAlterado(true);
-    setPinSalvo(false);
+    setPinAproximado(false);
+    setConfirmado(false);
   }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -51,8 +66,6 @@ export function EnderecoForm({
     setFormError(null);
     setIssues({});
     setAviso(null);
-    setPinAlterado(false);
-    setPinSalvo(false);
 
     const form = new FormData(event.currentTarget);
     const payload = {
@@ -65,12 +78,7 @@ export function EnderecoForm({
       estado: form.get("estado"),
     };
 
-    const result = await apiPatchJson<{
-      ok: true;
-      geocodificado: boolean;
-      enderecoLatitude: number | null;
-      enderecoLongitude: number | null;
-    }>("/api/responsavel/endereco", payload);
+    const result = await apiPatchJson<SalvarResposta>("/api/responsavel/endereco", payload);
     setLoading(false);
 
     if (!result.ok) {
@@ -79,18 +87,29 @@ export function EnderecoForm({
       return;
     }
 
-    if (!result.data.geocodificado) {
-      setCoords(null);
+    // Todo (re)geocode reseta a confirmação — é um pino novo, ninguém olhou
+    // ele ainda.
+    setConfirmado(false);
+
+    if (result.data.geocodificado) {
+      setCoords({ latitude: result.data.enderecoLatitude!, longitude: result.data.enderecoLongitude! });
+      setTextoEncontrado(result.data.enderecoTextoEncontrado);
+      setPinAproximado(false);
       setAviso(
-        "Endereço salvo, mas não conseguimos localizá-lo no mapa automaticamente. Confira se está correto — sem isso, esse endereço não entra na rota do motorista."
+        "Endereço salvo. Confira o pino e o texto encontrado abaixo — se não for exatamente a sua casa, arraste o pino (ou toque no lugar certo) e confirme."
+      );
+    } else if (result.data.centroAproximado) {
+      setCoords(result.data.centroAproximado);
+      setTextoEncontrado(null);
+      setPinAproximado(true);
+      setAviso(
+        "Não conseguimos localizar esse endereço automaticamente. Posicione o pino manualmente no mapa abaixo (ele começa só no centro aproximado da cidade) e confirme."
       );
     } else {
-      setCoords({
-        latitude: result.data.enderecoLatitude!,
-        longitude: result.data.enderecoLongitude!,
-      });
+      setCoords(null);
+      setTextoEncontrado(null);
       setAviso(
-        "Endereço salvo. Confira o pino no mapa abaixo — se ele não estiver exatamente na sua casa, arraste (ou toque no lugar certo) e confirme."
+        "Endereço salvo, mas não conseguimos localizá-lo no mapa automaticamente. Confira se está correto — sem isso, esse endereço não entra na rota do motorista."
       );
     }
 
@@ -110,8 +129,9 @@ export function EnderecoForm({
       return;
     }
 
-    setPinAlterado(false);
-    setPinSalvo(true);
+    setPinAproximado(false);
+    setTextoEncontrado(null);
+    setConfirmado(true);
     router.refresh();
   }
 
@@ -121,6 +141,13 @@ export function EnderecoForm({
         {!geocodificado && !aviso && (
           <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
             Ainda não conseguimos localizar este endereço no mapa. Confira os dados e salve novamente.
+          </p>
+        )}
+
+        {geocodificado && !confirmado && !aviso && (
+          <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+            Este endereço ainda não foi confirmado no mapa — confira o pino abaixo e clique em &quot;Confirmar
+            localização&quot;. Enquanto isso, o motorista pode receber uma rota imprecisa.
           </p>
         )}
 
@@ -139,9 +166,15 @@ export function EnderecoForm({
           <div>
             <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300">Confirme a localização</p>
             <p className="text-xs text-neutral-500 dark:text-neutral-400">
-              Se o pino não estiver na sua casa, arraste-o (ou toque no ponto certo do mapa) e clique em
-              &quot;Confirmar localização&quot;.
+              {pinAproximado
+                ? "Mapa centralizado só na cidade — toque no ponto certo do mapa (ou arraste o pino) e confirme."
+                : "Se o pino não estiver na sua casa, arraste-o (ou toque no ponto certo do mapa) e clique em “Confirmar localização”."}
             </p>
+            {textoEncontrado && (
+              <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+                Endereço encontrado pelo sistema: <span className="italic">{textoEncontrado}</span>
+              </p>
+            )}
           </div>
 
           <div className="h-64 w-full overflow-hidden rounded-xl border border-neutral-200 dark:border-neutral-700">
@@ -152,12 +185,12 @@ export function EnderecoForm({
             <button
               type="button"
               onClick={handleConfirmarPin}
-              disabled={salvandoPin || !pinAlterado}
+              disabled={salvandoPin || confirmado}
               className={secondaryButtonClass + " w-auto px-4"}
             >
-              {salvandoPin ? "Salvando…" : "Confirmar localização"}
+              {salvandoPin ? "Salvando…" : confirmado ? "Localização confirmada" : "Confirmar localização"}
             </button>
-            {pinSalvo && <span className="text-sm text-green-600 dark:text-green-400">Localização confirmada.</span>}
+            {confirmado && <span className="text-sm text-green-600 dark:text-green-400">✓ Confirmado</span>}
           </div>
         </div>
       )}

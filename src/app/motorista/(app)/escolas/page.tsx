@@ -4,9 +4,15 @@ import { getAuthenticatedMotorista } from "@/lib/auth/guards";
 import { prisma } from "@/lib/prisma";
 import { EscolasClient } from "@/components/motorista/EscolasClient";
 
-export default async function MotoristaEscolasPage() {
+export default async function MotoristaEscolasPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ novo?: string }>;
+}) {
   const motorista = await getAuthenticatedMotorista();
   if (!motorista) redirect("/motorista/login");
+
+  const { novo } = await searchParams;
 
   const escolas = await prisma.escola.findMany({
     where: { motoristaId: motorista.id },
@@ -23,6 +29,13 @@ export default async function MotoristaEscolasPage() {
         </p>
       </div>
 
+      {novo === "1" && (
+        <div className="rounded-xl border border-blue-300 bg-blue-50 p-4 text-sm text-blue-900 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300">
+          Sua conta foi criada! Clique em &quot;Editar&quot; na escola abaixo e confirme o pino no mapa antes de
+          continuar — é isso que garante que a rota até ela saia certa.
+        </div>
+      )}
+
       <EscolasClient
         escolasIniciais={escolas.map((e) => ({
           id: e.id,
@@ -36,6 +49,8 @@ export default async function MotoristaEscolasPage() {
           estado: e.estado,
           enderecoLatitude: e.enderecoLatitude,
           enderecoLongitude: e.enderecoLongitude,
+          enderecoTextoEncontrado: e.enderecoTextoEncontrado,
+          enderecoConfirmado: e.enderecoConfirmado,
           geocodificada: e.enderecoLatitude !== null && e.enderecoLongitude !== null,
         }))}
       />

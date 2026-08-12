@@ -28,6 +28,8 @@ export async function GET() {
       estado: e.estado,
       enderecoLatitude: e.enderecoLatitude,
       enderecoLongitude: e.enderecoLongitude,
+      enderecoTextoEncontrado: e.enderecoTextoEncontrado,
+      enderecoConfirmado: e.enderecoConfirmado,
       geocodificada: e.enderecoLatitude !== null && e.enderecoLongitude !== null,
     }))
   );
@@ -60,6 +62,7 @@ export async function POST(request: NextRequest) {
       estado,
       enderecoLatitude: coordenadas?.latitude ?? null,
       enderecoLongitude: coordenadas?.longitude ?? null,
+      enderecoTextoEncontrado: coordenadas?.enderecoEncontrado ?? null,
     },
   });
 
@@ -76,6 +79,7 @@ export async function POST(request: NextRequest) {
       geocodificada: coordenadas !== null,
       enderecoLatitude: escola.enderecoLatitude,
       enderecoLongitude: escola.enderecoLongitude,
+      enderecoTextoEncontrado: escola.enderecoTextoEncontrado,
       centroAproximado,
     },
     { status: 201 }

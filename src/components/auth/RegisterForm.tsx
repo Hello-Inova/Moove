@@ -95,7 +95,15 @@ export function RegisterForm({ role }: { role: Role }) {
           proposito="CADASTRO"
           verifyUrl={`/api/auth/${role}/register/verificar`}
           onVerified={() => {
-            router.push(`/${role}/dashboard`);
+            // Leva direto pra tela de confirmar o pino no mapa (em vez do
+            // painel geral) — a geocodificação automática do endereço
+            // digitado no cadastro pode ter errado o ponto exato, e é bem
+            // mais fácil corrigir isso agora do que descobrir só quando o
+            // motorista já estiver na rota. Quem não tem endereço/escola
+            // pra confirmar (não aplicável hoje, os dois roles sempre têm)
+            // só veria a tela vazia normalmente.
+            const destino = role === "motorista" ? "/motorista/escolas" : "/responsavel/endereco";
+            router.push(`${destino}?novo=1`);
             router.refresh();
           }}
         />

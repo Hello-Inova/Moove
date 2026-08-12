@@ -49,6 +49,15 @@ export default async function ResponsavelDashboardPage() {
           </div>
         )}
 
+        {responsavel.enderecoLatitude && responsavel.enderecoLongitude && !responsavel.enderecoConfirmado && (
+          <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
+            Seu endereço ainda não foi confirmado no mapa — a localização automática pode estar imprecisa.{" "}
+            <Link href="/responsavel/endereco" className="font-medium underline">
+              Confirmar localização
+            </Link>
+          </div>
+        )}
+
         <div className="space-y-3">
           {vinculos.map((v) => (
             <div key={v.id} className="rounded-2xl border border-neutral-200 bg-white shadow-sm p-4 dark:bg-neutral-900 dark:border-neutral-700">

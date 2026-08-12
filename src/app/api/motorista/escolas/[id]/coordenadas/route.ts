@@ -42,6 +42,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     data: {
       enderecoLatitude: latitude,
       enderecoLongitude: longitude,
+      // Pino ajustado à mão pelo motorista — fonte de confiança mais alta
+      // que existe, marca como confirmado. O texto do provedor não se
+      // aplica mais, então limpa pra não mostrar informação desatualizada.
+      enderecoTextoEncontrado: null,
+      enderecoConfirmado: true,
     },
   });
 

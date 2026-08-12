@@ -34,6 +34,12 @@ export async function PATCH(request: NextRequest) {
     data: {
       enderecoLatitude: latitude,
       enderecoLongitude: longitude,
+      // Pino ajustado à mão pela própria pessoa — essa é a fonte de
+      // confiança mais alta que existe, marca como confirmado. O texto do
+      // provedor não se aplica mais (o ponto real não é mais o que ele
+      // "achou"), então limpa pra não mostrar informação desatualizada.
+      enderecoTextoEncontrado: null,
+      enderecoConfirmado: true,
       enderecoAtualizadoEm: new Date(),
     },
   });

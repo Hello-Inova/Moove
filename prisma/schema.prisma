@@ -193,13 +193,24 @@ model Responsavel {
   cidade        String? @map("cidade")
   estado        String? @map("estado") // UF, 2 letras
 
-  // Geocodificado a partir do endereço acima (Nominatim/OpenStreetMap) —
-  // é o que a rota otimizada do motorista usa como parada. Pode ficar nulo
-  // se a geocodificação falhar (endereço não encontrado); a tela de "Meu
-  // endereço" deixa isso visível e permite tentar de novo.
+  // Geocodificado a partir do endereço acima (LocationIQ/Nominatim/
+  // BrasilAPI) — é o que a rota otimizada do motorista usa como parada. Pode
+  // ficar nulo se a geocodificação falhar (endereço não encontrado); a tela
+  // de "Meu endereço" deixa isso visível e permite tentar de novo.
   enderecoLatitude  Float?    @map("endereco_latitude")
   enderecoLongitude Float?    @map("endereco_longitude")
   enderecoAtualizadoEm DateTime? @map("endereco_atualizado_em")
+
+  // Texto do lugar que o provedor de geocodificação resolveu (ex.: "Avenida
+  // Resedá, Portais, Cajamar - SP") — mostrado na UI ao lado do pino pra
+  // facilitar comparar com o endereço digitado sem precisar dar zoom no
+  // mapa. `enderecoConfirmado` só vira true quando a PESSOA efetivamente
+  // confirmou/ajustou o pino manualmente (ver PATCH .../coordenadas) — um
+  // endereço "geocodificado com sucesso" não é o mesmo que "conferido por
+  // humano", e é essa lacuna que causa pino em lugar errado sem ninguém
+  // perceber até o motorista já estar na rota.
+  enderecoTextoEncontrado String?  @map("endereco_texto_encontrado")
+  enderecoConfirmado      Boolean  @default(false) @map("endereco_confirmado")
 
   // LGPD: registro do aceite explícito no cadastro.
   consentimentoLgpdAceitoEm DateTime @map("consentimento_lgpd_aceito_em")
@@ -264,6 +275,11 @@ model Escola {
 
   enderecoLatitude  Float? @map("endereco_latitude")
   enderecoLongitude Float? @map("endereco_longitude")
+
+  // Ver comentário equivalente em Responsavel — mesmo padrão de "texto
+  // encontrado" + "confirmado por humano" pra escolas do motorista.
+  enderecoTextoEncontrado String?  @map("endereco_texto_encontrado")
+  enderecoConfirmado      Boolean  @default(false) @map("endereco_confirmado")
 
   criadoEm DateTime @default(now()) @map("criado_em")
 
