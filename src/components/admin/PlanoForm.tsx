@@ -46,7 +46,9 @@ export function PlanoForm({ planoExistente }: { planoExistente?: PlanoDefinicao 
   const [issues, setIssues] = useState<Record<string, string[] | undefined>>({});
   const [permiteAnosAdicionais, setPermiteAnosAdicionais] = useState(planoExistente?.permiteAnosAdicionais ?? false);
   const [ativo, setAtivo] = useState(planoExistente?.ativo ?? true);
-  const [publico, setPublico] = useState(planoExistente?.publico ?? "MOTORISTA");
+  // Planos de responsável foram descontinuados (quem paga por aluno agora é
+  // o motorista, ver CobrancaAluno) — todo plano novo é MOTORISTA.
+  const publico = "MOTORISTA";
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -137,24 +139,6 @@ export function PlanoForm({ planoExistente }: { planoExistente?: PlanoDefinicao 
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium" htmlFor="publico">
-            Para quem é este plano
-          </label>
-          <select
-            id="publico"
-            value={publico}
-            onChange={(e) => setPublico(e.target.value as "MOTORISTA" | "RESPONSAVEL")}
-            className={inputClass}
-          >
-            <option value="MOTORISTA">Motorista (assinatura fixa da plataforma)</option>
-            <option value="RESPONSAVEL">Responsável (cobrado por aluno)</option>
-          </select>
-          <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-            Em planos do responsável, &quot;valor base&quot; é o valor POR ALUNO — os campos de aluno grátis/excedente abaixo não se aplicam.
-          </p>
-        </div>
-
-        <div>
           <label className="mb-1 block text-sm font-medium" htmlFor="ciclo">
             Ciclo de cobrança
           </label>
@@ -217,12 +201,15 @@ export function PlanoForm({ planoExistente }: { planoExistente?: PlanoDefinicao 
             defaultValue={planoExistente?.alunosGratis ?? 0}
             className={inputClass}
           />
+          <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+            Quantos alunos vinculados o motorista atende SEM cobrança extra (os mais antigos primeiro).
+          </p>
           <FieldError message={issues.alunosGratis?.[0]} />
         </div>
 
         <div>
           <label className="mb-1 block text-sm font-medium" htmlFor="valorPorAlunoExcedente">
-            Valor por aluno excedente (R$)
+            Valor por aluno excedente (R$, a cada 30 dias)
           </label>
           <input
             id="valorPorAlunoExcedente"
@@ -230,9 +217,14 @@ export function PlanoForm({ planoExistente }: { planoExistente?: PlanoDefinicao 
             type="number"
             step="0.01"
             min="0"
-            defaultValue={planoExistente?.valorPorAlunoExcedente ?? 1}
+            defaultValue={planoExistente?.valorPorAlunoExcedente ?? 1.2}
             className={inputClass}
           />
+          <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+            Cobrado do motorista pra cada aluno além da faixa grátis acima, gerado a cada 30 dias de vínculo ativo
+            (ver painel &quot;Alunos&quot; do motorista). Cobrança feita pelo próprio motorista via PIX — a
+            plataforma não processa esse valor.
+          </p>
           <FieldError message={issues.valorPorAlunoExcedente?.[0]} />
         </div>
 

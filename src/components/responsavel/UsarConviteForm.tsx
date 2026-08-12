@@ -11,7 +11,6 @@ type Validacao = {
   motoristaNome: string;
   escolas: { id: string; nome: string }[];
   alunosDisponiveis: { id: string; nome: string }[];
-  vagasDisponiveis: number;
 };
 
 export function UsarConviteForm() {
@@ -82,7 +81,6 @@ export function UsarConviteForm() {
   }
 
   if (validacao) {
-    const semVagas = validacao.vagasDisponiveis <= 0;
     const semAlunos = validacao.alunosDisponiveis.length === 0;
     const semEscolas = validacao.escolas.length === 0;
 
@@ -92,17 +90,7 @@ export function UsarConviteForm() {
           Código válido — motorista <strong>{validacao.motoristaNome}</strong>. Escolha o aluno e a escola:
         </p>
 
-        {semVagas && (
-          <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
-            Você não tem vagas disponíveis na sua assinatura.{" "}
-            <Link href="/responsavel/assinatura" className="font-medium underline">
-              Assine ou amplie seu plano
-            </Link>
-            .
-          </p>
-        )}
-
-        {!semVagas && semAlunos && (
+        {semAlunos && (
           <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
             Todos os seus alunos já estão vinculados.{" "}
             <Link href="/responsavel/alunos" className="font-medium underline">
@@ -112,13 +100,13 @@ export function UsarConviteForm() {
           </p>
         )}
 
-        {!semVagas && !semAlunos && semEscolas && (
+        {!semAlunos && semEscolas && (
           <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
             Este motorista ainda não cadastrou nenhuma escola.
           </p>
         )}
 
-        {!semVagas && !semAlunos && !semEscolas && (
+        {!semAlunos && !semEscolas && (
           <>
             <div>
               <label className="mb-1 block text-sm font-medium" htmlFor="alunoId">

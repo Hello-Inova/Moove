@@ -40,8 +40,8 @@ export async function createMercadoPagoPreference(params: {
   externalReference: string;
   payerEmail: string;
   /** Caminho (sem domínio) para onde o Mercado Pago redireciona depois do
-   * pagamento — por padrão a vitrine de planos do motorista; a assinatura
-   * do responsável usa "/responsavel/assinatura". */
+   * pagamento — por padrão a vitrine de planos do motorista (único fluxo de
+   * pagamento pela plataforma; o responsável não paga nada). */
   backUrlPath?: string;
 }): Promise<MercadoPagoPreference> {
   const appUrl = getAppUrl();

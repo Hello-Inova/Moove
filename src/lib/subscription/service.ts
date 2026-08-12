@@ -5,12 +5,11 @@ import {
   calcularExpiraEmAssinatura,
   calcularTesteExpiraEm,
   calcularValorAssinaturaMotorista,
-  calcularValorAssinaturaResponsavel,
   contaEmTeste,
 } from "@/lib/subscription/plans";
 import { buscarPlanoPorCodigo } from "@/lib/subscription/planos-service";
 import { createMercadoPagoPreference, getMercadoPagoPayment } from "@/lib/payment/mercadopago";
-import type { Assinatura, AssinaturaResponsavel } from "@prisma/client";
+import type { Assinatura } from "@prisma/client";
 
 export { contaEmTeste, diasRestantesConta } from "@/lib/subscription/plans";
 
@@ -55,11 +54,15 @@ export function motoristaTemAcesso(
   return contaEmTeste(motorista.testeExpiraEm) || assinatura?.status === "ATIVA";
 }
 
-export function responsavelTemAcesso(
-  responsavel: { testeExpiraEm: Date },
-  assinatura: Pick<AssinaturaResponsavel, "status"> | null
-): boolean {
-  return contaEmTeste(responsavel.testeExpiraEm) || assinatura?.status === "ATIVA";
+/**
+ * O responsável não paga mais nada diretamente — quem passou a pagar por
+ * aluno vinculado foi o motorista (ver `CobrancaAluno` e
+ * `src/lib/subscription/cobranca-aluno.ts`). Mantida como função (em vez de
+ * remover todos os call sites) só pra não precisar tocar em
+ * `ResponsavelShell`/`AccessGate` — sempre libera acesso.
+ */
+export function responsavelTemAcesso(): boolean {
+  return true;
 }
 
 /**
@@ -81,9 +84,9 @@ export async function criarAssinaturaComCheckout(params: {
     throw new PlanoInexistenteError("Este plano não está mais disponível. Escolha outro plano.");
   }
 
-  // Motorista paga um valor fixo pela plataforma — não depende mais de
-  // quantos alunos ele tem vinculados (isso agora é cobrado do
-  // responsável, ver criarAssinaturaResponsavelComCheckout).
+  // Mensalidade fixa da plataforma — a cobrança por aluno vinculado é
+  // separada, gerada aluno a aluno pelo cron (ver
+  // src/lib/subscription/cobranca-aluno.ts), não entra nesse checkout.
   const resumo = calcularValorAssinaturaMotorista({ plano, anosAdicionais: params.anosAdicionais });
 
   const assinatura = await prisma.assinatura.create({
@@ -98,6 +101,11 @@ export async function criarAssinaturaComCheckout(params: {
       valorAlunosExcedentes: 0,
       valorAnosAdicionais: resumo.valorAnosAdicionais,
       valorTotal: resumo.valorTotal,
+      // Snapshot da regra de cobrança por aluno vigente no plano no momento
+      // da assinatura (ver comentário no schema, model Assinatura) — usado
+      // pelo cron de cobrança (src/lib/subscription/cobranca-aluno.ts).
+      alunosGratis: plano.alunosGratis,
+      valorPorAlunoExcedente: plano.valorPorAlunoExcedente,
       testeExpiraEm: calcularTesteExpiraEm(),
     },
   });
@@ -145,6 +153,8 @@ export async function forcarAssinaturaAtiva(motoristaId: string, tipoPlano: stri
         valorPlano: plano.valorBase,
         valorAlunosExcedentes: 0,
         valorTotal: plano.valorBase,
+        alunosGratis: plano.alunosGratis,
+        valorPorAlunoExcedente: plano.valorPorAlunoExcedente,
         status: "ATIVA",
         testeExpiraEm: new Date(),
         inicioEm: new Date(),
@@ -222,161 +232,3 @@ export async function confirmarPagamentoMercadoPago(mpPaymentId: string): Promis
   return true;
 }
 
-// ---------------------------------------------------------------------------
-// Assinatura do RESPONSÁVEL — cobrança por aluno (ver plans.ts). Sem período
-// de teste: enquanto não há assinatura ATIVA cobrindo a quantidade de
-// alunos cadastrados, o responsável não consegue usar códigos de convite
-// (ver `vagasDisponiveisParaVincular` e a rota de convites).
-// ---------------------------------------------------------------------------
-
-/** Assinatura "atual" do responsável: a mais recente. Expira preguiçosamente, igual à do motorista. */
-export async function getAssinaturaResponsavelAtual(responsavelId: string): Promise<AssinaturaResponsavel | null> {
-  const assinatura = await prisma.assinaturaResponsavel.findFirst({
-    where: { responsavelId },
-    orderBy: { criadoEm: "desc" },
-  });
-  if (!assinatura) return null;
-
-  if (assinatura.status === "ATIVA" && assinatura.expiraEm && assinatura.expiraEm.getTime() < Date.now()) {
-    return prisma.assinaturaResponsavel.update({ where: { id: assinatura.id }, data: { status: "EXPIRADA" } });
-  }
-
-  return assinatura;
-}
-
-/**
- * Quantos "assentos" de aluno o responsável ainda pode vincular a um
- * motorista: quantidade contratada na assinatura ATIVA mais recente, menos
- * os vínculos ATIVOS que ele já tem. Nunca negativo.
- *
- * Durante o teste grátis de 7 dias (nível de conta, ver `testeExpiraEm`), o
- * responsável pode vincular livremente — retorna um número "infinito" como
- * sentinela (chamadores que exibem esse valor devem tratar esse caso à
- * parte em vez de mostrar o número cru; ver `/api/responsavel/assinatura`).
- */
-export async function vagasDisponiveisParaVincular(responsavelId: string): Promise<number> {
-  const responsavel = await prisma.responsavel.findUnique({
-    where: { id: responsavelId },
-    select: { testeExpiraEm: true },
-  });
-  if (responsavel && contaEmTeste(responsavel.testeExpiraEm)) return Number.MAX_SAFE_INTEGER;
-
-  const assinatura = await getAssinaturaResponsavelAtual(responsavelId);
-  if (!assinatura || assinatura.status !== "ATIVA") return 0;
-
-  const vinculosAtivos = await prisma.vinculo.count({
-    where: { responsavelId, status: "ATIVO" },
-  });
-
-  return Math.max(0, assinatura.qtdAlunosContratados - vinculosAtivos);
-}
-
-/**
- * Cria a assinatura (PENDENTE, sem teste) + Pagamento + preference de
- * checkout no Mercado Pago para o responsável. `qtdAlunos` é a quantidade
- * de alunos que o responsável já tem cadastrados (ver `/api/responsavel/alunos`)
- * — o valor cobrado é plano.valorBase (valor por aluno) × qtdAlunos.
- */
-export async function criarAssinaturaResponsavelComCheckout(params: {
-  responsavelId: string;
-  responsavelNome: string;
-  responsavelEmail: string;
-  tipoPlano: string;
-  qtdAlunos: number;
-}) {
-  const plano = await buscarPlanoPorCodigo(params.tipoPlano);
-  if (!plano || !plano.ativo || plano.publico !== "RESPONSAVEL") {
-    throw new PlanoInexistenteError("Este plano não está mais disponível. Escolha outro plano.");
-  }
-
-  const resumo = calcularValorAssinaturaResponsavel({ plano, qtdAlunos: params.qtdAlunos });
-
-  const assinatura = await prisma.assinaturaResponsavel.create({
-    data: {
-      responsavelId: params.responsavelId,
-      tipoPlano: plano.codigo,
-      planoLabel: plano.label,
-      cicloCobranca: plano.ciclo,
-      qtdAlunosContratados: resumo.qtdAlunos,
-      valorPorAluno: resumo.valorPorAluno,
-      valorTotal: resumo.valorTotal,
-    },
-  });
-
-  const pagamento = await prisma.pagamentoResponsavel.create({
-    data: { assinaturaId: assinatura.id, valor: resumo.valorTotal },
-  });
-
-  const preference = await createMercadoPagoPreference({
-    titulo: `Moove — Plano ${plano.label} (${plano.cicloLabel.toLowerCase()}) · ${resumo.qtdAlunos} aluno(s)`,
-    valor: resumo.valorTotal,
-    externalReference: pagamento.id,
-    payerEmail: params.responsavelEmail,
-    backUrlPath: "/responsavel/assinatura",
-  });
-
-  await prisma.pagamentoResponsavel.update({
-    where: { id: pagamento.id },
-    data: { gatewayPreferenceId: preference.id, checkoutUrl: preference.initPoint },
-  });
-
-  return { assinatura, checkoutUrl: preference.initPoint };
-}
-
-/**
- * Chamado pelo webhook do Mercado Pago quando o pagamento referenciado é de
- * um PagamentoResponsavel (não de um Pagamento de motorista) — ver a rota
- * do webhook, que tenta um e depois o outro pelo id de referência.
- */
-export async function confirmarPagamentoResponsavelMercadoPago(mpPaymentId: string): Promise<boolean> {
-  const payment = await getMercadoPagoPayment(mpPaymentId);
-  if (!payment.externalReference) return false;
-
-  const pagamento = await prisma.pagamentoResponsavel.findUnique({
-    where: { id: payment.externalReference },
-    include: { assinatura: true },
-  });
-  if (!pagamento) return false;
-
-  const valorConfere = Math.abs(Number(pagamento.valor) - payment.transactionAmount) < 0.01;
-
-  if (payment.status === "approved" && valorConfere) {
-    if (pagamento.status === "APROVADO") return true; // idempotente
-
-    await prisma.$transaction(async (tx) => {
-      await tx.pagamentoResponsavel.update({
-        where: { id: pagamento.id },
-        data: { status: "APROVADO", gatewayPagamentoId: String(payment.id), pagoEm: new Date() },
-      });
-
-      const assinatura = pagamento.assinatura;
-      const expiraEm = calcularExpiraEmAssinatura(assinatura.cicloCobranca, 0);
-
-      await tx.assinaturaResponsavel.update({
-        where: { id: assinatura.id },
-        data: { status: "ATIVA", inicioEm: new Date(), expiraEm },
-      });
-
-      await tx.assinaturaResponsavel.updateMany({
-        where: {
-          responsavelId: assinatura.responsavelId,
-          id: { not: assinatura.id },
-          status: { in: ["PENDENTE", "ATIVA"] },
-        },
-        data: { status: "CANCELADA" },
-      });
-    });
-    return true;
-  }
-
-  if (payment.status === "rejected" || payment.status === "cancelled") {
-    await prisma.pagamentoResponsavel.update({
-      where: { id: pagamento.id },
-      data: {
-        status: payment.status === "rejected" ? "RECUSADO" : "CANCELADO",
-        gatewayPagamentoId: String(payment.id),
-      },
-    });
-  }
-  return true;
-}

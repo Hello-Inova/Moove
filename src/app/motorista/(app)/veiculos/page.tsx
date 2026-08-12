@@ -14,7 +14,7 @@ export default async function MotoristaVeiculosPage() {
   });
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">Veículos</h1>
         <p className="text-neutral-500 dark:text-neutral-400">Cadastre a placa e os documentos do seu veículo.</p>

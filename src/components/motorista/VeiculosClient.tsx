@@ -29,7 +29,7 @@ export function VeiculosClient({ veiculosIniciais }: { veiculosIniciais: Veiculo
   }, []);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div className="space-y-3">
         {veiculos.length === 0 && (
           <p className="text-sm text-neutral-500 dark:text-neutral-400">Nenhum veículo cadastrado ainda.</p>

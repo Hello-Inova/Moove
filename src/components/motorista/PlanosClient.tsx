@@ -93,7 +93,7 @@ export function PlanosClient({ tipoPlanoAtual }: { tipoPlanoAtual: string | null
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {statusPagamento && STATUS_MSG[statusPagamento] && (
         <p className={`rounded-lg border px-4 py-3 text-sm ${STATUS_MSG[statusPagamento].className}`}>
           {STATUS_MSG[statusPagamento].text}
@@ -120,7 +120,9 @@ export function PlanosClient({ tipoPlanoAtual }: { tipoPlanoAtual: string | null
         <section className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm dark:border-neutral-700 dark:bg-neutral-900">
           <h2 className="text-lg font-semibold text-brand-navy dark:text-white">Assinar plano {plano.label}</h2>
           <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-            Valor fixo da plataforma, independente da quantidade de alunos que você atende.
+            Valor fixo da plataforma abaixo. A cobrança por aluno excedente (ver detalhes no card do plano) é
+            separada — gerada automaticamente a cada 30 dias de vínculo ativo, cobrada por você direto do
+            responsável via PIX (veja em &quot;Alunos&quot;).
           </p>
 
           {plano.permiteAnosAdicionais && (

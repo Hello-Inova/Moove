@@ -39,7 +39,7 @@ export function EscolasClient({ escolasIniciais }: { escolasIniciais: EscolaList
   }, []);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div className="space-y-3">
         {escolas.length === 0 && (
           <p className="text-sm text-neutral-500 dark:text-neutral-400">Nenhuma escola cadastrada ainda.</p>

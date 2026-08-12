@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import Link from "next/link";
 
 import { apiGet, apiPostJson, apiDelete } from "@/lib/api-client";
 import { FieldError, inputClass, primaryButtonClass, dangerButtonClass } from "@/components/ui/form-elements";
@@ -14,40 +13,21 @@ type Aluno = {
   escolaNome: string | null;
 };
 
-type AssinaturaResumo = {
-  assinatura: {
-    status: "PENDENTE" | "ATIVA" | "EXPIRADA" | "CANCELADA";
-    planoLabel: string;
-    qtdAlunosContratados: number;
-    valorTotal: number;
-    expiraEm: string | null;
-  } | null;
-  vagasDisponiveis: number | null;
-  totalAlunos: number;
-  emTeste: boolean;
-  testeExpiraEm: string;
-};
-
 export function AlunosClient() {
   const [alunos, setAlunos] = useState<Aluno[] | null>(null);
-  const [resumo, setResumo] = useState<AssinaturaResumo | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [issues, setIssues] = useState<Record<string, string[] | undefined>>({});
   const [loading, setLoading] = useState(false);
 
   const carregar = useCallback(async () => {
-    const [alunosResult, assinaturaResult] = await Promise.all([
-      apiGet<Aluno[]>("/api/responsavel/alunos"),
-      apiGet<AssinaturaResumo>("/api/responsavel/assinatura"),
-    ]);
+    const alunosResult = await apiGet<Aluno[]>("/api/responsavel/alunos");
 
     if (!alunosResult.ok) {
       setLoadError(alunosResult.error);
       return;
     }
     setAlunos(alunosResult.data);
-    if (assinaturaResult.ok) setResumo(assinaturaResult.data);
   }, []);
 
   useEffect(() => {
@@ -88,30 +68,6 @@ export function AlunosClient() {
 
   return (
     <div className="space-y-6">
-      {resumo && (
-        <section className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm dark:border-neutral-700 dark:bg-neutral-900">
-          <h2 className="font-medium">Assinatura</h2>
-          {resumo.assinatura?.status === "ATIVA" ? (
-            <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
-              Plano {resumo.assinatura.planoLabel} ativo · {resumo.assinatura.qtdAlunosContratados} aluno(s) pago(s) ·{" "}
-              {resumo.vagasDisponiveis} vaga(s) disponível(is) para vincular a um motorista.
-            </p>
-          ) : resumo.emTeste ? (
-            <p className="mt-1 text-sm text-brand-navy dark:text-neutral-300">
-              Você está no período de teste grátis (até {new Date(resumo.testeExpiraEm).toLocaleDateString("pt-BR")}) —
-              pode vincular alunos a motoristas livremente. Depois disso, será necessário assinar um plano.
-            </p>
-          ) : (
-            <p className="mt-1 text-sm text-amber-700 dark:text-amber-400">
-              Seu período de teste acabou — assine um plano para continuar vinculando alunos a motoristas.
-            </p>
-          )}
-          <Link href="/responsavel/assinatura" className={primaryButtonClass + " mt-3 w-auto px-4"}>
-            {resumo.assinatura?.status === "ATIVA" ? "Gerenciar assinatura" : "Assinar um plano"}
-          </Link>
-        </section>
-      )}
-
       <section className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm dark:border-neutral-700 dark:bg-neutral-900">
         <h2 className="mb-3 font-medium">Meus alunos</h2>
 

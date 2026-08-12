@@ -46,7 +46,7 @@ export default async function AdminMotoristaDetailPage({ params }: { params: Pro
 
   return (
     <AdminShell>
-      <div className="space-y-8">
+      <div className="space-y-6">
         <div>
           <Link href="/admin/motoristas" className="text-sm text-neutral-500 hover:underline dark:text-neutral-400">
             ← Motoristas

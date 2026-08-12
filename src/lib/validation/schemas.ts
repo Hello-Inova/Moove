@@ -189,8 +189,12 @@ export const criarCheckoutAssinaturaSchema = z.object({
   anosAdicionais: z.number().int().min(0).max(20).optional(),
 });
 
-export const criarCheckoutAssinaturaResponsavelSchema = z.object({
-  tipoPlano: z.string().trim().min(1, "Selecione um plano."),
+// Texto livre de propósito — chave PIX pode ser CPF/CNPJ, e-mail, telefone
+// ou chave aleatória (UUID); não vale a pena validar formato específico
+// aqui, é só repassada pro responsável via WhatsApp (ver
+// src/components/motorista/WhatsAppCobrancaButton.tsx).
+export const atualizarChavePixSchema = z.object({
+  chavePix: z.string().trim().max(140, "Chave PIX muito longa.").optional().nullable(),
 });
 
 export const buscarPlacaSchema = z.object({

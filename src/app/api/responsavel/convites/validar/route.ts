@@ -4,7 +4,6 @@ import { prisma } from "@/lib/prisma";
 import { getAuthenticatedResponsavel } from "@/lib/auth/guards";
 import { validarConviteSchema } from "@/lib/validation/schemas";
 import { jsonError, jsonValidationError } from "@/lib/http";
-import { vagasDisponiveisParaVincular } from "@/lib/subscription/service";
 
 /**
  * Passo 1 do fluxo "usar convite": só confere se o código é válido e
@@ -43,8 +42,6 @@ export async function POST(request: NextRequest) {
     return jsonError(409, motivo);
   }
 
-  const vagasDisponiveis = await vagasDisponiveisParaVincular(responsavel.id);
-
   const alunosDisponiveis = await prisma.aluno.findMany({
     where: { responsavelId: responsavel.id, vinculos: { none: { status: "ATIVO" } } },
     select: { id: true, nome: true },
@@ -55,6 +52,5 @@ export async function POST(request: NextRequest) {
     motoristaNome: convite.motorista.nome,
     escolas: convite.motorista.escolas,
     alunosDisponiveis,
-    vagasDisponiveis,
   });
 }

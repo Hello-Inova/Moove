@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getAuthenticatedResponsavel } from "@/lib/auth/guards";
 import { usarConviteSchema } from "@/lib/validation/schemas";
 import { jsonError, jsonValidationError } from "@/lib/http";
-import { vagasDisponiveisParaVincular } from "@/lib/subscription/service";
+import { adicionarDias } from "@/lib/subscription/cobranca-aluno";
 
 export async function POST(request: NextRequest) {
   const responsavel = await getAuthenticatedResponsavel();
@@ -36,17 +36,9 @@ export async function POST(request: NextRequest) {
     return jsonError(409, motivo);
   }
 
-  // Só libera vincular se a assinatura ATIVA do responsável cobre mais um
-  // aluno (ver src/lib/subscription/service.ts) — regra central pedida:
-  // pagar antes de vincular.
-  const vagas = await vagasDisponiveisParaVincular(responsavel.id);
-  if (vagas <= 0) {
-    return jsonError(
-      402,
-      "Você não tem vagas disponíveis na sua assinatura para vincular mais um aluno. Assine ou amplie seu plano."
-    );
-  }
-
+  // O responsável não paga mais pra vincular alunos (quem paga por aluno
+  // agora é o motorista, ver CobrancaAluno) — sem checagem de vagas/assinatura
+  // aqui.
   const aluno = await prisma.aluno.findUnique({ where: { id: alunoId } });
   if (!aluno || aluno.responsavelId !== responsavel.id) {
     return jsonError(404, "Aluno não encontrado.");
@@ -86,6 +78,9 @@ export async function POST(request: NextRequest) {
           alunoId,
           escolaId,
           conviteId: convite.id,
+          // Primeiro "corte" de cobrança por aluno em 30 dias — ver
+          // src/lib/subscription/cobranca-aluno.ts.
+          proximaCobrancaEm: adicionarDias(new Date(), 30),
         },
         include: { motorista: { select: { nome: true } } },
       });

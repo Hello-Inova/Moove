@@ -45,14 +45,18 @@ export type ResumoValorAssinatura = {
 };
 
 /**
- * Valor da assinatura do MOTORISTA — plano fixo, independente de quantos
- * alunos ele tem vinculados (a cobrança por aluno saiu do motorista e foi
- * para o responsável, ver `calcularValorAssinaturaResponsavel`). Só varia
- * pelos anos adicionais (planos anuais que permitem contratar mais de 1 ano
- * de uma vez).
+ * Valor da MENSALIDADE FIXA do MOTORISTA pela plataforma — só varia pelos
+ * anos adicionais (planos anuais que permitem contratar mais de 1 ano de uma
+ * vez). Não inclui a cobrança por aluno: essa é separada, gerada aluno a
+ * aluno a cada 30 dias de vínculo ativo (ver `src/lib/subscription/
+ * cobranca-aluno.ts`), porque cada aluno tem sua própria data de corte — não
+ * dá pra somar num valor único fechado no momento da assinatura. Os campos
+ * `alunosGratis`/`valorAlunosExcedentes` aqui são só informativos (pra
+ * mostrar no preview do plano quantos alunos entram grátis e quanto custa
+ * cada excedente) — o valor em si dessa cobrança NÃO entra em `valorTotal`.
  */
 export function calcularValorAssinaturaMotorista(params: {
-  plano: Pick<PlanoDefinicao, "valorBase" | "permiteAnosAdicionais">;
+  plano: Pick<PlanoDefinicao, "valorBase" | "permiteAnosAdicionais" | "alunosGratis" | "valorPorAlunoExcedente">;
   anosAdicionais?: number;
 }): ResumoValorAssinatura {
   const { plano } = params;
@@ -62,34 +66,14 @@ export function calcularValorAssinaturaMotorista(params: {
 
   return {
     valorPlano: plano.valorBase,
-    alunosGratis: 0,
+    alunosGratis: plano.alunosGratis,
     alunosContratados: 0,
     alunosCobrados: 0,
-    valorAlunosExcedentes: 0,
+    valorAlunosExcedentes: plano.valorPorAlunoExcedente,
     anosAdicionais,
     valorAnosAdicionais,
     valorTotal,
   };
-}
-
-export type ResumoValorAssinaturaResponsavel = {
-  valorPorAluno: number;
-  qtdAlunos: number;
-  valorTotal: number;
-};
-
-/**
- * Valor da assinatura do RESPONSÁVEL — cobrança direta por aluno: preço do
- * plano (Basic/Pró) × quantidade de alunos cadastrados, sem desconto de
- * "alunos grátis" (isso era um conceito do plano do motorista).
- */
-export function calcularValorAssinaturaResponsavel(params: {
-  plano: Pick<PlanoDefinicao, "valorBase">;
-  qtdAlunos: number;
-}): ResumoValorAssinaturaResponsavel {
-  const qtdAlunos = Math.max(1, Math.floor(params.qtdAlunos));
-  const valorTotal = Math.round(params.plano.valorBase * qtdAlunos * 100) / 100;
-  return { valorPorAluno: params.plano.valorBase, qtdAlunos, valorTotal };
 }
 
 /** Data de expiração do ciclo pago a partir de `from` (default: agora). */

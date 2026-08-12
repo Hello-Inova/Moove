@@ -20,7 +20,7 @@ export default async function MotoristaEscolasPage({
   });
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">Minhas escolas</h1>
         <p className="text-neutral-500 dark:text-neutral-400">

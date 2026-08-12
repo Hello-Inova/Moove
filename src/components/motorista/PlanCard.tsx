@@ -31,6 +31,18 @@ export function PlanCard({
       </p>
       <p className="text-sm text-neutral-500 dark:text-neutral-400">{plano.cicloLabel}</p>
 
+      {(plano.alunosGratis > 0 || plano.valorPorAlunoExcedente > 0) && (
+        <p className="mt-2 rounded-lg bg-neutral-50 px-3 py-2 text-xs text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
+          {plano.alunosGratis > 0 ? `${plano.alunosGratis} alunos grátis incluídos` : "Sem alunos grátis incluídos"}
+          {plano.valorPorAlunoExcedente > 0 && (
+            <>
+              {" "}
+              · {formatarBRL(plano.valorPorAlunoExcedente)}/aluno excedente a cada 30 dias de vínculo
+            </>
+          )}
+        </p>
+      )}
+
       <ul className="mt-4 flex-1 space-y-2 text-sm text-neutral-700 dark:text-neutral-300">
         {plano.recursos.map((r, i) => (
           <li key={`${r}-${i}`} className="flex items-start gap-2">

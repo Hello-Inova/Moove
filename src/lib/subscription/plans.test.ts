@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   calcularValorAssinaturaMotorista,
-  calcularValorAssinaturaResponsavel,
   calcularExpiraEmAssinatura,
   calcularTesteExpiraEm,
   contaEmTeste,
@@ -11,10 +10,12 @@ import {
   TESTE_DIAS,
 } from "@/lib/subscription/plans";
 
+const planoBase = { alunosGratis: 5, valorPorAlunoExcedente: 1.2 };
+
 describe("calcularValorAssinaturaMotorista", () => {
   it("cobra só o valor base quando o plano não permite anos adicionais", () => {
     const resumo = calcularValorAssinaturaMotorista({
-      plano: { valorBase: 100, permiteAnosAdicionais: false },
+      plano: { ...planoBase, valorBase: 100, permiteAnosAdicionais: false },
       anosAdicionais: 5, // deve ser ignorado
     });
     expect(resumo.anosAdicionais).toBe(0);
@@ -24,7 +25,7 @@ describe("calcularValorAssinaturaMotorista", () => {
 
   it("soma anos adicionais quando o plano permite", () => {
     const resumo = calcularValorAssinaturaMotorista({
-      plano: { valorBase: 200, permiteAnosAdicionais: true },
+      plano: { ...planoBase, valorBase: 200, permiteAnosAdicionais: true },
       anosAdicionais: 3,
     });
     expect(resumo.anosAdicionais).toBe(3);
@@ -34,43 +35,32 @@ describe("calcularValorAssinaturaMotorista", () => {
 
   it("nunca aceita anos adicionais negativos ou fracionados", () => {
     const resumo = calcularValorAssinaturaMotorista({
-      plano: { valorBase: 100, permiteAnosAdicionais: true },
+      plano: { ...planoBase, valorBase: 100, permiteAnosAdicionais: true },
       anosAdicionais: -2,
     });
     expect(resumo.anosAdicionais).toBe(0);
 
     const fracionado = calcularValorAssinaturaMotorista({
-      plano: { valorBase: 100, permiteAnosAdicionais: true },
+      plano: { ...planoBase, valorBase: 100, permiteAnosAdicionais: true },
       anosAdicionais: 2.9,
     });
     expect(fracionado.anosAdicionais).toBe(2);
   });
 
   it("assume 0 anos adicionais quando não informado", () => {
-    const resumo = calcularValorAssinaturaMotorista({ plano: { valorBase: 50, permiteAnosAdicionais: true } });
+    const resumo = calcularValorAssinaturaMotorista({
+      plano: { ...planoBase, valorBase: 50, permiteAnosAdicionais: true },
+    });
     expect(resumo.valorTotal).toBe(50);
   });
-});
 
-describe("calcularValorAssinaturaResponsavel", () => {
-  it("multiplica o valor por aluno pela quantidade de alunos", () => {
-    const resumo = calcularValorAssinaturaResponsavel({ plano: { valorBase: 25 }, qtdAlunos: 3 });
-    expect(resumo.valorTotal).toBe(75);
-    expect(resumo.qtdAlunos).toBe(3);
-  });
-
-  it("cobra no mínimo 1 aluno mesmo se vier 0 ou negativo (evita assinatura de graça)", () => {
-    expect(calcularValorAssinaturaResponsavel({ plano: { valorBase: 30 }, qtdAlunos: 0 }).qtdAlunos).toBe(1);
-    expect(calcularValorAssinaturaResponsavel({ plano: { valorBase: 30 }, qtdAlunos: -5 }).qtdAlunos).toBe(1);
-  });
-
-  it("trunca quantidade fracionada de alunos", () => {
-    expect(calcularValorAssinaturaResponsavel({ plano: { valorBase: 30 }, qtdAlunos: 2.7 }).qtdAlunos).toBe(2);
-  });
-
-  it("arredonda o total para 2 casas decimais (evita erro de ponto flutuante)", () => {
-    const resumo = calcularValorAssinaturaResponsavel({ plano: { valorBase: 0.1 }, qtdAlunos: 3 });
-    expect(resumo.valorTotal).toBe(0.3);
+  it("repassa alunosGratis/valorPorAlunoExcedente do plano (informativo — não entra no valorTotal)", () => {
+    const resumo = calcularValorAssinaturaMotorista({
+      plano: { alunosGratis: 10, valorPorAlunoExcedente: 1.2, valorBase: 300, permiteAnosAdicionais: false },
+    });
+    expect(resumo.alunosGratis).toBe(10);
+    expect(resumo.valorAlunosExcedentes).toBe(1.2);
+    expect(resumo.valorTotal).toBe(300);
   });
 });
 

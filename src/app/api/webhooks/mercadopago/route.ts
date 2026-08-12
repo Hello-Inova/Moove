@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { confirmarPagamentoMercadoPago, confirmarPagamentoResponsavelMercadoPago } from "@/lib/subscription/service";
+import { confirmarPagamentoMercadoPago } from "@/lib/subscription/service";
 import { verificarAssinaturaWebhook } from "@/lib/payment/mercadopago";
 
 /**
@@ -35,13 +35,10 @@ export async function POST(request: NextRequest) {
 
   if ((topic === "payment" || body?.type === "payment") && dataId) {
     try {
-      // O `externalReference` do pagamento pode ser de um Pagamento
-      // (motorista) ou de um PagamentoResponsavel — tentamos o primeiro e,
-      // se não encontrar nada com esse id, tentamos o segundo.
-      const tratadoComoMotorista = await confirmarPagamentoMercadoPago(dataId);
-      if (!tratadoComoMotorista) {
-        await confirmarPagamentoResponsavelMercadoPago(dataId);
-      }
+      // Só existe um tipo de pagamento pela plataforma hoje: a mensalidade
+      // fixa do motorista (a cobrança por aluno é PIX direto entre motorista
+      // e responsável, fora do Mercado Pago — ver CobrancaAluno).
+      await confirmarPagamentoMercadoPago(dataId);
     } catch (err) {
       console.error("[webhook mercadopago] falha ao confirmar pagamento", err);
       return NextResponse.json({ error: "Falha ao processar notificação." }, { status: 500 });

@@ -82,17 +82,12 @@ enum StatusEmbarqueDia {
   @@map("status_embarque_dia")
 }
 
-// Status da assinatura do responsável — sem período de teste (diferente da
-// Assinatura do motorista): o responsável precisa pagar antes de poder
-// vincular qualquer aluno a um motorista, então o estado inicial é
-// "aguardando pagamento" (PENDENTE), não um trial liberado.
-enum StatusAssinaturaResponsavel {
+enum StatusCobrancaAluno {
   PENDENTE
-  ATIVA
-  EXPIRADA
-  CANCELADA
+  PAGO
+  CANCELADO
 
-  @@map("status_assinatura_responsavel")
+  @@map("status_cobranca_aluno")
 }
 
 // ---------------------------------------------------------------------------
@@ -132,15 +127,24 @@ model Motorista {
   // isso a cada atualização de GPS).
   alertaChegadaMinutos Int @default(5) @map("alerta_chegada_minutos")
 
+  // Chave PIX do próprio motorista — usada só pra montar a mensagem de
+  // WhatsApp de cobrança por aluno (ver src/components/motorista/
+  // WhatsAppCobrancaButton.tsx e módulo de gestão de alunos). Texto livre
+  // (CPF/CNPJ/e-mail/telefone/chave aleatória) porque o pagamento é
+  // combinado diretamente entre motorista e responsável — a plataforma não
+  // processa esse valor, só facilita o envio da cobrança.
+  chavePix String? @map("chave_pix")
+
   criadoEm DateTime @default(now()) @map("criado_em")
 
-  veiculos    Veiculo[]
-  convites    Convite[]
-  vinculos    Vinculo[]
-  localizacao Localizacao?
-  assinaturas Assinatura[]
-  escolas     Escola[]
-  percursos   PercursoDia[]
+  veiculos       Veiculo[]
+  convites       Convite[]
+  vinculos       Vinculo[]
+  localizacao    Localizacao?
+  assinaturas    Assinatura[]
+  escolas        Escola[]
+  percursos      PercursoDia[]
+  cobrancasAluno CobrancaAluno[]
 
   @@map("motoristas")
 }
@@ -224,10 +228,11 @@ model Responsavel {
 
   emailVerificadoEm DateTime? @map("email_verificado_em")
 
-  // Mesmo teste grátis de 7 dias do motorista — ver `Motorista.testeExpiraEm`
-  // e `responsavelTemAcesso` em subscription/service.ts. Durante o teste, o
-  // responsável pode cadastrar alunos e vinculá-los a motoristas sem
-  // precisar de uma AssinaturaResponsavel ainda.
+  // Vestígio do antigo modelo de cobrança por responsável (removido — quem
+  // paga por aluno agora é o motorista, ver `CobrancaAluno`). Mantido só
+  // porque `testeExpiraEm` é obrigatório e usado em outros lugares da UI
+  // (ex: banner de boas-vindas); não bloqueia mais nada de fato —
+  // `responsavelTemAcesso` em subscription/service.ts sempre retorna true.
   testeExpiraEm DateTime @map("teste_expira_em")
 
   criadoEm DateTime @default(now()) @map("criado_em")
@@ -235,7 +240,6 @@ model Responsavel {
   vinculos        Vinculo[]
   convitesUsados  Convite[] @relation("ConviteUsadoPor")
   alunos          Aluno[]
-  assinaturas     AssinaturaResponsavel[]
   pushSubscriptions PushSubscription[]
 
   @@map("responsaveis")
@@ -370,6 +374,16 @@ model Vinculo {
   criadoEm      DateTime      @default(now()) @map("criado_em")
   revogadoEm    DateTime?     @map("revogado_em")
 
+  // Próximo "corte" de 30 dias desse vínculo, avaliado pelo cron de
+  // cobrança (ver src/lib/subscription/cobranca-aluno.ts): a cada vez que
+  // essa data chega, o sistema decide se esse aluno está dentro da faixa
+  // grátis do plano do motorista ou se gera uma `CobrancaAluno` — e SEMPRE
+  // reagenda +30 dias, mesmo quando não cobra. Null só nunca deveria
+  // acontecer para vínculos ATIVOS (setado na criação/reativação); vínculo
+  // REVOGADO simplesmente para de ser avaliado (nunca cobra período
+  // incompleto — ver comentário na função de cobrança).
+  proximaCobrancaEm DateTime? @map("proxima_cobranca_em")
+
   motorista   Motorista   @relation(fields: [motoristaId], references: [id], onDelete: Cascade)
   responsavel Responsavel @relation(fields: [responsavelId], references: [id], onDelete: Cascade)
   aluno       Aluno       @relation(fields: [alunoId], references: [id], onDelete: Cascade)
@@ -377,6 +391,7 @@ model Vinculo {
   convite     Convite     @relation(fields: [conviteId], references: [id])
   embarquesDia EmbarqueDia[]
   alertasProximidade AlertaProximidade[]
+  cobrancas   CobrancaAluno[]
 
   // Índice usado pela checagem crítica de segurança: existe vínculo ATIVO
   // entre este responsável e este motorista?
@@ -499,13 +514,11 @@ model PlanoAssinatura {
   id                     String                  @id @default(cuid())
   codigo                 String                  @unique
   label                  String
-  // A quem esse plano é oferecido — motoristas pagam um valor fixo pela
-  // plataforma (sem relação com quantos alunos têm vinculados); responsáveis
-  // pagam por aluno (`valorBase` é interpretado como valor POR ALUNO nesse
-  // caso, multiplicado pela quantidade contratada — ver
-  // `src/lib/subscription/plans.ts`). Dois catálogos na mesma tabela porque
-  // o admin CRUD e o histórico (Assinatura.tipoPlano snapshot) já existiam
-  // prontos para motorista; reaproveitar evita duplicar toda a infra.
+  // Historicamente também podia ser oferecido ao responsável (cobrança
+  // direta por aluno) — esse modelo foi removido (agora é o MOTORISTA quem
+  // paga por aluno vinculado, ver `CobrancaAluno`). O enum `PublicoPlano`
+  // mantém o valor RESPONSAVEL só por compatibilidade de dados antigos; o
+  // formulário admin (`PlanoForm.tsx`) só oferece MOTORISTA hoje.
   publico                PublicoPlano            @default(MOTORISTA)
   cicloCobranca          CicloCobrancaAssinatura @map("ciclo_cobranca")
   cicloLabel             String                  @map("ciclo_label")
@@ -552,6 +565,16 @@ model Assinatura {
   valorAnosAdicionais   Decimal @default(0) @db.Decimal(10, 2) @map("valor_anos_adicionais")
   valorTotal            Decimal @db.Decimal(10, 2) @map("valor_total")
 
+  // Snapshot do plano (mesmo espírito de `planoLabel`/`valorPlano` acima —
+  // não muda retroativamente se o admin editar o plano depois) usado pelo
+  // motor de cobrança por aluno (ver `CobrancaAluno` e
+  // src/lib/subscription/cobranca-aluno.ts): quantos alunos vinculados ATIVOS
+  // ficam de fora da cobrança (os N mais antigos) e quanto custa cada aluno
+  // excedente por ciclo de 30 dias. Copiado de `PlanoAssinatura.alunosGratis`/
+  // `valorPorAlunoExcedente` no momento em que a assinatura é criada/ativada.
+  alunosGratis           Int     @default(0) @map("alunos_gratis")
+  valorPorAlunoExcedente Decimal @default(0) @db.Decimal(10, 2) @map("valor_por_aluno_excedente")
+
   status          StatusAssinatura @default(TESTE)
   testeExpiraEm   DateTime         @map("teste_expira_em")
   inicioEm        DateTime?        @map("inicio_em")
@@ -591,51 +614,38 @@ model Pagamento {
 }
 
 // ---------------------------------------------------------------------------
-// AssinaturaResponsavel / PagamentoResponsavel — mesma lógica de
-// Assinatura/Pagamento (motorista), mas do lado do responsável: paga por
-// aluno cadastrado (qtdAlunosContratados × valorPorAluno do plano
-// escolhido), sem período de teste — só depois do pagamento aprovado é que
-// o responsável fica liberado para usar códigos de convite (ver
-// `src/lib/subscription/service.ts`).
+// CobrancaAluno — cobrança do MOTORISTA por um aluno vinculado, gerada pelo
+// cron de 30 em 30 dias de vínculo ATIVO (ver
+// src/lib/subscription/cobranca-aluno.ts). Substituiu o antigo modelo de
+// assinatura do responsável: agora é o motorista quem paga por aluno
+// excedente (além da faixa grátis do plano dele — SEMESTRAL/ANUAL), e o
+// cobra do responsável por fora da plataforma (PIX da própria chave do
+// motorista, ver `Motorista.chavePix`) — por isso não há gateway de
+// pagamento aqui, só um controle manual: PENDENTE até o motorista confirmar
+// que recebeu (`marcar como paga`), ou CANCELADO se decidir não cobrar.
 // ---------------------------------------------------------------------------
 
-model AssinaturaResponsavel {
-  id                   String                      @id @default(cuid())
-  responsavelId        String                      @map("responsavel_id")
-  tipoPlano            String                      @map("tipo_plano")
-  planoLabel           String                      @default("") @map("plano_label")
-  cicloCobranca        CicloCobrancaAssinatura     @map("ciclo_cobranca")
-  qtdAlunosContratados Int                         @map("qtd_alunos_contratados")
-  valorPorAluno        Decimal                     @db.Decimal(10, 2) @map("valor_por_aluno")
-  valorTotal           Decimal                     @db.Decimal(10, 2) @map("valor_total")
+model CobrancaAluno {
+  id          String   @id @default(cuid())
+  vinculoId   String   @map("vinculo_id")
+  // Redundante com `vinculo.motoristaId` de propósito — permite listar todas
+  // as cobranças de um motorista (`/motorista/vinculos`) sem precisar de
+  // join, e sobrevive caso o vínculo seja excluído (não é: onDelete Cascade
+  // também apaga a cobrança, mas mantém a consulta simples de qualquer jeito).
+  motoristaId String   @map("motorista_id")
+  cicloInicio DateTime @map("ciclo_inicio")
+  cicloFim    DateTime @map("ciclo_fim")
+  valor       Decimal  @db.Decimal(10, 2)
+  status      StatusCobrancaAluno @default(PENDENTE)
+  pagoEm      DateTime? @map("pago_em")
+  criadoEm    DateTime @default(now()) @map("criado_em")
 
-  status   StatusAssinaturaResponsavel @default(PENDENTE)
-  inicioEm DateTime?                   @map("inicio_em")
-  expiraEm DateTime?                   @map("expira_em")
-  criadoEm DateTime                    @default(now()) @map("criado_em")
+  vinculo   Vinculo   @relation(fields: [vinculoId], references: [id], onDelete: Cascade)
+  motorista Motorista @relation(fields: [motoristaId], references: [id], onDelete: Cascade)
 
-  responsavel Responsavel             @relation(fields: [responsavelId], references: [id], onDelete: Cascade)
-  pagamentos  PagamentoResponsavel[]
-
-  @@index([responsavelId, criadoEm])
-  @@map("assinaturas_responsavel")
-}
-
-model PagamentoResponsavel {
-  id                  String          @id @default(cuid())
-  assinaturaId        String          @map("assinatura_id")
-  gateway             String          @default("mercadopago")
-  gatewayPagamentoId  String?         @unique @map("gateway_pagamento_id")
-  gatewayPreferenceId String?         @map("gateway_preference_id")
-  valor               Decimal         @db.Decimal(10, 2)
-  status              StatusPagamento @default(PENDENTE)
-  checkoutUrl         String?         @map("checkout_url")
-  criadoEm            DateTime        @default(now()) @map("criado_em")
-  pagoEm              DateTime?       @map("pago_em")
-
-  assinatura AssinaturaResponsavel @relation(fields: [assinaturaId], references: [id], onDelete: Cascade)
-
-  @@map("pagamentos_responsavel")
+  @@index([motoristaId, status])
+  @@index([vinculoId, cicloInicio])
+  @@map("cobrancas_aluno")
 }
 
 // ---------------------------------------------------------------------------

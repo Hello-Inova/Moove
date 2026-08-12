@@ -12,7 +12,7 @@ const NAV = [
   { href: "/motorista/escolas", label: "Escolas" },
   { href: "/motorista/veiculos", label: "Veículo" },
   { href: "/motorista/convites", label: "Convites" },
-  { href: "/motorista/vinculos", label: "Vínculos" },
+  { href: "/motorista/vinculos", label: "Alunos" },
   { href: "/motorista/relatorios", label: "Relatórios" },
   { href: "/motorista/cobrancas", label: "Cobranças" },
   { href: "/motorista/planos", label: "Planos" },
@@ -45,7 +45,7 @@ export async function MotoristaShell({ children }: { children: ReactNode }) {
             />
           )}
           <AccessGate bloqueado={bloqueado} allowlist={ALLOWLIST} planosHref="/motorista/planos" role="motorista">
-            <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-6">{children}</main>
+            <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6">{children}</main>
           </AccessGate>
         </div>
       </div>

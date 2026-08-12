@@ -36,10 +36,9 @@ export async function GET() {
 }
 
 /**
- * Cadastro do aluno é livre (não exige assinatura paga) — a cobrança entra
- * só na hora de vincular a um motorista (ver /api/responsavel/assinatura e
- * /api/responsavel/convites/usar). Isso permite ao responsável montar a
- * lista de filhos antes de decidir/pagar o plano.
+ * Cadastro do aluno é livre — o responsável não paga nada, nem pra cadastrar
+ * nem pra vincular (ver /api/responsavel/convites/usar). Quem paga por
+ * aluno vinculado é o motorista (ver CobrancaAluno).
  */
 export async function POST(request: NextRequest) {
   const responsavel = await getAuthenticatedResponsavel();
