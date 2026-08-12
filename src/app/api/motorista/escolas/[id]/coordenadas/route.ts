@@ -47,6 +47,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       // aplica mais, então limpa pra não mostrar informação desatualizada.
       enderecoTextoEncontrado: null,
       enderecoConfirmado: true,
+      enderecoPrecisaoBaixa: false,
     },
   });
 

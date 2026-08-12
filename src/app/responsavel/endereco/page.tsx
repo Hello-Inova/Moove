@@ -40,6 +40,7 @@ export default async function ResponsavelEnderecoPage({
             enderecoLongitude={responsavel.enderecoLongitude}
             enderecoTextoEncontrado={responsavel.enderecoTextoEncontrado}
             enderecoConfirmado={responsavel.enderecoConfirmado}
+            enderecoPrecisaoBaixa={responsavel.enderecoPrecisaoBaixa}
             defaultValues={{
               cep: responsavel.cep ?? "",
               logradouro: responsavel.logradouro ?? "",

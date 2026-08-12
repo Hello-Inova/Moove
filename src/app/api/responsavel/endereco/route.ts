@@ -22,6 +22,7 @@ export async function GET() {
     enderecoLongitude: responsavel.enderecoLongitude,
     enderecoTextoEncontrado: responsavel.enderecoTextoEncontrado,
     enderecoConfirmado: responsavel.enderecoConfirmado,
+    enderecoPrecisaoBaixa: responsavel.enderecoPrecisaoBaixa,
   });
 }
 
@@ -60,6 +61,7 @@ export async function PATCH(request: NextRequest) {
       // Todo endereço recém-(re)geocodificado começa como NÃO confirmado —
       // mesmo que a coordenada esteja certa, ninguém olhou o pino ainda.
       enderecoConfirmado: false,
+      enderecoPrecisaoBaixa: coordenadas?.precisao === "baixa",
       enderecoAtualizadoEm: new Date(),
     },
   });
@@ -75,6 +77,7 @@ export async function PATCH(request: NextRequest) {
     enderecoLatitude: atualizado.enderecoLatitude,
     enderecoLongitude: atualizado.enderecoLongitude,
     enderecoTextoEncontrado: atualizado.enderecoTextoEncontrado,
+    enderecoPrecisaoBaixa: atualizado.enderecoPrecisaoBaixa,
     centroAproximado,
   });
 }

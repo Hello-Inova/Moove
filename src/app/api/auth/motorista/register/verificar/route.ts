@@ -37,6 +37,7 @@ export async function POST(request: NextRequest) {
     enderecoLatitude: number | null;
     enderecoLongitude: number | null;
     enderecoTextoEncontrado?: string | null;
+    enderecoPrecisaoBaixa?: boolean;
   } | null;
 
   if (!payload) {
@@ -68,6 +69,7 @@ export async function POST(request: NextRequest) {
             enderecoLatitude: payload.enderecoLatitude,
             enderecoLongitude: payload.enderecoLongitude,
             enderecoTextoEncontrado: payload.enderecoTextoEncontrado ?? null,
+            enderecoPrecisaoBaixa: payload.enderecoPrecisaoBaixa ?? false,
           },
         },
       },

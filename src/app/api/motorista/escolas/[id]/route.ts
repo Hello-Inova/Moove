@@ -37,7 +37,12 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
   const coordenadas = enderecoMudou
     ? await geocodeEndereco({ logradouro, numero, bairro, cidade, estado, cep })
-    : { latitude: escola.enderecoLatitude, longitude: escola.enderecoLongitude, enderecoEncontrado: escola.enderecoTextoEncontrado };
+    : {
+        latitude: escola.enderecoLatitude,
+        longitude: escola.enderecoLongitude,
+        enderecoEncontrado: escola.enderecoTextoEncontrado,
+        precisao: escola.enderecoPrecisaoBaixa ? ("baixa" as const) : undefined,
+      };
 
   const atualizada = await prisma.escola.update({
     where: { id },
@@ -56,7 +61,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       // foi só o nome da escola, mantém o que já tinha (inclusive se já
       // estava confirmado manualmente).
       ...(enderecoMudou
-        ? { enderecoTextoEncontrado: coordenadas?.enderecoEncontrado ?? null, enderecoConfirmado: false }
+        ? {
+            enderecoTextoEncontrado: coordenadas?.enderecoEncontrado ?? null,
+            enderecoConfirmado: false,
+            enderecoPrecisaoBaixa: coordenadas?.precisao === "baixa",
+          }
         : {}),
     },
   });
@@ -71,6 +80,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     enderecoLatitude: atualizada.enderecoLatitude,
     enderecoLongitude: atualizada.enderecoLongitude,
     enderecoTextoEncontrado: atualizada.enderecoTextoEncontrado,
+    enderecoPrecisaoBaixa: atualizada.enderecoPrecisaoBaixa,
     centroAproximado,
   });
 }

@@ -51,6 +51,7 @@ export default async function MotoristaEscolasPage({
           enderecoLongitude: e.enderecoLongitude,
           enderecoTextoEncontrado: e.enderecoTextoEncontrado,
           enderecoConfirmado: e.enderecoConfirmado,
+          enderecoPrecisaoBaixa: e.enderecoPrecisaoBaixa,
           geocodificada: e.enderecoLatitude !== null && e.enderecoLongitude !== null,
         }))}
       />

@@ -40,6 +40,7 @@ export async function PATCH(request: NextRequest) {
       // "achou"), então limpa pra não mostrar informação desatualizada.
       enderecoTextoEncontrado: null,
       enderecoConfirmado: true,
+      enderecoPrecisaoBaixa: false,
       enderecoAtualizadoEm: new Date(),
     },
   });

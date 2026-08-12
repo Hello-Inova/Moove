@@ -212,6 +212,13 @@ model Responsavel {
   enderecoTextoEncontrado String?  @map("endereco_texto_encontrado")
   enderecoConfirmado      Boolean  @default(false) @map("endereco_confirmado")
 
+  // true quando a coordenada veio de uma etapa de baixa confiança (texto
+  // livre ou centro do CEP via BrasilAPI) — ver `GeocodeResult.precisao` em
+  // src/lib/geocoding.ts. Usado pra UI insistir mais na confirmação manual
+  // nesses casos, já que a coordenada pode estar em outra rua da região
+  // mesmo com o texto do endereço batendo certinho.
+  enderecoPrecisaoBaixa Boolean @default(false) @map("endereco_precisao_baixa")
+
   // LGPD: registro do aceite explícito no cadastro.
   consentimentoLgpdAceitoEm DateTime @map("consentimento_lgpd_aceito_em")
 
@@ -277,9 +284,10 @@ model Escola {
   enderecoLongitude Float? @map("endereco_longitude")
 
   // Ver comentário equivalente em Responsavel — mesmo padrão de "texto
-  // encontrado" + "confirmado por humano" pra escolas do motorista.
+  // encontrado" + "confirmado por humano" + "precisão baixa" pra escolas.
   enderecoTextoEncontrado String?  @map("endereco_texto_encontrado")
   enderecoConfirmado      Boolean  @default(false) @map("endereco_confirmado")
+  enderecoPrecisaoBaixa   Boolean  @default(false) @map("endereco_precisao_baixa")
 
   criadoEm DateTime @default(now()) @map("criado_em")
 

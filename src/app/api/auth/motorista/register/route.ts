@@ -63,6 +63,7 @@ export async function POST(request: NextRequest) {
         enderecoLatitude: coordenadas?.latitude ?? null,
         enderecoLongitude: coordenadas?.longitude ?? null,
         enderecoTextoEncontrado: coordenadas?.enderecoEncontrado ?? null,
+        enderecoPrecisaoBaixa: coordenadas?.precisao === "baixa",
       },
     });
   } catch (err) {

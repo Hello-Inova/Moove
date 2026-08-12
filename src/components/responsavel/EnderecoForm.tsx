@@ -16,6 +16,7 @@ type SalvarResposta = {
   enderecoLatitude: number | null;
   enderecoLongitude: number | null;
   enderecoTextoEncontrado: string | null;
+  enderecoPrecisaoBaixa: boolean;
   centroAproximado: Coords | null;
 };
 
@@ -26,6 +27,7 @@ export function EnderecoForm({
   enderecoLongitude,
   enderecoTextoEncontrado,
   enderecoConfirmado,
+  enderecoPrecisaoBaixa,
 }: {
   defaultValues: Partial<EnderecoValores>;
   geocodificado: boolean;
@@ -33,6 +35,7 @@ export function EnderecoForm({
   enderecoLongitude?: number | null;
   enderecoTextoEncontrado?: string | null;
   enderecoConfirmado?: boolean;
+  enderecoPrecisaoBaixa?: boolean;
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -52,6 +55,7 @@ export function EnderecoForm({
   const [pinAproximado, setPinAproximado] = useState(false);
   const [textoEncontrado, setTextoEncontrado] = useState<string | null>(enderecoTextoEncontrado ?? null);
   const [confirmado, setConfirmado] = useState(Boolean(enderecoConfirmado));
+  const [precisaoBaixa, setPrecisaoBaixa] = useState(Boolean(enderecoPrecisaoBaixa));
   const [salvandoPin, setSalvandoPin] = useState(false);
 
   const handlePinChange = useCallback((lat: number, lng: number) => {
@@ -90,13 +94,16 @@ export function EnderecoForm({
     // Todo (re)geocode reseta a confirmação — é um pino novo, ninguém olhou
     // ele ainda.
     setConfirmado(false);
+    setPrecisaoBaixa(result.data.enderecoPrecisaoBaixa);
 
     if (result.data.geocodificado) {
       setCoords({ latitude: result.data.enderecoLatitude!, longitude: result.data.enderecoLongitude! });
       setTextoEncontrado(result.data.enderecoTextoEncontrado);
       setPinAproximado(false);
       setAviso(
-        "Endereço salvo. Confira o pino e o texto encontrado abaixo — se não for exatamente a sua casa, arraste o pino (ou toque no lugar certo) e confirme."
+        result.data.enderecoPrecisaoBaixa
+          ? "Endereço salvo, mas essa coordenada é aproximada (não veio da rua exata) — o pino pode estar em outro lugar da região. Confira com atenção e ajuste antes de confirmar."
+          : "Endereço salvo. Confira o pino e o texto encontrado abaixo — se não for exatamente a sua casa, arraste o pino (ou toque no lugar certo) e confirme."
       );
     } else if (result.data.centroAproximado) {
       setCoords(result.data.centroAproximado);
@@ -132,6 +139,7 @@ export function EnderecoForm({
     setPinAproximado(false);
     setTextoEncontrado(null);
     setConfirmado(true);
+    setPrecisaoBaixa(false);
     router.refresh();
   }
 
@@ -146,8 +154,9 @@ export function EnderecoForm({
 
         {geocodificado && !confirmado && !aviso && (
           <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
-            Este endereço ainda não foi confirmado no mapa — confira o pino abaixo e clique em &quot;Confirmar
-            localização&quot;. Enquanto isso, o motorista pode receber uma rota imprecisa.
+            {precisaoBaixa
+              ? "Essa localização é aproximada (não veio da rua exata) — confira o pino com atenção, ele pode estar em outro lugar da região, e clique em “Confirmar localização” depois de ajustar."
+              : "Este endereço ainda não foi confirmado no mapa — confira o pino abaixo e clique em “Confirmar localização”. Enquanto isso, o motorista pode receber uma rota imprecisa."}
           </p>
         )}
 

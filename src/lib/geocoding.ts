@@ -25,7 +25,20 @@ const BRASILAPI_CEP_URL = "https://brasilapi.com.br/api/cep/v2";
 // resolveu (ex.: "Avenida Resedá, Portais, Cajamar - SP") — mostrado na UI
 // ao lado do pino pra quem cadastrou o endereço conseguir comparar rapidez
 // com o que digitou, sem precisar dar zoom no mapa pra perceber um erro.
-export type GeocodeResult = { latitude: number; longitude: number; enderecoEncontrado?: string };
+//
+// `precisao` indica o quanto dá pra confiar na coordenada:
+// - "alta": veio de busca ESTRUTURADA (rua+número) que o OSM conseguiu casar
+//   — tende a acertar a casa, não só a rua.
+// - "baixa": veio de texto livre OU do centro do CEP via BrasilAPI — essa
+//   última em especial já se mostrou imprecisa na prática (o texto do
+//   endereço bate, mas a coordenada pode cair em outra rua/região do CEP).
+//   Endereços "baixa" precisam de confirmação manual com mais insistência.
+export type GeocodeResult = {
+  latitude: number;
+  longitude: number;
+  enderecoEncontrado?: string;
+  precisao?: "alta" | "baixa";
+};
 
 // Resultado interno com o texto do lugar encontrado — usado tanto para a
 // checagem de sanidade (bate com a cidade pedida?) quanto para preencher
@@ -343,7 +356,12 @@ export async function geocodeEndereco(endereco: EnderecoParaGeocodificar): Promi
   });
   if (comCep && cidadeBate(comCep, endereco.cidade)) {
     console.info("[geocoding] resolvido na ETAPA 1 (estruturada + CEP) — a mais precisa");
-    return { latitude: comCep.latitude, longitude: comCep.longitude, enderecoEncontrado: comCep.displayName || undefined };
+    return {
+      latitude: comCep.latitude,
+      longitude: comCep.longitude,
+      enderecoEncontrado: comCep.displayName || undefined,
+      precisao: "alta",
+    };
   }
   if (comCep) {
     console.warn(
@@ -362,7 +380,12 @@ export async function geocodeEndereco(endereco: EnderecoParaGeocodificar): Promi
   });
   if (semCep && cidadeBate(semCep, endereco.cidade)) {
     console.info("[geocoding] resolvido na ETAPA 2 (estruturada sem CEP) — precisa, mas sem checagem do CEP");
-    return { latitude: semCep.latitude, longitude: semCep.longitude, enderecoEncontrado: semCep.displayName || undefined };
+    return {
+      latitude: semCep.latitude,
+      longitude: semCep.longitude,
+      enderecoEncontrado: semCep.displayName || undefined,
+      precisao: "alta",
+    };
   }
   if (semCep) {
     console.warn(
@@ -370,25 +393,12 @@ export async function geocodeEndereco(endereco: EnderecoParaGeocodificar): Promi
     );
   }
 
-  // 3) Coordenada pelo CEP via BrasilAPI — não acerta o número exato da
-  // casa (é o centro do CEP), mas é bem mais confiável do que o texto livre
-  // do próximo passo, principalmente pra loteamentos/condomínios fechados
-  // que o OpenStreetMap não mapeia rua a rua (caso comum fora dos grandes
-  // centros). Não depende do OSM ter o bairro indexado, então funciona
-  // mesmo quando as etapas 1 e 2 não encontram nada.
-  const cepDigitos = endereco.cep.replace(/\D/g, "");
-  if (cepDigitos.length === 8) {
-    const porCep = await buscarCoordenadaPorCep(cepDigitos);
-    if (porCep) {
-      console.info("[geocoding] resolvido na ETAPA 3 (coordenada do CEP via BrasilAPI) — nível de precisão do CEP, não da casa");
-      return porCep;
-    }
-  }
-
-  // 4) Texto livre como último recurso — o mais propenso a "chutar" um
-  // lugar errado, então exige pelo menos bater a cidade. A checagem de
-  // bairro (`bairroTambemBate`) só loga um aviso, não bloqueia — ver o
-  // comentário na função pra entender por quê.
+  // 3) Texto livre — o OSM às vezes casa um endereço em busca livre que a
+  // busca estruturada (rua+número separados) não encontra, principalmente
+  // quando o jeito que a rua está escrita no OSM difere um pouco do
+  // esperado. Exige pelo menos bater a cidade. A checagem de bairro
+  // (`bairroTambemBate`) só loga um aviso, não bloqueia — ver comentário na
+  // função pra entender por quê.
   const textoLivre = [ruaComNumero, endereco.bairro, endereco.cidade, estado, endereco.cep, "Brasil"]
     .filter(Boolean)
     .join(", ");
@@ -397,21 +407,43 @@ export async function geocodeEndereco(endereco: EnderecoParaGeocodificar): Promi
   if (viaTextoLivre && cidadeBate(viaTextoLivre, endereco.cidade)) {
     if (!bairroTambemBate(viaTextoLivre, endereco.bairro)) {
       console.warn(
-        `[geocoding] ETAPA 4: bairro não bate no texto do resultado ("${viaTextoLivre.displayName}", esperado bairro "${endereco.bairro}") — aceitando mesmo assim, cidade confere e o nome popular do bairro costuma divergir do registrado oficialmente.`
+        `[geocoding] ETAPA 3: bairro não bate no texto do resultado ("${viaTextoLivre.displayName}", esperado bairro "${endereco.bairro}") — aceitando mesmo assim, cidade confere e o nome popular do bairro costuma divergir do registrado oficialmente.`
       );
     }
-    console.warn("[geocoding] resolvido na ETAPA 4 (texto livre) — MENOS CONFIÁVEL pro número exato, mas cidade confere.");
+    console.warn("[geocoding] resolvido na ETAPA 3 (texto livre) — MENOS CONFIÁVEL pro número exato, mas cidade confere.");
     return {
       latitude: viaTextoLivre.latitude,
       longitude: viaTextoLivre.longitude,
       enderecoEncontrado: viaTextoLivre.displayName || undefined,
+      precisao: "baixa",
     };
   }
   if (viaTextoLivre) {
     console.warn(
-      `[geocoding] ETAPA 4 descartada: provedor devolveu um lugar de outra cidade ("${viaTextoLivre.displayName}", esperado "${endereco.cidade}"). Nenhuma etapa encontrou coordenada confiável — endereço fica sem geocodificação.`
+      `[geocoding] ETAPA 3 descartada: provedor devolveu um lugar de outra cidade ("${viaTextoLivre.displayName}", esperado "${endereco.cidade}") — tentando próxima etapa.`
     );
   }
+
+  // 4) Coordenada pelo CEP via BrasilAPI — ÚLTIMO recurso, não a etapa 3
+  // como antes. Motivo da mudança: na prática esse campo se mostrou capaz
+  // de devolver um texto de endereço CORRETO ("Avenida Resedá, Portais,
+  // Cajamar - SP") junto com uma coordenada que não fica nem perto dessa
+  // rua — a BrasilAPI documenta esse campo como "melhor esforço", agregado
+  // de fontes que nem sempre são precisas a nível de rua, ao contrário do
+  // texto (esse sim vem direto da tabela de CEPs dos Correios, sempre
+  // correto). Por isso só usamos como última tentativa, e marcamos
+  // `precisao: "baixa"` pra UI insistir bastante na confirmação manual.
+  const cepDigitos = endereco.cep.replace(/\D/g, "");
+  if (cepDigitos.length === 8) {
+    const porCep = await buscarCoordenadaPorCep(cepDigitos);
+    if (porCep) {
+      console.info(
+        "[geocoding] resolvido na ETAPA 4 (coordenada do CEP via BrasilAPI) — só nível de CEP, pode estar em outra rua da região; requer confirmação manual"
+      );
+      return { ...porCep, precisao: "baixa" };
+    }
+  }
+
   return null;
 }
 
