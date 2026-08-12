@@ -61,7 +61,10 @@ declare global {
  * `/admin/uso-google` (ver src/lib/uso-api-externa.ts). Nunca bloqueia nem
  * derruba a busca em si se falhar. */
 function avisarNovaSessao() {
-  fetch("/api/uso-google/autocomplete", { method: "POST" }).catch(() => {});
+  // `keepalive` garante que o navegador tenta completar a requisição mesmo
+  // se a pessoa navegar pra outra página logo em seguida (ex: enviou o
+  // formulário e saiu da tela antes da resposta voltar).
+  fetch("/api/uso-google/autocomplete", { method: "POST", keepalive: true }).catch(() => {});
 }
 
 let carregamentoScript: Promise<void> | null = null;

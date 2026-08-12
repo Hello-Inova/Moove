@@ -73,6 +73,13 @@ export async function GET(request: NextRequest) {
   const usoApiApagado = await prisma.usoApiExterna.deleteMany({
     where: { criadoEm: { lt: new Date(agora.getTime() - 40 * 24 * 60 * 60 * 1000) } },
   });
+  // Cache de geocodificação (ver src/lib/geocoding.ts) já é ignorado pela
+  // aplicação depois de 180 dias sem ser revisitado (CACHE_TTL_DIAS) — só
+  // apagamos aqui pra não deixar linha morta pra sempre; folga de 30 dias
+  // sobre o TTL pra não brigar com uma consulta acontecendo bem na virada.
+  const geocodeCacheApagado = await prisma.geocodeCache.deleteMany({
+    where: { atualizadoEm: { lt: new Date(agora.getTime() - 210 * 24 * 60 * 60 * 1000) } },
+  });
 
   return NextResponse.json({
     ok: true,
@@ -81,5 +88,6 @@ export async function GET(request: NextRequest) {
     tentativasLoginApagadas: tentativasApagadas.count,
     codigosVerificacaoApagados: codigosApagados.count,
     usoApiExternaApagado: usoApiApagado.count,
+    geocodeCacheApagado: geocodeCacheApagado.count,
   });
 }

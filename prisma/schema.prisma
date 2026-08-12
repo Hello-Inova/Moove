@@ -685,6 +685,39 @@ model CodigoVerificacao {
 }
 
 // ---------------------------------------------------------------------------
+// GeocodeCache — resultado de geocodificação já resolvido antes, guardado
+// por uma chave normalizada do endereço (rua+número+bairro+cidade+UF+CEP),
+// pra nunca pagar (nem gastar cota grátis de) LocationIQ/Nominatim/Google
+// duas vezes pelo MESMO endereço — nem entre cadastros diferentes (dois
+// alunos no mesmo prédio, duas escolas com o mesmo endereço de referência)
+// nem no mesmo registro sendo salvo de novo sem mudar o endereço de fato.
+// Ver `geocodeEndereco` em src/lib/geocoding.ts, que consulta isso ANTES de
+// chamar qualquer provedor externo. TTL de 180 dias (ver CACHE_TTL_DIAS) —
+// depois disso vira cache miss e busca de novo (e reescreve a entrada),
+// tempo generoso porque a coordenada de um endereço não muda na prática,
+// mas evita guardar pra sempre algo que nunca mais vai ser consultado.
+// ---------------------------------------------------------------------------
+
+model GeocodeCache {
+  id String @id @default(cuid())
+
+  // Normalizada (sem acento/maiúsculas) e única — ver `chaveCache` em
+  // src/lib/geocoding.ts. Não é o endereço "bonito", é só a chave de busca.
+  chave String @unique
+
+  latitude           Float
+  longitude          Float
+  enderecoEncontrado String? @map("endereco_encontrado")
+  // "alta" | "baixa" — mesmo significado de GeocodeResult.precisao.
+  precisao String?
+
+  criadoEm    DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  @@map("geocode_cache")
+}
+
+// ---------------------------------------------------------------------------
 // UsoApiExterna — registro cru de cada chamada às APIs pagas do Google
 // (Geocoding, Places Autocomplete, Routes/Directions), usado só para o
 // painel admin mostrar quanto do limite gratuito mensal (~10.000 chamadas

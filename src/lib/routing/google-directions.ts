@@ -56,8 +56,10 @@ async function chamarComputeRoutes(
 
   // Registrado aqui (antes do fetch) porque a chamada já consome a cota
   // gratuita do Google mesmo se der erro/timeout — só não conta se nem
-  // chegou a sair (sem key configurada, já retornou acima).
-  void registrarUsoApi("routes_directions");
+  // chegou a sair (sem key configurada, já retornou acima). Aguardado de
+  // propósito (não "fire and forget"): em serverless a promise pode nunca
+  // terminar de rodar se a function encerrar antes dela.
+  await registrarUsoApi("routes_directions");
 
   try {
     const response = await fetch(COMPUTE_ROUTES_URL, {

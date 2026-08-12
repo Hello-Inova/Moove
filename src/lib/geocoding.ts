@@ -1,5 +1,6 @@
 import "server-only";
 
+import { prisma } from "@/lib/prisma";
 import { registrarUsoApi } from "@/lib/uso-api-externa";
 
 // Geocodificação de endereço → coordenadas.
@@ -27,6 +28,11 @@ import { registrarUsoApi } from "@/lib/uso-api-externa";
 // usuários, dados comerciais) e resolve endereços assim que as fontes
 // gratuitas não conseguem. Só é chamado se a env var estiver configurada —
 // sem ela, o comportamento é idêntico a antes (só fontes gratuitas).
+//
+// Cache: `geocodeEndereco` (a função pública) consulta `GeocodeCache` antes
+// de chamar qualquer provedor — ver `chaveCache`/`buscarNoCache`/
+// `salvarNoCache` logo acima da função. Evita gastar cota (grátis ou paga)
+// duas vezes pelo mesmo endereço.
 
 const LOCATIONIQ_URL = "https://us1.locationiq.com/v1/search";
 const NOMINATIM_URL = "https://nominatim.openstreetmap.org/search";
@@ -328,7 +334,9 @@ async function buscarGoogle(
   // Registrado aqui (não no `return` de sucesso) porque a chamada já
   // consome a cota gratuita do Google mesmo quando o resultado é
   // ZERO_RESULTS ou dá erro — só não conta se nem chegou a sair (sem key).
-  void registrarUsoApi("geocoding");
+  // Aguardado de propósito (não "fire and forget"): em serverless a promise
+  // pode nunca terminar de rodar se a function encerrar antes dela.
+  await registrarUsoApi("geocoding");
 
   try {
     const response = await fetch(url.toString(), { signal: controller.signal });
@@ -444,7 +452,87 @@ function formatarCepComHifen(cep: string): string {
   return digitos.length === 8 ? `${digitos.slice(0, 5)}-${digitos.slice(5)}` : cep;
 }
 
+// Endereços repetem MUITO nesse tipo de app: dois alunos no mesmo prédio,
+// duas escolas com o mesmo endereço de referência, ou simplesmente a mesma
+// pessoa salvando o formulário de novo sem mudar o endereço de fato. Sem
+// cache, cada uma dessas situações geocodifica do zero — gastando cota
+// grátis (LocationIQ: 5.000/dia; Google: 10.000/mês) por algo que já
+// tínhamos a resposta. `CACHE_TTL_DIAS` generoso porque a coordenada de um
+// endereço não muda na prática; serve só pra não guardar pra sempre algo
+// que ninguém mais vai consultar (poda no cron, ver /api/cron/limpeza).
+const CACHE_TTL_DIAS = 180;
+
+function chaveCache(endereco: EnderecoParaGeocodificar): string {
+  const ruaComNumero = normalizar(`${endereco.numero} ${endereco.logradouro}`.trim());
+  const bairro = normalizar(endereco.bairro ?? "");
+  const cidade = normalizar(endereco.cidade);
+  const estado = normalizar(endereco.estado);
+  const cepDigitos = endereco.cep.replace(/\D/g, "");
+  return [ruaComNumero, bairro, cidade, estado, cepDigitos].join("|");
+}
+
+async function buscarNoCache(chave: string): Promise<GeocodeResult | null> {
+  const registro = await prisma.geocodeCache.findUnique({ where: { chave } });
+  if (!registro) return null;
+
+  const limite = new Date(Date.now() - CACHE_TTL_DIAS * 24 * 60 * 60 * 1000);
+  if (registro.atualizadoEm < limite) return null; // expirado — trata como cache miss
+
+  return {
+    latitude: registro.latitude,
+    longitude: registro.longitude,
+    enderecoEncontrado: registro.enderecoEncontrado ?? undefined,
+    precisao: (registro.precisao as GeocodeResult["precisao"]) ?? undefined,
+  };
+}
+
+async function salvarNoCache(chave: string, resultado: GeocodeResult): Promise<void> {
+  try {
+    const dados = {
+      latitude: resultado.latitude,
+      longitude: resultado.longitude,
+      enderecoEncontrado: resultado.enderecoEncontrado ?? null,
+      precisao: resultado.precisao ?? null,
+    };
+    await prisma.geocodeCache.upsert({ where: { chave }, create: { chave, ...dados }, update: dados });
+  } catch (err) {
+    // Falha ao gravar cache nunca deve derrubar o cadastro/edição em si —
+    // só significa que a próxima busca desse endereço vai gastar cota de
+    // novo, sem mais consequência.
+    console.warn("[geocoding:cache] falha ao salvar", err);
+  }
+}
+
+/**
+ * Geocodifica um endereço, consultando primeiro o cache (`GeocodeCache`) por
+ * uma chave normalizada do endereço completo — só chama os provedores
+ * externos (LocationIQ/Nominatim/Google/BrasilAPI, ver `geocodeEnderecoSemCache`
+ * abaixo) em caso de cache miss, e grava o resultado pra próxima vez.
+ */
 export async function geocodeEndereco(endereco: EnderecoParaGeocodificar): Promise<GeocodeResult | null> {
+  if (!endereco.logradouro.trim()) return null;
+
+  const chave = chaveCache(endereco);
+
+  const doCache = await buscarNoCache(chave).catch((err) => {
+    console.warn("[geocoding:cache] falha ao consultar", err);
+    return null;
+  });
+  if (doCache) {
+    console.info(`[geocoding] resolvido via CACHE (endereço já geocodificado antes) — chave: ${chave}`);
+    return doCache;
+  }
+
+  const resultado = await geocodeEnderecoSemCache(endereco);
+  // Aguardamos de propósito (não é "fire and forget") — em ambiente
+  // serverless (Vercel) uma promise não aguardada pode nunca terminar de
+  // rodar se a function encerrar logo depois da resposta, e aí o cache
+  // nunca seria escrito de fato.
+  if (resultado) await salvarNoCache(chave, resultado);
+  return resultado;
+}
+
+async function geocodeEnderecoSemCache(endereco: EnderecoParaGeocodificar): Promise<GeocodeResult | null> {
   const rua = endereco.logradouro.trim();
   const numero = endereco.numero.trim();
   if (!rua) return null;
