@@ -16,10 +16,20 @@ import "server-only";
 //
 // Mantemos o Nominatim como fallback final (sem key nenhuma) caso o
 // LOCATIONIQ_API_KEY não esteja configurado ou o LocationIQ também falhe.
+//
+// Provedor OPCIONAL de última instância: Google Geocoding API (paga — ver
+// GOOGLE_MAPS_GEOCODING_API_KEY). LocationIQ/Nominatim/BrasilAPI são todos,
+// direta ou indiretamente, baseados no OpenStreetMap — e o mapeamento do OSM
+// pra ruas internas de condomínios/loteamentos fechados no Brasil costuma
+// ser incompleto. O Google tem base própria (Street View, correções de
+// usuários, dados comerciais) e resolve endereços assim que as fontes
+// gratuitas não conseguem. Só é chamado se a env var estiver configurada —
+// sem ela, o comportamento é idêntico a antes (só fontes gratuitas).
 
 const LOCATIONIQ_URL = "https://us1.locationiq.com/v1/search";
 const NOMINATIM_URL = "https://nominatim.openstreetmap.org/search";
 const BRASILAPI_CEP_URL = "https://brasilapi.com.br/api/cep/v2";
+const GOOGLE_GEOCODING_URL = "https://maps.googleapis.com/maps/api/geocode/json";
 
 // `enderecoEncontrado` é o texto do lugar que o provedor efetivamente
 // resolveu (ex.: "Avenida Resedá, Portais, Cajamar - SP") — mostrado na UI
@@ -224,10 +234,12 @@ async function buscar(params: Record<string, string>): Promise<ResultadoBruto | 
  *
  * Importante: essa coordenada costuma ser do CENTRO do CEP (que pode cobrir
  * só uma rua/quadra em bairros fechados, ou uma área maior em zonas rurais),
- * não do número exato da casa. Por isso ela entra DEPOIS da busca
- * estruturada (que acerta o número quando encontra), mas ANTES do texto
- * livre — que é o passo mais propenso a "chutar" um lugar de outra rua
- * inteiramente, só porque o nome bate.
+ * não do número exato da casa — e na prática se mostrou capaz de vir com o
+ * TEXTO do endereço certo (a BrasilAPI busca isso na tabela de CEPs dos
+ * Correios, sempre precisa) mas a COORDENADA longe da rua real (esse campo é
+ * "melhor esforço", agregado de fontes variáveis). Por isso é usada só como
+ * ÚLTIMO recurso, depois de tudo mais falhar — ver ordem das etapas em
+ * `geocodeEndereco`.
  */
 async function buscarCoordenadaPorCep(cepDigitos: string): Promise<GeocodeResult | null> {
   if (cepDigitos.length !== 8) return null;
@@ -267,6 +279,94 @@ async function buscarCoordenadaPorCep(cepDigitos: string): Promise<GeocodeResult
     return { latitude, longitude, enderecoEncontrado: enderecoEncontrado || undefined };
   } catch (err) {
     console.warn(`[geocoding:brasilapi] falha ao consultar CEP ${cepDigitos}`, err);
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+/**
+ * Google Geocoding API — OPCIONAL, só roda se GOOGLE_MAPS_GEOCODING_API_KEY
+ * estiver configurada. Paga (ver comentário no topo do arquivo), por isso só
+ * é chamada depois que as buscas estruturadas gratuitas (etapas 1 e 2) já
+ * falharam — é a etapa mais precisa disponível pro Brasil, incluindo
+ * loteamentos/condomínios fechados que o OpenStreetMap não mapeia.
+ *
+ * Usa `location_type` da resposta pra saber o nível de confiança: ROOFTOP e
+ * RANGE_INTERPOLATED são precisos (endereço exato ou interpolado numa faixa
+ * de números); GEOMETRIC_CENTER e APPROXIMATE são mais grosseiros (centro de
+ * uma região/rua) — tratados como precisão baixa igual às outras etapas
+ * aproximadas.
+ */
+async function buscarGoogle(
+  endereco: EnderecoParaGeocodificar,
+  ruaComNumero: string,
+  estadoPorExtenso: string
+): Promise<GeocodeResult | null> {
+  const apiKey = process.env.GOOGLE_MAPS_GEOCODING_API_KEY;
+  if (!apiKey) return null;
+
+  const enderecoTexto = [ruaComNumero, endereco.bairro, endereco.cidade, estadoPorExtenso, formatarCepComHifen(endereco.cep), "Brasil"]
+    .filter(Boolean)
+    .join(", ");
+
+  const url = new URL(GOOGLE_GEOCODING_URL);
+  url.searchParams.set("address", enderecoTexto);
+  url.searchParams.set("region", "br");
+  url.searchParams.set("language", "pt-BR");
+  url.searchParams.set("key", apiKey);
+
+  // URL só pra log — sem a key.
+  const urlParaLog = new URL(url.toString());
+  urlParaLog.searchParams.delete("key");
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 6_000);
+
+  try {
+    const response = await fetch(url.toString(), { signal: controller.signal });
+    if (!response.ok) {
+      console.warn(`[geocoding:google] ${response.status} ${response.statusText} — url:`, urlParaLog.toString());
+      return null;
+    }
+
+    const data = (await response.json()) as {
+      status: string;
+      error_message?: string;
+      results?: Array<{
+        formatted_address?: string;
+        geometry?: { location?: { lat: number; lng: number }; location_type?: string };
+      }>;
+    };
+
+    if (data.status !== "OK") {
+      // ZERO_RESULTS é só "não achou" (normal). Qualquer outro status
+      // (REQUEST_DENIED, OVER_QUERY_LIMIT, INVALID_REQUEST...) costuma
+      // indicar problema de configuração da chave/faturamento — logamos com
+      // destaque maior pra facilitar diagnosticar isso depois.
+      if (data.status === "ZERO_RESULTS") {
+        console.info(`[geocoding:google] ZERO_RESULTS para`, urlParaLog.toString());
+      } else {
+        console.warn(
+          `[geocoding:google] status ${data.status}${data.error_message ? " — " + data.error_message : ""} — url:`,
+          urlParaLog.toString()
+        );
+      }
+      return null;
+    }
+
+    const primeiro = data.results?.[0];
+    const lat = primeiro?.geometry?.location?.lat;
+    const lng = primeiro?.geometry?.location?.lng;
+    if (lat === undefined || lng === undefined) return null;
+
+    const tipoLocal = primeiro?.geometry?.location_type;
+    const precisao: "alta" | "baixa" = tipoLocal === "ROOFTOP" || tipoLocal === "RANGE_INTERPOLATED" ? "alta" : "baixa";
+
+    console.info(`[geocoding:google] encontrado ${lat},${lng} (${tipoLocal ?? "?"}) —`, primeiro?.formatted_address);
+    return { latitude: lat, longitude: lng, enderecoEncontrado: primeiro?.formatted_address, precisao };
+  } catch (err) {
+    console.warn(`[geocoding:google] falha ao consultar`, urlParaLog.toString(), err);
     return null;
   } finally {
     clearTimeout(timeout);
@@ -393,7 +493,20 @@ export async function geocodeEndereco(endereco: EnderecoParaGeocodificar): Promi
     );
   }
 
-  // 3) Texto livre — o OSM às vezes casa um endereço em busca livre que a
+  // 3) Google Geocoding API — OPCIONAL (só roda com GOOGLE_MAPS_GEOCODING_
+  // API_KEY configurada; sem ela, `buscarGoogle` devolve null na hora e essa
+  // etapa é pulada). Entra aqui, logo após as duas buscas estruturadas
+  // gratuitas falharem, porque é a fonte mais precisa disponível pro Brasil
+  // — o Google tem mapeamento próprio, não depende do OpenStreetMap, e
+  // resolve endereços de condomínios/loteamentos fechados que as etapas
+  // gratuitas (estruturada, texto livre, BrasilAPI) não conseguem.
+  const viaGoogle = await buscarGoogle(endereco, ruaComNumero, estado);
+  if (viaGoogle) {
+    console.info(`[geocoding] resolvido na ETAPA 3 (Google Geocoding API) — precisão: ${viaGoogle.precisao}`);
+    return viaGoogle;
+  }
+
+  // 4) Texto livre — o OSM às vezes casa um endereço em busca livre que a
   // busca estruturada (rua+número separados) não encontra, principalmente
   // quando o jeito que a rua está escrita no OSM difere um pouco do
   // esperado. Exige pelo menos bater a cidade. A checagem de bairro
@@ -407,10 +520,10 @@ export async function geocodeEndereco(endereco: EnderecoParaGeocodificar): Promi
   if (viaTextoLivre && cidadeBate(viaTextoLivre, endereco.cidade)) {
     if (!bairroTambemBate(viaTextoLivre, endereco.bairro)) {
       console.warn(
-        `[geocoding] ETAPA 3: bairro não bate no texto do resultado ("${viaTextoLivre.displayName}", esperado bairro "${endereco.bairro}") — aceitando mesmo assim, cidade confere e o nome popular do bairro costuma divergir do registrado oficialmente.`
+        `[geocoding] ETAPA 4: bairro não bate no texto do resultado ("${viaTextoLivre.displayName}", esperado bairro "${endereco.bairro}") — aceitando mesmo assim, cidade confere e o nome popular do bairro costuma divergir do registrado oficialmente.`
       );
     }
-    console.warn("[geocoding] resolvido na ETAPA 3 (texto livre) — MENOS CONFIÁVEL pro número exato, mas cidade confere.");
+    console.warn("[geocoding] resolvido na ETAPA 4 (texto livre) — MENOS CONFIÁVEL pro número exato, mas cidade confere.");
     return {
       latitude: viaTextoLivre.latitude,
       longitude: viaTextoLivre.longitude,
@@ -420,25 +533,25 @@ export async function geocodeEndereco(endereco: EnderecoParaGeocodificar): Promi
   }
   if (viaTextoLivre) {
     console.warn(
-      `[geocoding] ETAPA 3 descartada: provedor devolveu um lugar de outra cidade ("${viaTextoLivre.displayName}", esperado "${endereco.cidade}") — tentando próxima etapa.`
+      `[geocoding] ETAPA 4 descartada: provedor devolveu um lugar de outra cidade ("${viaTextoLivre.displayName}", esperado "${endereco.cidade}") — tentando próxima etapa.`
     );
   }
 
-  // 4) Coordenada pelo CEP via BrasilAPI — ÚLTIMO recurso, não a etapa 3
-  // como antes. Motivo da mudança: na prática esse campo se mostrou capaz
-  // de devolver um texto de endereço CORRETO ("Avenida Resedá, Portais,
-  // Cajamar - SP") junto com uma coordenada que não fica nem perto dessa
-  // rua — a BrasilAPI documenta esse campo como "melhor esforço", agregado
-  // de fontes que nem sempre são precisas a nível de rua, ao contrário do
-  // texto (esse sim vem direto da tabela de CEPs dos Correios, sempre
-  // correto). Por isso só usamos como última tentativa, e marcamos
-  // `precisao: "baixa"` pra UI insistir bastante na confirmação manual.
+  // 5) Coordenada pelo CEP via BrasilAPI — ÚLTIMO recurso de todos. Motivo:
+  // na prática esse campo se mostrou capaz de devolver um texto de endereço
+  // CORRETO ("Avenida Resedá, Portais, Cajamar - SP") junto com uma
+  // coordenada que não fica nem perto dessa rua — a BrasilAPI documenta esse
+  // campo como "melhor esforço", agregado de fontes que nem sempre são
+  // precisas a nível de rua, ao contrário do texto (esse sim vem direto da
+  // tabela de CEPs dos Correios, sempre correto). Por isso só usamos como
+  // última tentativa, e marcamos `precisao: "baixa"` pra UI insistir bastante
+  // na confirmação manual.
   const cepDigitos = endereco.cep.replace(/\D/g, "");
   if (cepDigitos.length === 8) {
     const porCep = await buscarCoordenadaPorCep(cepDigitos);
     if (porCep) {
       console.info(
-        "[geocoding] resolvido na ETAPA 4 (coordenada do CEP via BrasilAPI) — só nível de CEP, pode estar em outra rua da região; requer confirmação manual"
+        "[geocoding] resolvido na ETAPA 5 (coordenada do CEP via BrasilAPI) — só nível de CEP, pode estar em outra rua da região; requer confirmação manual"
       );
       return { ...porCep, precisao: "baixa" };
     }
