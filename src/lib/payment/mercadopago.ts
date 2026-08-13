@@ -96,7 +96,17 @@ export async function createMercadoPagoPreference(params: {
   }
 
   const data = await response.json();
-  return { id: data.id, initPoint: data.init_point };
+  // A API sempre devolve os dois links (`init_point` de produção e
+  // `sandbox_init_point` de teste), não importa o tipo do token usado pra
+  // criar a preference. Se mandarmos o comprador pro `init_point` enquanto
+  // testamos com um MERCADOPAGO_ACCESS_TOKEN `TEST-...`, o Mercado Pago
+  // carrega a página de checkout em modo produção — daí o erro "uma das
+  // partes com as quais você está tentando efetuar o pagamento é de teste"
+  // mesmo com token e comprador de teste corretos. Detectamos pelo prefixo
+  // do token e usamos o link certo em cada ambiente.
+  const isTestToken = getAccessToken().startsWith("TEST-");
+  const initPoint = isTestToken ? data.sandbox_init_point ?? data.init_point : data.init_point;
+  return { id: data.id, initPoint };
 }
 
 export type MercadoPagoPayment = {
