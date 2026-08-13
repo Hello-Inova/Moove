@@ -30,7 +30,7 @@ export function ForcarAssinaturaForm({
     const tipoPlano = form.get("tipoPlano");
 
     const confirmado = await confirm(
-      "Ativar essa assinatura manualmente, sem passar pelo Mercado Pago? Isso cancela qualquer assinatura em aberto do motorista.",
+      "Ativar essa assinatura manualmente, sem passar pela Asaas? Isso cancela qualquer assinatura em aberto do motorista.",
       { confirmLabel: "Ativar" }
     );
     if (!confirmado) return;

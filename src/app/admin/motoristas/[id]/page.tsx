@@ -73,7 +73,7 @@ export default async function AdminMotoristaDetailPage({ params }: { params: Pro
         <section className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm dark:bg-neutral-900 dark:border-neutral-700">
           <h2 className="text-lg font-semibold text-brand-navy">Forçar ativação de assinatura</h2>
           <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-            Ativa um plano manualmente, sem passar pelo Mercado Pago — só para suporte/teste.
+            Ativa um plano manualmente, sem passar pela Asaas — só para suporte/teste.
           </p>
           <div className="mt-4">
             <ForcarAssinaturaForm motoristaId={motorista.id} planos={planosAtivos} />

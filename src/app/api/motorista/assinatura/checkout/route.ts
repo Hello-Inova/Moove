@@ -5,7 +5,7 @@ import { jsonError, jsonValidationError } from "@/lib/http";
 import { criarCheckoutAssinaturaSchema } from "@/lib/validation/schemas";
 import { criarAssinaturaComCheckout, PlanoInexistenteError } from "@/lib/subscription/service";
 import { buscarPlanoPorCodigo } from "@/lib/subscription/planos-service";
-import { MercadoPagoNotConfiguredError, MercadoPagoApiError } from "@/lib/payment/mercadopago";
+import { AsaasNotConfiguredError, AsaasApiError, AsaasPayerSemCpfError } from "@/lib/payment/asaas";
 
 export async function POST(request: NextRequest) {
   const motorista = await getAuthenticatedMotorista();
@@ -40,11 +40,14 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ checkoutUrl }, { status: 201 });
   } catch (err) {
-    if (err instanceof MercadoPagoNotConfiguredError) {
+    if (err instanceof AsaasNotConfiguredError) {
       return jsonError(503, err.message);
     }
-    if (err instanceof MercadoPagoApiError) {
-      return jsonError(502, "Não foi possível criar o pagamento no Mercado Pago agora. Tente novamente em instantes.");
+    if (err instanceof AsaasPayerSemCpfError) {
+      return jsonError(400, "Complete seu CPF no cadastro antes de assinar um plano.");
+    }
+    if (err instanceof AsaasApiError) {
+      return jsonError(502, "Não foi possível criar o pagamento na Asaas agora. Tente novamente em instantes.");
     }
     if (err instanceof PlanoInexistenteError) {
       return jsonError(404, err.message);

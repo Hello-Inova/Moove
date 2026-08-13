@@ -8,7 +8,7 @@ import {
   contaEmTeste,
 } from "@/lib/subscription/plans";
 import { buscarPlanoPorCodigo } from "@/lib/subscription/planos-service";
-import { createMercadoPagoPreference, getMercadoPagoPayment } from "@/lib/payment/mercadopago";
+import { createAsaasCheckout, getAsaasPayment } from "@/lib/payment/asaas";
 import type { Assinatura } from "@prisma/client";
 
 export { contaEmTeste, diasRestantesConta } from "@/lib/subscription/plans";
@@ -66,11 +66,11 @@ export function responsavelTemAcesso(): boolean {
 }
 
 /**
- * Cria uma nova Assinatura (em TESTE) + o Pagamento pendente + a preference
- * de checkout no Mercado Pago. Não mexe em nenhuma assinatura anterior do
- * motorista ainda — isso só acontece quando o pagamento é confirmado (ver
- * `confirmarPagamentoWebhook`), pra não cortar o acesso de quem já é
- * assinante enquanto ele está só cotando um upgrade.
+ * Cria uma nova Assinatura (em TESTE) + o Pagamento pendente + a cobrança de
+ * checkout na Asaas. Não mexe em nenhuma assinatura anterior do motorista
+ * ainda — isso só acontece quando o pagamento é confirmado (ver
+ * `confirmarPagamentoAsaas`), pra não cortar o acesso de quem já é assinante
+ * enquanto ele está só cotando um upgrade.
  */
 export async function criarAssinaturaComCheckout(params: {
   motoristaId: string;
@@ -112,29 +112,33 @@ export async function criarAssinaturaComCheckout(params: {
   });
 
   const pagamento = await prisma.pagamento.create({
-    data: { assinaturaId: assinatura.id, valor: resumo.valorTotal },
+    data: { assinaturaId: assinatura.id, valor: resumo.valorTotal, gateway: "asaas" },
   });
 
   const anosLabel = resumo.anosAdicionais > 0 ? ` + ${resumo.anosAdicionais} ano(s) extra` : "";
-  const preference = await createMercadoPagoPreference({
+  const checkout = await createAsaasCheckout({
     titulo: `Moove — Plano ${plano.label} (${plano.cicloLabel.toLowerCase()}${anosLabel})`,
     valor: resumo.valorTotal,
     externalReference: pagamento.id,
     payerEmail: params.motoristaEmail,
+    payerNome: params.motoristaNome,
     payerCpf: params.motoristaCpf,
   });
 
   await prisma.pagamento.update({
     where: { id: pagamento.id },
-    data: { gatewayPreferenceId: preference.id, checkoutUrl: preference.initPoint },
+    // Guardamos o id da cobrança Asaas em `gatewayPreferenceId` — o campo já
+    // existia (nome herdado do Mercado Pago) e cobre bem o mesmo papel:
+    // identificador da "intenção de pagamento" gerada antes da confirmação.
+    data: { gatewayPreferenceId: checkout.id, checkoutUrl: checkout.initPoint },
   });
 
-  return { assinatura, checkoutUrl: preference.initPoint };
+  return { assinatura, checkoutUrl: checkout.initPoint };
 }
 
 /**
  * Uso administrativo (painel admin): ativa uma assinatura pro motorista sem
- * passar pelo Mercado Pago — útil pra suporte/teste. Cria a assinatura já
+ * passar pela Asaas — útil pra suporte/teste. Cria a assinatura já
  * como ATIVA (0 alunos excedentes, sem anos adicionais) e cancela qualquer
  * outra TESTE/ATIVA existente, no mesmo padrão da confirmação de pagamento.
  */
@@ -174,13 +178,17 @@ export async function forcarAssinaturaAtiva(motoristaId: string, tipoPlano: stri
 }
 
 /**
- * Chamado pelo webhook do Mercado Pago com o id do pagamento — já revalidado
- * contra a API oficial pelo chamador (ver a rota do webhook). Ativa a
- * assinatura correspondente e cancela outras assinaturas em aberto do mesmo
- * motorista (troca de plano / renovação).
+ * Chamado pelo webhook da Asaas com o id da cobrança — já revalidado contra
+ * a API oficial pelo chamador (ver a rota do webhook). Ativa a assinatura
+ * correspondente e cancela outras assinaturas em aberto do mesmo motorista
+ * (troca de plano / renovação).
+ *
+ * `CONFIRMED` já é suficiente pra liberar acesso (pagamento garantido, só o
+ * repasse do saldo é que ainda não caiu) — não esperamos `RECEIVED`, que no
+ * cartão de crédito só chega ~32 dias depois.
  */
-export async function confirmarPagamentoMercadoPago(mpPaymentId: string): Promise<boolean> {
-  const payment = await getMercadoPagoPayment(mpPaymentId);
+export async function confirmarPagamentoAsaas(asaasPaymentId: string): Promise<boolean> {
+  const payment = await getAsaasPayment(asaasPaymentId);
   if (!payment.externalReference) return false;
 
   const pagamento = await prisma.pagamento.findUnique({
@@ -191,15 +199,17 @@ export async function confirmarPagamentoMercadoPago(mpPaymentId: string): Promis
 
   // Confere se o valor recebido bate com o que cobramos originalmente —
   // proteção extra contra um pagamento adulterado/trocado.
-  const valorConfere = Math.abs(Number(pagamento.valor) - payment.transactionAmount) < 0.01;
+  const valorConfere = Math.abs(Number(pagamento.valor) - payment.value) < 0.01;
 
-  if (payment.status === "approved" && valorConfere) {
-    if (pagamento.status === "APROVADO") return true; // idempotente: webhook pode repetir
+  const statusConfirmado = payment.status === "CONFIRMED" || payment.status === "RECEIVED" || payment.status === "RECEIVED_IN_CASH";
+
+  if (statusConfirmado && valorConfere) {
+    if (pagamento.status === "APROVADO") return true; // idempotente: webhook pode repetir (at-least-once)
 
     await prisma.$transaction(async (tx) => {
       await tx.pagamento.update({
         where: { id: pagamento.id },
-        data: { status: "APROVADO", gatewayPagamentoId: String(payment.id), pagoEm: new Date() },
+        data: { status: "APROVADO", gatewayPagamentoId: payment.id, pagoEm: new Date() },
       });
 
       const assinatura = pagamento.assinatura;
@@ -222,13 +232,10 @@ export async function confirmarPagamentoMercadoPago(mpPaymentId: string): Promis
     return true;
   }
 
-  if (payment.status === "rejected" || payment.status === "cancelled") {
+  if (payment.status === "REFUNDED" || payment.status === "REFUND_REQUESTED") {
     await prisma.pagamento.update({
       where: { id: pagamento.id },
-      data: {
-        status: payment.status === "rejected" ? "RECUSADO" : "CANCELADO",
-        gatewayPagamentoId: String(payment.id),
-      },
+      data: { status: "CANCELADO", gatewayPagamentoId: payment.id },
     });
   }
   return true;
