@@ -19,9 +19,9 @@ type EmbarqueRegistro = { vinculoId: string; status: StatusEmbarque };
 // algo mudar por fora, ex: um responsável acabou de cadastrar endereço).
 // Os dois respeitam o uso justo do OSRM público — não recalcula a cada
 // atualização de GPS (12s), só quando um dos dois critérios bate.
-const RECALCULO_DISTANCIA_MINIMA_M = 400;
+const RECALCULO_DISTANCIA_MINIMA_M = 100;
 const RECALCULO_COOLDOWN_MS = 30_000;
-const RECALCULO_TETO_MS = 3 * 60_000;
+const RECALCULO_TETO_MS = 1 * 60_000;
 
 type Escola = { id: string; nome: string };
 
