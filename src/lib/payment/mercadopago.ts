@@ -104,8 +104,16 @@ export async function createMercadoPagoPreference(params: {
   // partes com as quais você está tentando efetuar o pagamento é de teste"
   // mesmo com token e comprador de teste corretos. Detectamos pelo prefixo
   // do token e usamos o link certo em cada ambiente.
-  const isTestToken = getAccessToken().startsWith("TEST-");
+  const token = getAccessToken();
+  const isTestToken = token.startsWith("TEST-");
   const initPoint = isTestToken ? data.sandbox_init_point ?? data.init_point : data.init_point;
+  // DEBUG TEMPORÁRIO — remover depois de confirmar a causa do erro
+  // "uma das partes é de teste". Só mostra os 8 primeiros chars do token
+  // (não vaza o segredo) e os dois links que o Mercado Pago devolveu.
+  console.log(
+    `[mercadopago][debug] tokenPrefix=${token.slice(0, 8)} isTestToken=${isTestToken} ` +
+      `init_point=${data.init_point} sandbox_init_point=${data.sandbox_init_point} chosen=${initPoint}`
+  );
   return { id: data.id, initPoint };
 }
 
