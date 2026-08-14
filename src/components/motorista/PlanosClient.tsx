@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import { apiGet, apiPostJson } from "@/lib/api-client";
 import { primaryButtonClass, secondaryButtonClass } from "@/components/ui/form-elements";
@@ -25,6 +25,7 @@ const STATUS_MSG: Record<string, { text: string; className: string }> = {
 };
 
 export function PlanosClient({ tipoPlanoAtual }: { tipoPlanoAtual: string | null }) {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const statusPagamento = searchParams.get("pagamento");
 
@@ -49,6 +50,25 @@ export function PlanosClient({ tipoPlanoAtual }: { tipoPlanoAtual: string | null
     return () => {
       cancelado = true;
     };
+  }, []);
+
+  // Rede de segurança contra falha do webhook da Asaas: revalida direto na
+  // API deles se houver um pagamento pendente do motorista, em vez de
+  // depender só da notificação assíncrona chegar. Roda sempre que a tela
+  // abre (não só no retorno do checkout) — barato quando não há nada
+  // pendente, e corrige qualquer assinatura que tenha ficado presa.
+  useEffect(() => {
+    let cancelado = false;
+    apiPostJson<{ tipoPlanoAtual: string | null }>("/api/motorista/assinatura/sincronizar", {}).then((result) => {
+      if (cancelado || !result.ok) return;
+      if (result.data.tipoPlanoAtual && result.data.tipoPlanoAtual !== tipoPlanoAtual) {
+        router.refresh();
+      }
+    });
+    return () => {
+      cancelado = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const plano = useMemo(() => planos?.find((p) => p.codigo === selecionado) ?? null, [planos, selecionado]);
