@@ -12,6 +12,7 @@ import { RevogarButton } from "@/components/motorista/RevogarButton";
 import { ReativarButton } from "@/components/motorista/ReativarButton";
 import { MarcarPagaButton } from "@/components/motorista/MarcarPagaButton";
 import { WhatsAppCobrancaButton } from "@/components/motorista/WhatsAppCobrancaButton";
+import { GuideTour, type GuideStep } from "@/components/ui/GuideTour";
 
 function formatarData(data: Date): string {
   return data.toLocaleDateString("pt-BR");
@@ -56,31 +57,54 @@ export default async function MotoristaVinculosPage() {
   const ativos = vinculos.filter((v) => v.status === "ATIVO").length;
   const cobrancasPendentesTotal = vinculos.reduce((soma, v) => soma + v.cobrancas.length, 0);
 
+  const tourSteps: GuideStep[] = [
+    {
+      targetId: "tour-vinculos-pix",
+      title: "Cadastre sua chave PIX",
+      text: "É pra essa chave que o responsável manda o pagamento do aluno excedente — configure antes de compartilhar convites.",
+    },
+    {
+      targetId: "tour-vinculos-push",
+      title: "Ative as notificações",
+      text: "Receba um aviso na hora quando um convite for aceito ou uma nova cobrança de aluno for gerada, mesmo com o app fechado.",
+    },
+    {
+      targetId: "tour-vinculos-lista",
+      title: "Seus alunos vinculados",
+      text: "O selo \"Grátis\" mostra os alunos dentro da sua franquia; \"Cobrado\" mostra os que já estão gerando cobrança. Quando houver uma cobrança pendente, use o botão de WhatsApp pra cobrar o responsável direto, ou marque como paga depois de receber.",
+    },
+  ];
+
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-semibold">Alunos</h1>
-        <p className="text-neutral-500 dark:text-neutral-400">
-          {ativos} aluno{ativos === 1 ? "" : "s"} vinculado{ativos === 1 ? "" : "s"}
-          {assinaturaAtiva && ` · até ${alunosGratis} grátis · R$ ${valorPorAlunoExcedente.toFixed(2)}/excedente a cada 30 dias`}
-          {cobrancasPendentesTotal > 0 && ` · ${cobrancasPendentesTotal} cobrança${cobrancasPendentesTotal === 1 ? "" : "s"} pendente${cobrancasPendentesTotal === 1 ? "" : "s"}`}
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold">Alunos</h1>
+          <p className="text-neutral-500 dark:text-neutral-400">
+            {ativos} aluno{ativos === 1 ? "" : "s"} vinculado{ativos === 1 ? "" : "s"}
+            {assinaturaAtiva && ` · até ${alunosGratis} grátis · R$ ${valorPorAlunoExcedente.toFixed(2)}/excedente a cada 30 dias`}
+            {cobrancasPendentesTotal > 0 && ` · ${cobrancasPendentesTotal} cobrança${cobrancasPendentesTotal === 1 ? "" : "s"} pendente${cobrancasPendentesTotal === 1 ? "" : "s"}`}
+          </p>
+        </div>
+        <GuideTour steps={tourSteps} />
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <section className={cardClass}>
+        <section id="tour-vinculos-pix" className={cardClass}>
           <PixKeyForm chavePixAtual={motorista.chavePix} />
         </section>
 
-        <PushToggle
-          title="Notificações"
-          description="Receba um aviso quando um convite for aceito ou uma cobrança de aluno for gerada — mesmo com o app fechado."
-          subscribeUrl="/api/motorista/push/subscribe"
-          unsubscribeUrl="/api/motorista/push/unsubscribe"
-        />
+        <div id="tour-vinculos-push">
+          <PushToggle
+            title="Notificações"
+            description="Receba um aviso quando um convite for aceito ou uma cobrança de aluno for gerada — mesmo com o app fechado."
+            subscribeUrl="/api/motorista/push/subscribe"
+            unsubscribeUrl="/api/motorista/push/unsubscribe"
+          />
+        </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div id="tour-vinculos-lista" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {vinculos.length === 0 && (
           <p className="text-sm text-neutral-500 dark:text-neutral-400 sm:col-span-2 lg:col-span-3">
             Nenhum aluno vinculado ainda.

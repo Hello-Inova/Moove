@@ -6,6 +6,30 @@ import { prisma } from "@/lib/prisma";
 import { LocationSharingPanel } from "@/components/motorista/LocationSharingPanel";
 import { RotaPanel } from "@/components/motorista/RotaPanel";
 import { OnboardingChecklist } from "@/components/motorista/OnboardingChecklist";
+import { GuideTour, type GuideStep } from "@/components/ui/GuideTour";
+
+const TOUR_STEPS: GuideStep[] = [
+  {
+    targetId: "tour-checklist",
+    title: "Confira o que falta configurar",
+    text: "Essa lista mostra os passos iniciais — cadastrar veículo, escola, chave PIX e vincular o primeiro aluno. Vá marcando conforme for completando.",
+  },
+  {
+    targetId: "tour-location",
+    title: "Compartilhe sua localização",
+    text: "Toque em \"Iniciar rota\" pra começar a compartilhar sua localização em tempo real com os responsáveis vinculados. Mantenha o Moove aberto na tela enquanto estiver rodando.",
+  },
+  {
+    targetId: "tour-rota",
+    title: "Acompanhe a rota do dia",
+    text: "Com a localização ativa, aparece aqui o mapa com a rota otimizada até os alunos, na ordem de embarque. Marque cada aluno como \"Embarcou\" ou \"Ausente\" conforme for passando, e clique em \"Encerrar rota\" no fim do trajeto.",
+  },
+  {
+    targetId: "tour-stats",
+    title: "Atalhos rápidos",
+    text: "Esses cartões mostram um resumo de veículos, alunos vinculados e convites pendentes — clique em qualquer um pra ir direto pra aquela aba.",
+  },
+];
 
 export default async function MotoristaDashboardPage() {
   const motorista = await getAuthenticatedMotorista();
@@ -36,18 +60,27 @@ export default async function MotoristaDashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Olá, {motorista.nome.split(" ")[0]}</h1>
-        <p className="text-neutral-500 dark:text-neutral-400">Painel do motorista</p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold">Olá, {motorista.nome.split(" ")[0]}</h1>
+          <p className="text-neutral-500 dark:text-neutral-400">Painel do motorista</p>
+        </div>
+        <GuideTour steps={TOUR_STEPS} />
       </div>
 
-      <OnboardingChecklist items={checklist} />
+      <div id="tour-checklist">
+        <OnboardingChecklist items={checklist} />
+      </div>
 
-      <LocationSharingPanel />
+      <div id="tour-location">
+        <LocationSharingPanel />
+      </div>
 
-      <RotaPanel />
+      <div id="tour-rota">
+        <RotaPanel />
+      </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div id="tour-stats" className="grid gap-4 sm:grid-cols-3">
         <StatCard label="Veículos" value={veiculosCount} href="/motorista/veiculos" />
         <StatCard label="Vínculos ativos" value={vinculosAtivos} href="/motorista/vinculos" />
         <StatCard label="Convites pendentes" value={convitesPendentes} href="/motorista/convites" />

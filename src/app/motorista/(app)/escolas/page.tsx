@@ -3,6 +3,20 @@ import { redirect } from "next/navigation";
 import { getAuthenticatedMotorista } from "@/lib/auth/guards";
 import { prisma } from "@/lib/prisma";
 import { EscolasClient } from "@/components/motorista/EscolasClient";
+import { GuideTour, type GuideStep } from "@/components/ui/GuideTour";
+
+const TOUR_STEPS: GuideStep[] = [
+  {
+    targetId: "tour-escolas-lista",
+    title: "Suas escolas cadastradas",
+    text: "Cada card é uma escola que você atende. Antes de tudo, clique em \"Editar\" e confirme o pino no mapa — é isso que garante que a rota até ela saia certa.",
+  },
+  {
+    targetId: "tour-escolas-form",
+    title: "Cadastrar uma nova escola",
+    text: "Preencha o endereço aqui pra adicionar mais uma escola à sua rota. Você pode cadastrar quantas escolas atender.",
+  },
+];
 
 export default async function MotoristaEscolasPage({
   searchParams,
@@ -21,12 +35,15 @@ export default async function MotoristaEscolasPage({
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Minhas escolas</h1>
-        <p className="text-neutral-500 dark:text-neutral-400">
-          Cadastre todas as escolas que você atende — o responsável escolhe uma delas ao vincular o filho, e você
-          pode traçar rota direto até qualquer uma no painel de rota.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold">Minhas escolas</h1>
+          <p className="text-neutral-500 dark:text-neutral-400">
+            Cadastre todas as escolas que você atende — o responsável escolhe uma delas ao vincular o filho, e você
+            pode traçar rota direto até qualquer uma no painel de rota.
+          </p>
+        </div>
+        <GuideTour steps={TOUR_STEPS} />
       </div>
 
       {novo === "1" && (

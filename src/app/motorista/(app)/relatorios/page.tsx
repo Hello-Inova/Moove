@@ -3,6 +3,15 @@ import Link from "next/link";
 
 import { getAuthenticatedMotorista } from "@/lib/auth/guards";
 import { prisma } from "@/lib/prisma";
+import { GuideTour, type GuideStep } from "@/components/ui/GuideTour";
+
+const TOUR_STEPS: GuideStep[] = [
+  {
+    targetId: "tour-relatorios-lista",
+    title: "Histórico de percursos",
+    text: "Cada linha é um dia de rota encerrada — clique pra ver detalhes de embarque, ausência e distância percorrida.",
+  },
+];
 
 function formatarDistancia(m: number | null): string {
   if (m === null) return "—";
@@ -29,14 +38,17 @@ export default async function MotoristaRelatoriosPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Relatórios</h1>
-        <p className="text-neutral-500 dark:text-neutral-400">
-          Histórico dos percursos encerrados — clique em um dia para ver os detalhes.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold">Relatórios</h1>
+          <p className="text-neutral-500 dark:text-neutral-400">
+            Histórico dos percursos encerrados — clique em um dia para ver os detalhes.
+          </p>
+        </div>
+        <GuideTour steps={TOUR_STEPS} />
       </div>
 
-      <div className="space-y-3">
+      <div id="tour-relatorios-lista" className="space-y-3">
         {percursos.length === 0 && (
           <p className="text-sm text-neutral-500 dark:text-neutral-400">
             Nenhum percurso registrado ainda. Ao clicar em &quot;Encerrar rota&quot; no painel de rota, o dia

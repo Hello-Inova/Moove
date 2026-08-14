@@ -127,7 +127,7 @@ export function PlanosClient({ tipoPlanoAtual }: { tipoPlanoAtual: string | null
         </p>
       )}
 
-      <div className="grid gap-6 sm:grid-cols-3">
+      <div id="tour-planos-cards" className="grid gap-6 sm:grid-cols-3">
         {planos.map((p) => (
           <PlanCard
             key={p.codigo}
@@ -144,7 +144,10 @@ export function PlanosClient({ tipoPlanoAtual }: { tipoPlanoAtual: string | null
       </div>
 
       {plano && resumo && (
-        <section className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm dark:border-neutral-700 dark:bg-neutral-900">
+        <section
+          id="tour-planos-resumo"
+          className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm dark:border-neutral-700 dark:bg-neutral-900"
+        >
           <h2 className="text-lg font-semibold text-brand-navy dark:text-white">Assinar plano {plano.label}</h2>
           <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
             Valor fixo da plataforma abaixo. A cobrança por aluno excedente (ver detalhes no card do plano) é

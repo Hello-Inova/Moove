@@ -5,6 +5,20 @@ import { getAuthenticatedMotorista } from "@/lib/auth/guards";
 import { prisma } from "@/lib/prisma";
 import { formatarBRL } from "@/lib/subscription/plans";
 import { secondaryButtonClass } from "@/components/ui/form-elements";
+import { GuideTour, type GuideStep } from "@/components/ui/GuideTour";
+
+const TOUR_STEPS: GuideStep[] = [
+  {
+    targetId: "tour-cobrancas-lista",
+    title: "Pagamentos da sua assinatura",
+    text: "Aqui fica o histórico do que você pagou pelo plano da plataforma. Não confunda com a cobrança por aluno excedente, que fica na aba \"Alunos\".",
+  },
+  {
+    targetId: "tour-cobrancas-planos",
+    title: "Trocar de plano",
+    text: "Precisa mudar de plano? Clique aqui pra ver as opções disponíveis.",
+  },
+];
 
 const STATUS_LABEL: Record<string, string> = {
   PENDENTE: "Pendente",
@@ -32,17 +46,21 @@ export default async function MotoristaCobrancasPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold">Cobranças</h1>
           <p className="text-neutral-500 dark:text-neutral-400">Histórico de pagamentos das suas assinaturas.</p>
         </div>
+        <GuideTour steps={TOUR_STEPS} />
+      </div>
+
+      <div id="tour-cobrancas-planos">
         <Link href="/motorista/planos" className={secondaryButtonClass + " w-auto px-4"}>
           Ver planos
         </Link>
       </div>
 
-      <div className="space-y-3">
+      <div id="tour-cobrancas-lista" className="space-y-3">
         {pagamentos.length === 0 && (
           <p className="text-sm text-neutral-500 dark:text-neutral-400">Nenhum pagamento gerado ainda.</p>
         )}
