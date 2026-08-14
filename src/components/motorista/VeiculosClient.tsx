@@ -6,6 +6,7 @@ import { apiGet } from "@/lib/api-client";
 import { VeiculoForm } from "@/components/motorista/VeiculoForm";
 import { VerDocumentoButton } from "@/components/motorista/VerDocumentoButton";
 import { UploadDocumentoButton } from "@/components/motorista/UploadDocumentoButton";
+import { VeiculoDeleteButton } from "@/components/motorista/VeiculoDeleteButton";
 
 export type VeiculoListagem = {
   id: string;
@@ -50,15 +51,26 @@ export function VeiculosClient({ veiculosIniciais }: { veiculosIniciais: Veiculo
                 <span className="text-sm text-neutral-400">Sem documento</span>
               )}
               <UploadDocumentoButton veiculoId={v.id} onUploaded={recarregar} />
+              <VeiculoDeleteButton id={v.id} placa={v.placa} onDeleted={recarregar} />
             </div>
           </div>
         ))}
       </div>
 
-      <section className="rounded-2xl border border-neutral-200 bg-white shadow-sm p-5 dark:bg-neutral-900 dark:border-neutral-700">
-        <h2 className="mb-4 font-medium">Cadastrar novo veículo</h2>
-        <VeiculoForm onSaved={recarregar} />
-      </section>
+      {/* Regra: 1 veículo por motorista — só mostra o formulário de cadastro
+          quando não há nenhum ainda; pra trocar, precisa excluir o atual
+          primeiro (botão "Excluir" acima). */}
+      {veiculos.length === 0 ? (
+        <section className="rounded-2xl border border-neutral-200 bg-white shadow-sm p-5 dark:bg-neutral-900 dark:border-neutral-700">
+          <h2 className="mb-4 font-medium">Cadastrar novo veículo</h2>
+          <VeiculoForm onSaved={recarregar} />
+        </section>
+      ) : (
+        <p className="rounded-2xl border border-dashed border-neutral-300 bg-neutral-50 p-4 text-sm text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">
+          Cada conta de motorista pode ter só 1 veículo cadastrado. Pra trocar, exclua o veículo atual e
+          cadastre o novo.
+        </p>
+      )}
     </div>
   );
 }

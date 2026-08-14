@@ -43,6 +43,16 @@ export async function POST(request: NextRequest) {
   const { placa, modelo } = parsed.data;
   const documento = formData.get("documento");
 
+  // Regra de negócio: 1 veículo por motorista. Quem quiser trocar de
+  // veículo precisa excluir o atual antes (ver DELETE em
+  // /api/motorista/veiculos/[id]) — evita cadastro acumulado de veículos
+  // que não são mais usados, já que hoje não há como "desativar" um sem
+  // excluir.
+  const jaTemVeiculo = await prisma.veiculo.findFirst({ where: { motoristaId: motorista.id } });
+  if (jaTemVeiculo) {
+    return jsonError(409, "Você já tem um veículo cadastrado. Exclua o atual antes de cadastrar outro.");
+  }
+
   let veiculo;
   try {
     veiculo = await prisma.veiculo.create({
