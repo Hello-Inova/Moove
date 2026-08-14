@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { Logo } from "@/components/ui/Logo";
 import { LogoutButton } from "@/components/auth/LogoutButton";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { EditProfileModal } from "@/components/ui/EditProfileModal";
 
 // `icon` é um elemento já renderizado (ReactNode), não o componente em si —
 // MotoristaShell/ResponsavelShell são Server Components e AppHeader é
@@ -54,6 +55,8 @@ export function AppHeader({
   userName?: string | null;
 }) {
   const [open, setOpen] = useState(false);
+  const [perfilAberto, setPerfilAberto] = useState(false);
+  const [nomeAtual, setNomeAtual] = useState(userName ?? "");
   const pathname = usePathname();
 
   // As páginas do motorista moram num layout compartilhado (ver
@@ -65,7 +68,7 @@ export function AppHeader({
     setOpen(false);
   }
 
-  const iniciais = (userName ?? "")
+  const iniciais = (nomeAtual ?? "")
     .trim()
     .split(/\s+/)
     .slice(0, 2)
@@ -78,16 +81,20 @@ export function AppHeader({
         <Logo height={26} />
       </Link>
 
-      {userName && (
-        <div className="mx-4 mb-3 flex items-center gap-3 rounded-xl bg-neutral-100 px-3 py-2.5 dark:bg-neutral-800">
+      {nomeAtual && (
+        <button
+          type="button"
+          onClick={() => setPerfilAberto(true)}
+          className="mx-4 mb-3 flex items-center gap-3 rounded-xl bg-neutral-100 px-3 py-2.5 text-left transition hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700"
+        >
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-orange text-sm font-semibold text-white">
             {iniciais || "?"}
           </span>
-          <div className="min-w-0">
-            <p className="truncate text-sm font-medium text-neutral-900 dark:text-white">{userName}</p>
-            <p className="text-xs capitalize text-neutral-500 dark:text-neutral-400">{roleLabel}</p>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium text-neutral-900 dark:text-white">{nomeAtual}</p>
+            <p className="text-xs capitalize text-neutral-500 dark:text-neutral-400">{roleLabel} · editar perfil</p>
           </div>
-        </div>
+        </button>
       )}
 
       <nav className="flex-1 space-y-1 px-3">
@@ -155,6 +162,14 @@ export function AppHeader({
             {sidebarConteudo}
           </div>
         </div>
+      )}
+
+      {perfilAberto && (
+        <EditProfileModal
+          role={role}
+          onClose={() => setPerfilAberto(false)}
+          onSaved={(nome) => setNomeAtual(nome)}
+        />
       )}
     </>
   );

@@ -42,3 +42,54 @@ export function estimarEtaMinutos(distanciaMetros: number): number {
   const metrosPorMinuto = (VELOCIDADE_MEDIA_KMH * 1000) / 60;
   return distanciaAjustada / metrosPorMinuto;
 }
+
+/**
+ * Distância mínima (em metros) de um ponto até uma polilinha (a geometria
+ * da rota, sequência de segmentos [lat, lon]) — usada pra detectar quando o
+ * motorista se afastou do traçado (ver `useDesvioTrail.ts`). Projeta os
+ * pontos num plano local em metros (equirretangular, com origem no próprio
+ * ponto) antes de medir a distância ponto-segmento — aproximação de sobra
+ * pra escala de rua/cidade, sem o custo de uma projeção cartográfica cheia.
+ */
+export function distanciaAtePolilinha(
+  ponto: { latitude: number; longitude: number },
+  linha: [number, number][]
+): number {
+  if (linha.length === 0) return Infinity;
+  if (linha.length === 1) {
+    return haversineMetros(ponto, { latitude: linha[0][0], longitude: linha[0][1] });
+  }
+
+  const R = 6371000;
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const cosLat = Math.cos(toRad(ponto.latitude));
+
+  function paraMetros(lat: number, lon: number): [number, number] {
+    const x = toRad(lon - ponto.longitude) * cosLat * R;
+    const y = toRad(lat - ponto.latitude) * R;
+    return [x, y];
+  }
+
+  let menor = Infinity;
+  for (let i = 0; i < linha.length - 1; i++) {
+    const [ax, ay] = paraMetros(linha[i][0], linha[i][1]);
+    const [bx, by] = paraMetros(linha[i + 1][0], linha[i + 1][1]);
+
+    const dx = bx - ax;
+    const dy = by - ay;
+    const comprimentoQuad = dx * dx + dy * dy;
+
+    // Projeta a origem (o próprio ponto, em 0,0) no segmento a→b, limitado
+    // às extremidades (t entre 0 e 1) — fórmula padrão de distância
+    // ponto-segmento.
+    let t = comprimentoQuad === 0 ? 0 : (-ax * dx - ay * dy) / comprimentoQuad;
+    t = Math.max(0, Math.min(1, t));
+
+    const projX = ax + t * dx;
+    const projY = ay + t * dy;
+    const distancia = Math.hypot(projX, projY);
+    if (distancia < menor) menor = distancia;
+  }
+
+  return menor;
+}

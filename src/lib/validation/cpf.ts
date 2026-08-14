@@ -37,3 +37,13 @@ export const cpfSchema = z
   .transform((v) => v.replace(/\D/g, ""))
   .refine((v) => v.length === 11, "CPF inválido — use 11 dígitos.")
   .refine((v) => cpfValido(v), "CPF inválido — confira os números digitados.");
+
+/** Formata dígitos de CPF como `000.000.000-00` enquanto a pessoa digita —
+ * usado nos formulários de cadastro e de edição de perfil. */
+export function formatarCpf(v: string): string {
+  const d = v.replace(/\D/g, "").slice(0, 11);
+  if (d.length <= 3) return d;
+  if (d.length <= 6) return `${d.slice(0, 3)}.${d.slice(3)}`;
+  if (d.length <= 9) return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6)}`;
+  return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
+}

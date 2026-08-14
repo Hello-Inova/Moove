@@ -33,8 +33,14 @@ export type BuscaPlacaResponse = {
 // já calculado, e a resposta fica rápida (só leitura no banco). Cache em
 // memória por instância — reseta em cold start, o que é inofensivo (só
 // recalcula uma vez a mais).
-const ROTA_CACHE_TTL_MS = 25_000;
-const ROTA_CACHE_DISTANCIA_MINIMA_M = 40;
+//
+// Mesmas três regras do recálculo automático no app do motorista (ver
+// RECALCULO_* em RotaPanel.tsx) — combinadas do mesmo jeito: nunca
+// recalcula antes do cooldown, e dentro dele só recalcula de fato quando o
+// motorista andou a distância mínima OU o teto de tempo estourou.
+const RECALCULO_DISTANCIA_MINIMA_M = 100;
+const RECALCULO_COOLDOWN_MS = 30_000;
+const RECALCULO_TETO_MS = 60_000;
 const rotaCache = new Map<
   string,
   { calculadoEm: number; origem: { latitude: number; longitude: number }; rota: RotaAteResponsavel | null }
@@ -88,10 +94,13 @@ export async function GET(request: NextRequest) {
     const chaveCache = `${veiculo.motoristaId}:${responsavel.id}`;
     const emCache = rotaCache.get(chaveCache);
 
+    const desdeUltimoCalculo = emCache ? Date.now() - emCache.calculadoEm : Infinity;
+    const distanciaPercorrida = emCache ? haversineMetros(emCache.origem, origem) : Infinity;
+
     const podeReaproveitar =
-      emCache &&
-      Date.now() - emCache.calculadoEm < ROTA_CACHE_TTL_MS &&
-      haversineMetros(emCache.origem, origem) < ROTA_CACHE_DISTANCIA_MINIMA_M;
+      !!emCache &&
+      (desdeUltimoCalculo < RECALCULO_COOLDOWN_MS ||
+        (distanciaPercorrida < RECALCULO_DISTANCIA_MINIMA_M && desdeUltimoCalculo < RECALCULO_TETO_MS));
 
     if (podeReaproveitar) {
       rota = emCache.rota;

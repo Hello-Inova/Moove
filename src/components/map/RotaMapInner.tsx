@@ -7,6 +7,7 @@ import "leaflet/dist/leaflet.css";
 
 import type { ParadaRota } from "@/app/api/motorista/rota/route";
 import { FullscreenButton, InvalidateOnResize, useFecharComEsc } from "@/components/map/MapFullscreen";
+import { useDesvioTrail } from "@/lib/geo/useDesvioTrail";
 
 const motoristaIcon = L.icon({
   iconUrl: "/leaflet/marker-icon.png",
@@ -143,6 +144,10 @@ export function RotaMapInner({
   const fecharFullscreen = useCallback(() => setExpandido(false), []);
   useFecharComEsc(expandido, fecharFullscreen);
 
+  // Rastro de quando o motorista sai do traçado — some sozinho assim que a
+  // rota é recalculada (ver useDesvioTrail.ts).
+  const rastroDesvio = useDesvioTrail(motorista, geometria);
+
   return (
     // `position: fixed` escapa do wrapper com altura fixa/overflow-hidden
     // que a página (RotaPanel.tsx) usa em volta do mapa — cobre a tela
@@ -176,6 +181,13 @@ export function RotaMapInner({
 
         {geometria && geometria.length > 1 && (
           <Polyline positions={geometria} pathOptions={{ color: "#1e293b", weight: 4, opacity: 0.8 }} />
+        )}
+
+        {rastroDesvio.length > 1 && (
+          <Polyline
+            positions={rastroDesvio}
+            pathOptions={{ color: "#dc2626", weight: 4, opacity: 0.85, dashArray: "6 8" }}
+          />
         )}
 
         <FitBounds motorista={motorista} paradas={paradas.map((p): [number, number] => [p.latitude, p.longitude])} />

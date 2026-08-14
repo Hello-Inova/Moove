@@ -189,13 +189,34 @@ export const criarCheckoutAssinaturaSchema = z.object({
   anosAdicionais: z.number().int().min(0).max(20).optional(),
 });
 
-// Texto livre de propósito — chave PIX pode ser CPF/CNPJ, e-mail, telefone
-// ou chave aleatória (UUID); não vale a pena validar formato específico
-// aqui, é só repassada pro responsável via WhatsApp (ver
-// src/components/motorista/WhatsAppCobrancaButton.tsx).
-export const atualizarChavePixSchema = z.object({
-  chavePix: z.string().trim().max(140, "Chave PIX muito longa.").optional().nullable(),
-});
+// Usado pela tela "Editar perfil" (motorista e responsável) — todos os
+// campos são opcionais individualmente porque a mesma rota também recebe
+// atualizações parciais (ex: PixKeyForm.tsx manda só `chavePix`). E-mail
+// fica de fora de propósito: mudar o e-mail exigiria reverificação (é ele
+// que autentica o login), fora do escopo desta tela.
+export const atualizarPerfilSchema = z
+  .object({
+    nome: z.string().trim().min(2, "Informe o nome completo.").optional(),
+    telefone: telefone.optional(),
+    cpf: cpfSchema.optional(),
+    // Texto livre de propósito — chave PIX pode ser CPF/CNPJ, e-mail,
+    // telefone ou chave aleatória (UUID); não vale a pena validar formato
+    // específico aqui, é só repassada pro responsável via WhatsApp (ver
+    // src/components/motorista/WhatsAppCobrancaButton.tsx). Só existe pro
+    // motorista, mas não custa aceitar no schema compartilhado.
+    chavePix: z.string().trim().max(140, "Chave PIX muito longa.").optional().nullable(),
+    senhaAtual: z.string().optional(),
+    novaSenha: senha.optional(),
+    confirmarNovaSenha: z.string().optional(),
+  })
+  .refine((data) => !data.novaSenha || data.novaSenha === data.confirmarNovaSenha, {
+    message: "As senhas não coincidem.",
+    path: ["confirmarNovaSenha"],
+  })
+  .refine((data) => !data.novaSenha || !!data.senhaAtual, {
+    message: "Informe a senha atual para definir uma nova.",
+    path: ["senhaAtual"],
+  });
 
 export const buscarPlacaSchema = z.object({
   placa: z

@@ -6,6 +6,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
 import { FullscreenButton, InvalidateOnResize, useFecharComEsc } from "@/components/map/MapFullscreen";
+import { useDesvioTrail } from "@/lib/geo/useDesvioTrail";
 
 // Os ícones padrão do Leaflet referenciam URLs relativas ao pacote que não
 // resolvem no bundler do Next.js. Servimos as mesmas imagens via /public.
@@ -73,6 +74,10 @@ export function VehicleMapInner({
   const fecharFullscreen = useCallback(() => setExpandido(false), []);
   useFecharComEsc(expandido, fecharFullscreen);
 
+  // Mesmo rastro de desvio do mapa do motorista (ver RotaMapInner.tsx) —
+  // some sozinho quando a rota até o endereço do responsável é recalculada.
+  const rastroDesvio = useDesvioTrail({ latitude, longitude }, geometria);
+
   return (
     // `position: fixed` escapa do wrapper com altura fixa/overflow-hidden
     // que a página (BuscarPlacaClient.tsx) usa em volta do mapa — cobre a
@@ -100,6 +105,13 @@ export function VehicleMapInner({
 
         {geometria && geometria.length > 1 && (
           <Polyline positions={geometria} pathOptions={{ color: "#1e293b", weight: 4, opacity: 0.8 }} />
+        )}
+
+        {rastroDesvio.length > 1 && (
+          <Polyline
+            positions={rastroDesvio}
+            pathOptions={{ color: "#dc2626", weight: 4, opacity: 0.85, dashArray: "6 8" }}
+          />
         )}
 
         {/* Sem destino, mantém o comportamento de antes (recentraliza no

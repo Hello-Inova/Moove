@@ -9,6 +9,7 @@ import { FieldError, inputClass, primaryButtonClass } from "@/components/ui/form
 import { PasswordInput } from "@/components/ui/PasswordInput";
 import { EnderecoFields } from "@/components/ui/EnderecoFields";
 import { VerifyCodeForm } from "@/components/auth/VerifyCodeForm";
+import { formatarCpf } from "@/lib/validation/cpf";
 
 type Role = "motorista" | "responsavel";
 
@@ -16,14 +17,6 @@ const ROLE_LABEL: Record<Role, string> = {
   motorista: "motorista",
   responsavel: "responsável",
 };
-
-function formatarCpf(v: string): string {
-  const d = v.replace(/\D/g, "").slice(0, 11);
-  if (d.length <= 3) return d;
-  if (d.length <= 6) return `${d.slice(0, 3)}.${d.slice(3)}`;
-  if (d.length <= 9) return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6)}`;
-  return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
-}
 
 export function RegisterForm({ role }: { role: Role }) {
   const router = useRouter();
