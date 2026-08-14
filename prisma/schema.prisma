@@ -135,6 +135,18 @@ model Motorista {
   // processa esse valor, só facilita o envio da cobrança.
   chavePix String? @map("chave_pix")
 
+  // Isenção de cobrança aplicada manualmente pelo admin (/admin/motoristas)
+  // — motorista nunca é bloqueado por assinatura vencida, independente do
+  // status dela (ver `motoristaTemAcesso`). Uso: cortesia/parceria. Não
+  // afeta a cobrança por aluno (CobrancaAluno), que é combinada direto
+  // entre motorista e responsável, fora da Asaas.
+  isentoCobranca Boolean @default(false) @map("isento_cobranca")
+
+  // Data/hora do último login concluído (POST .../login/verificar) — exibido
+  // na listagem do admin. Fica null pra contas que não logaram desde que
+  // esse campo foi adicionado.
+  ultimoAcessoEm DateTime? @map("ultimo_acesso_em")
+
   criadoEm DateTime @default(now()) @map("criado_em")
 
   veiculos          Veiculo[]

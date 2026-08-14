@@ -48,10 +48,10 @@ export async function getAssinaturaAtual(motoristaId: string): Promise<Assinatur
  * escolhido, o que foi substituído pelo teste em nível de conta.
  */
 export function motoristaTemAcesso(
-  motorista: { testeExpiraEm: Date },
+  motorista: { testeExpiraEm: Date; isentoCobranca?: boolean },
   assinatura: Pick<Assinatura, "status"> | null
 ): boolean {
-  return contaEmTeste(motorista.testeExpiraEm) || assinatura?.status === "ATIVA";
+  return Boolean(motorista.isentoCobranca) || contaEmTeste(motorista.testeExpiraEm) || assinatura?.status === "ATIVA";
 }
 
 /**

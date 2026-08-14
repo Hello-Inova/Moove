@@ -236,6 +236,12 @@ export const atualizarStatusContaSchema = z.object({
   statusConta: z.enum(["ATIVA", "SUSPENSA"]),
 });
 
+// Isenção de cobrança (ver comentário em Motorista.isentoCobranca no
+// schema) — só motorista tem esse campo hoje.
+export const atualizarIsencaoSchema = z.object({
+  isento: z.boolean(),
+});
+
 export const forcarAssinaturaSchema = z.object({
   tipoPlano: z.string().trim().min(1, "Selecione um plano."),
 });

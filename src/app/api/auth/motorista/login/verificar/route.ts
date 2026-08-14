@@ -25,7 +25,10 @@ export async function POST(request: NextRequest) {
 
   await prisma.motorista.update({
     where: { id: motorista.id },
-    data: { emailVerificadoEm: motorista.emailVerificadoEm ?? new Date() },
+    data: {
+      emailVerificadoEm: motorista.emailVerificadoEm ?? new Date(),
+      ultimoAcessoEm: new Date(),
+    },
   });
 
   await createSession("motorista", motorista.id);

@@ -1,18 +1,12 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { isAdminAuthenticated } from "@/lib/auth/guards";
 import { prisma } from "@/lib/prisma";
-import { contaEmTeste } from "@/lib/subscription/plans";
+import { contaEmTeste, diasRestantesConta } from "@/lib/subscription/plans";
+import { listarPlanosAtivos } from "@/lib/subscription/planos-service";
 import { AdminShell } from "@/components/admin/AdminShell";
-import { StatusToggleButton } from "@/components/admin/StatusToggleButton";
-import { AdminDeleteButton } from "@/components/admin/AdminDeleteButton";
+import { MotoristaListItem } from "@/components/admin/MotoristaListItem";
 import { inputClass } from "@/components/ui/form-elements";
-
-const STATUS_CLASS: Record<string, string> = {
-  ATIVA: "bg-green-100 text-green-800",
-  SUSPENSA: "bg-red-100 text-red-700",
-};
 
 // Mesmas cores usadas no detalhe do motorista (ver [id]/page.tsx) — mantém
 // o "de olho" da listagem consistente com a tela de detalhe.
@@ -23,12 +17,19 @@ const ASSINATURA_STATUS_CLASS: Record<string, string> = {
   CANCELADA: "bg-neutral-200 text-neutral-600",
 };
 
+type Badge = { texto: string; className: string };
+
+type AssinaturaResumo = {
+  planoLabel: string;
+  tipoPlano: string;
+  status: string;
+  expiraEm: Date | null;
+  pagamentos: { status: string; pagoEm: Date | null }[];
+};
+
 /** Rótulo de plano pra listagem — prioriza a assinatura mais recente; sem
  * nenhuma ainda, mas dentro do teste grátis de conta, mostra "Teste". */
-function planoBadge(
-  assinatura: { planoLabel: string; tipoPlano: string; status: string } | undefined,
-  testeExpiraEm: Date
-) {
+function planoBadge(assinatura: AssinaturaResumo | undefined, testeExpiraEm: Date): Badge {
   if (!assinatura) {
     if (contaEmTeste(testeExpiraEm)) {
       return { texto: "Teste (sem plano)", className: ASSINATURA_STATUS_CLASS.TESTE };
@@ -41,6 +42,50 @@ function planoBadge(
   };
 }
 
+/** Badge de vencimento — isenção manual sempre vence, depois a assinatura
+ * ATIVA (com contagem de dias), depois o teste grátis de conta, senão "sem
+ * assinatura ativa". Mesma regra de acesso usada em `motoristaTemAcesso`. */
+function vencimentoBadge(motorista: { testeExpiraEm: Date; isentoCobranca: boolean }, assinatura: AssinaturaResumo | undefined): Badge {
+  if (motorista.isentoCobranca) {
+    return { texto: "Isento de cobrança", className: "bg-purple-100 text-purple-800" };
+  }
+
+  if (assinatura?.status === "ATIVA" && assinatura.expiraEm) {
+    const dias = Math.ceil((assinatura.expiraEm.getTime() - Date.now()) / 86_400_000);
+    const dataTexto = assinatura.expiraEm.toLocaleDateString("pt-BR");
+    if (dias < 0) {
+      return { texto: `Venceu em ${dataTexto} (há ${Math.abs(dias)}d)`, className: "bg-red-100 text-red-700" };
+    }
+    if (dias <= 5) {
+      return { texto: `Vence em ${dias}d (${dataTexto})`, className: "bg-amber-100 text-amber-800" };
+    }
+    return { texto: `Vence em ${dias}d (${dataTexto})`, className: "bg-green-100 text-green-800" };
+  }
+
+  if (contaEmTeste(motorista.testeExpiraEm)) {
+    const dias = diasRestantesConta(motorista.testeExpiraEm);
+    return { texto: `Teste grátis · ${dias}d restantes`, className: "bg-blue-100 text-blue-800" };
+  }
+
+  return { texto: "Sem assinatura ativa", className: "bg-neutral-200 text-neutral-600" };
+}
+
+/** Descreve se a assinatura mais recente foi paga de verdade (via Asaas) ou
+ * é cortesia (ativada pelo admin sem gerar nenhum Pagamento) — é isso que
+ * responde "foi pago ou não" na listagem. */
+function pagamentoTexto(assinatura: AssinaturaResumo | undefined): string {
+  if (!assinatura) return "sem histórico de pagamento";
+
+  const pagamento = assinatura.pagamentos[0];
+  if (!pagamento) return "cortesia (ativado sem cobrança)";
+  if (pagamento.status === "APROVADO") {
+    return `pago${pagamento.pagoEm ? ` em ${pagamento.pagoEm.toLocaleDateString("pt-BR")}` : ""}`;
+  }
+  if (pagamento.status === "PENDENTE") return "pagamento pendente";
+  if (pagamento.status === "CANCELADO") return "pagamento cancelado";
+  return pagamento.status.toLowerCase();
+}
+
 export default async function AdminMotoristasPage({
   searchParams,
 }: {
@@ -50,17 +95,28 @@ export default async function AdminMotoristasPage({
 
   const { q } = await searchParams;
 
-  const motoristas = await prisma.motorista.findMany({
-    where: q
-      ? { OR: [{ nome: { contains: q, mode: "insensitive" } }, { email: { contains: q, mode: "insensitive" } }] }
-      : undefined,
-    orderBy: { criadoEm: "desc" },
-    take: 100,
-    // `take: 1` dentro do include traz só a assinatura mais recente de cada
-    // motorista (ordenada abaixo) — evita N+1 query pra montar o badge de
-    // plano na listagem.
-    include: { assinaturas: { orderBy: { criadoEm: "desc" }, take: 1 } },
-  });
+  const [motoristas, planosAtivos] = await Promise.all([
+    prisma.motorista.findMany({
+      where: q
+        ? { OR: [{ nome: { contains: q, mode: "insensitive" } }, { email: { contains: q, mode: "insensitive" } }] }
+        : undefined,
+      orderBy: { criadoEm: "desc" },
+      take: 100,
+      include: {
+        // `take: 1` traz só a assinatura mais recente de cada motorista
+        // (evita N+1 query pra montar os badges de plano/vencimento/pagamento).
+        assinaturas: {
+          orderBy: { criadoEm: "desc" },
+          take: 1,
+          include: { pagamentos: { orderBy: { criadoEm: "desc" }, take: 1 } },
+        },
+        // Só conta vínculos ATIVOS — é a quantidade de alunos que realmente
+        // andam com esse motorista hoje (vínculos revogados não contam).
+        _count: { select: { vinculos: { where: { status: "ATIVO" } } } },
+      },
+    }),
+    listarPlanosAtivos("MOTORISTA"),
+  ]);
 
   return (
     <AdminShell>
@@ -77,32 +133,26 @@ export default async function AdminMotoristasPage({
         <div className="space-y-3">
           {motoristas.length === 0 && <p className="text-sm text-neutral-500 dark:text-neutral-400">Nenhum motorista encontrado.</p>}
           {motoristas.map((m) => {
-            const badge = planoBadge(m.assinaturas[0], m.testeExpiraEm);
+            const assinatura = m.assinaturas[0];
             return (
-              <div
+              <MotoristaListItem
                 key={m.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm dark:bg-neutral-900 dark:border-neutral-700"
-              >
-                <div>
-                  <Link href={`/admin/motoristas/${m.id}`} className="font-medium text-brand-navy hover:underline">
-                    {m.nome}
-                  </Link>
-                  <p className="text-sm text-neutral-500 dark:text-neutral-400">{m.email}</p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                  <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${badge.className}`}>
-                    {badge.texto}
-                  </span>
-                  <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_CLASS[m.statusConta]}`}>
-                    {m.statusConta === "ATIVA" ? "Ativa" : "Suspensa"}
-                  </span>
-                  <StatusToggleButton url={`/api/admin/motoristas/${m.id}/status`} statusAtual={m.statusConta} />
-                  <AdminDeleteButton
-                    url={`/api/admin/motoristas/${m.id}`}
-                    confirmMessage={`Excluir a conta de ${m.nome}? Isso apaga também veículos, convites, vínculos e assinaturas. Não pode ser desfeito.`}
-                  />
-                </div>
-              </div>
+                motoristaId={m.id}
+                nome={m.nome}
+                email={m.email}
+                statusConta={m.statusConta}
+                planoBadge={planoBadge(assinatura, m.testeExpiraEm)}
+                vencimentoBadge={vencimentoBadge(m, assinatura)}
+                alunosCount={m._count.vinculos}
+                ultimoAcessoTexto={
+                  m.ultimoAcessoEm
+                    ? `${m.ultimoAcessoEm.toLocaleDateString("pt-BR")} às ${m.ultimoAcessoEm.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`
+                    : "nunca"
+                }
+                pagamentoTexto={pagamentoTexto(assinatura)}
+                isento={m.isentoCobranca}
+                planos={planosAtivos}
+              />
             );
           })}
         </div>
