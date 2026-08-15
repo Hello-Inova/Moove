@@ -53,7 +53,7 @@ export function RegisterForm({ role }: { role: Role }) {
       aceitaLgpd,
     };
 
-    if (role === "responsavel" || role === "motorista") {
+    if (role === "motorista") {
       payload.cep = form.get("cep");
       payload.logradouro = form.get("logradouro");
       payload.numero = form.get("numero");
@@ -61,9 +61,6 @@ export function RegisterForm({ role }: { role: Role }) {
       payload.bairro = form.get("bairro");
       payload.cidade = form.get("cidade");
       payload.estado = form.get("estado");
-    }
-
-    if (role === "motorista") {
       payload.nomeEscola = form.get("nomeEscola");
     }
 
@@ -88,15 +85,13 @@ export function RegisterForm({ role }: { role: Role }) {
           proposito="CADASTRO"
           verifyUrl={`/api/auth/${role}/register/verificar`}
           onVerified={() => {
-            // Leva direto pra tela de confirmar o pino no mapa (em vez do
-            // painel geral) — a geocodificação automática do endereço
-            // digitado no cadastro pode ter errado o ponto exato, e é bem
-            // mais fácil corrigir isso agora do que descobrir só quando o
-            // motorista já estiver na rota. Quem não tem endereço/escola
-            // pra confirmar (não aplicável hoje, os dois roles sempre têm)
-            // só veria a tela vazia normalmente.
-            const destino = role === "motorista" ? "/motorista/escolas" : "/responsavel/endereco";
-            router.push(`${destino}?novo=1`);
+            // Motorista: leva direto pra tela de confirmar o pino da escola
+            // no mapa (a geocodificação automática pode ter errado o ponto
+            // exato, mais fácil corrigir agora). Responsável: não tem mais
+            // endereço próprio pra confirmar aqui — vai direto pra "Meus
+            // alunos" cadastrar o(s) filho(s), já com o endereço de cada um.
+            const destino = role === "motorista" ? "/motorista/escolas?novo=1" : "/responsavel/alunos?novo=1";
+            router.push(destino);
             router.refresh();
           }}
         />
@@ -181,13 +176,6 @@ export function RegisterForm({ role }: { role: Role }) {
         />
         <FieldError message={issues.confirmarSenha?.[0]} />
       </div>
-
-      {role === "responsavel" && (
-        <div className="border-t border-neutral-200 pt-4 dark:border-neutral-700">
-          <p className="mb-3 text-sm font-medium">Endereço do aluno (embarque/desembarque)</p>
-          <EnderecoFields issues={issues} />
-        </div>
-      )}
 
       {role === "motorista" && (
         <div className="border-t border-neutral-200 pt-4 dark:border-neutral-700">

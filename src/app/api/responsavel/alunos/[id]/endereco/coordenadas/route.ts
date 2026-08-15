@@ -12,14 +12,18 @@ const coordenadasSchema = z.object({
 
 /**
  * Salva a coordenada que o responsável confirmou/ajustou manualmente no
- * mapa (ver PinPicker) — não passa pelo geocodificador de novo, é a pessoa
- * dizendo diretamente "o ponto certo é este aqui". Usado quando a
- * geocodificação automática (LocationIQ/Nominatim) acerta a rua mas erra a
- * casa, ou cai num ponto vizinho.
+ * mapa (ver PinPicker) para o endereço DESTE aluno — não passa pelo
+ * geocodificador de novo, é a pessoa dizendo diretamente "o ponto certo é
+ * este aqui". Equivalente ao antigo `PATCH /api/responsavel/endereco/coordenadas`,
+ * agora por aluno.
  */
-export async function PATCH(request: NextRequest) {
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const responsavel = await getAuthenticatedResponsavel();
   if (!responsavel) return jsonError(401, "Não autenticado.");
+
+  const { id } = await params;
+  const aluno = await prisma.aluno.findUnique({ where: { id } });
+  if (!aluno || aluno.responsavelId !== responsavel.id) return jsonError(404, "Aluno não encontrado.");
 
   const body = await request.json().catch(() => null);
   if (!body) return jsonError(400, "Corpo da requisição inválido.");
@@ -29,8 +33,8 @@ export async function PATCH(request: NextRequest) {
 
   const { latitude, longitude } = parsed.data;
 
-  await prisma.responsavel.update({
-    where: { id: responsavel.id },
+  await prisma.aluno.update({
+    where: { id: aluno.id },
     data: {
       enderecoLatitude: latitude,
       enderecoLongitude: longitude,

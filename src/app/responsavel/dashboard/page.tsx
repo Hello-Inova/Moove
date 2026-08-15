@@ -16,10 +16,24 @@ export default async function ResponsavelDashboardPage() {
     orderBy: { criadoEm: "desc" },
     include: {
       motorista: { select: { nome: true, veiculos: { select: { placa: true, modelo: true } } } },
-      aluno: { select: { nome: true } },
+      aluno: { select: { nome: true, enderecoLatitude: true, enderecoLongitude: true, enderecoConfirmado: true } },
       escola: { select: { nome: true } },
     },
   });
+
+  // Endereço agora é por aluno (não mais por responsável) — junta os alunos
+  // ATIVOS que ainda não têm endereço geocodificado ou não confirmaram o
+  // pino, pra avisar por nome em vez de um banner genérico só.
+  const alunosSemEndereco = vinculos.filter(
+    (v) => v.status === "ATIVO" && (v.aluno.enderecoLatitude === null || v.aluno.enderecoLongitude === null)
+  );
+  const alunosSemConfirmar = vinculos.filter(
+    (v) =>
+      v.status === "ATIVO" &&
+      v.aluno.enderecoLatitude !== null &&
+      v.aluno.enderecoLongitude !== null &&
+      !v.aluno.enderecoConfirmado
+  );
 
   return (
     <ResponsavelShell>
@@ -40,19 +54,21 @@ export default async function ResponsavelDashboardPage() {
 
         <PushAlertaToggle />
 
-        {(!responsavel.enderecoLatitude || !responsavel.enderecoLongitude) && (
+        {alunosSemEndereco.length > 0 && (
           <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
-            Cadastre seu endereço para que o motorista consiga traçar a rota até você.{" "}
-            <Link href="/responsavel/endereco" className="font-medium underline">
+            Cadastre o endereço de {alunosSemEndereco.map((v) => v.aluno.nome).join(", ")} para que o motorista
+            consiga traçar a rota.{" "}
+            <Link href="/responsavel/alunos" className="font-medium underline">
               Cadastrar endereço
             </Link>
           </div>
         )}
 
-        {responsavel.enderecoLatitude && responsavel.enderecoLongitude && !responsavel.enderecoConfirmado && (
+        {alunosSemConfirmar.length > 0 && (
           <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
-            Seu endereço ainda não foi confirmado no mapa — a localização automática pode estar imprecisa.{" "}
-            <Link href="/responsavel/endereco" className="font-medium underline">
+            O endereço de {alunosSemConfirmar.map((v) => v.aluno.nome).join(", ")} ainda não foi confirmado no mapa —
+            a localização automática pode estar imprecisa.{" "}
+            <Link href="/responsavel/alunos" className="font-medium underline">
               Confirmar localização
             </Link>
           </div>

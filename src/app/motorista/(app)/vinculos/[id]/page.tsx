@@ -76,11 +76,11 @@ export default async function PerfilAlunoPage({ params }: { params: Promise<{ id
   );
 
   const enderecoCompleto = [
-    responsavel.logradouro && `${responsavel.logradouro}${responsavel.numero ? `, ${responsavel.numero}` : ""}`,
-    responsavel.complemento,
-    responsavel.bairro,
-    responsavel.cidade && responsavel.estado && `${responsavel.cidade} - ${responsavel.estado}`,
-    responsavel.cep,
+    aluno.logradouro && `${aluno.logradouro}${aluno.numero ? `, ${aluno.numero}` : ""}`,
+    aluno.complemento,
+    aluno.bairro,
+    aluno.cidade && aluno.estado && `${aluno.cidade} - ${aluno.estado}`,
+    aluno.cep,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -159,7 +159,7 @@ export default async function PerfilAlunoPage({ params }: { params: Promise<{ id
             <p className="text-sm text-neutral-600 dark:text-neutral-300">{enderecoCompleto}</p>
           ) : (
             <p className="text-sm text-neutral-500 dark:text-neutral-400">
-              O responsável ainda não confirmou o endereço no app dele.
+              O responsável ainda não cadastrou o endereço deste aluno no app dele.
             </p>
           )}
         </section>

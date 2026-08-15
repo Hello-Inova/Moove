@@ -39,7 +39,7 @@ function hojeData(): Date {
 
 /**
  * Verifica, pra cada vínculo ativo do motorista, se a distância estimada
- * até o endereço do responsável já entrou no raio configurado
+ * até o endereço DO ALUNO já entrou no raio configurado
  * (alertaChegadaMinutos) — se sim e ainda não avisou hoje, dispara o Web
  * Push com o alerta sonoro. Roda a cada atualização de GPS (12 em 12s);
  * por isso usa distância em linha reta (ver distancia.ts) em vez de
@@ -60,15 +60,14 @@ async function verificarAlertasProximidade(
     select: {
       id: true,
       responsavelId: true,
-      aluno: { select: { nome: true } },
-      responsavel: { select: { enderecoLatitude: true, enderecoLongitude: true } },
+      aluno: { select: { nome: true, enderecoLatitude: true, enderecoLongitude: true } },
     },
   });
 
   const hoje = hojeData();
 
   for (const vinculo of vinculos) {
-    const { enderecoLatitude, enderecoLongitude } = vinculo.responsavel;
+    const { enderecoLatitude, enderecoLongitude } = vinculo.aluno;
     if (enderecoLatitude === null || enderecoLongitude === null) continue;
 
     const distanciaMetros = haversineMetros(posicaoMotorista, {

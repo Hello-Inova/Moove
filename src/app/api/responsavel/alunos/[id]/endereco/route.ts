@@ -2,51 +2,67 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
 import { getAuthenticatedResponsavel } from "@/lib/auth/guards";
-import { enderecoSchema } from "@/lib/validation/schemas";
+import { editarEnderecoAlunoSchema } from "@/lib/validation/schemas";
 import { jsonError, jsonValidationError } from "@/lib/http";
 import { geocodeCidadeAproximado, geocodeEndereco } from "@/lib/geocoding";
 
-export async function GET() {
+async function buscarAlunoDoResponsavel(alunoId: string, responsavelId: string) {
+  const aluno = await prisma.aluno.findUnique({ where: { id: alunoId } });
+  if (!aluno || aluno.responsavelId !== responsavelId) return null;
+  return aluno;
+}
+
+export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const responsavel = await getAuthenticatedResponsavel();
   if (!responsavel) return jsonError(401, "Não autenticado.");
 
+  const { id } = await params;
+  const aluno = await buscarAlunoDoResponsavel(id, responsavel.id);
+  if (!aluno) return jsonError(404, "Aluno não encontrado.");
+
   return NextResponse.json({
-    cep: responsavel.cep,
-    logradouro: responsavel.logradouro,
-    numero: responsavel.numero,
-    complemento: responsavel.complemento,
-    bairro: responsavel.bairro,
-    cidade: responsavel.cidade,
-    estado: responsavel.estado,
-    enderecoLatitude: responsavel.enderecoLatitude,
-    enderecoLongitude: responsavel.enderecoLongitude,
-    enderecoTextoEncontrado: responsavel.enderecoTextoEncontrado,
-    enderecoConfirmado: responsavel.enderecoConfirmado,
-    enderecoPrecisaoBaixa: responsavel.enderecoPrecisaoBaixa,
+    cep: aluno.cep,
+    logradouro: aluno.logradouro,
+    numero: aluno.numero,
+    complemento: aluno.complemento,
+    bairro: aluno.bairro,
+    cidade: aluno.cidade,
+    estado: aluno.estado,
+    enderecoLatitude: aluno.enderecoLatitude,
+    enderecoLongitude: aluno.enderecoLongitude,
+    enderecoTextoEncontrado: aluno.enderecoTextoEncontrado,
+    enderecoConfirmado: aluno.enderecoConfirmado,
+    enderecoPrecisaoBaixa: aluno.enderecoPrecisaoBaixa,
   });
 }
 
 /**
- * Cria/atualiza o endereço do responsável e regeocodifica — é esse
- * endereço que a rota otimizada do motorista usa como parada (ver
- * `src/lib/routing/osrm.ts` e `GET /api/motorista/rota`).
+ * Cria/atualiza o endereço DESTE aluno e regeocodifica — é esse endereço
+ * que a rota otimizada do motorista usa como parada pra ele (ver
+ * `src/lib/routing/osrm.ts` e `GET /api/motorista/rota`). Equivalente ao
+ * antigo `PATCH /api/responsavel/endereco`, só que por aluno em vez de por
+ * responsável (irmãos podem ter endereços diferentes).
  */
-export async function PATCH(request: NextRequest) {
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const responsavel = await getAuthenticatedResponsavel();
   if (!responsavel) return jsonError(401, "Não autenticado.");
+
+  const { id } = await params;
+  const aluno = await buscarAlunoDoResponsavel(id, responsavel.id);
+  if (!aluno) return jsonError(404, "Aluno não encontrado.");
 
   const body = await request.json().catch(() => null);
   if (!body) return jsonError(400, "Corpo da requisição inválido.");
 
-  const parsed = enderecoSchema.safeParse(body);
+  const parsed = editarEnderecoAlunoSchema.safeParse(body);
   if (!parsed.success) return jsonValidationError(parsed.error);
 
   const { cep, logradouro, numero, complemento, bairro, cidade, estado } = parsed.data;
 
   const coordenadas = await geocodeEndereco({ logradouro, numero, bairro, cidade, estado, cep });
 
-  const atualizado = await prisma.responsavel.update({
-    where: { id: responsavel.id },
+  const atualizado = await prisma.aluno.update({
+    where: { id: aluno.id },
     data: {
       cep,
       logradouro,

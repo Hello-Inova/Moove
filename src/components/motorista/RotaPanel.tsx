@@ -271,7 +271,7 @@ export function RotaPanel() {
 
       {rota && rota.vinculosSemEndereco > 0 && (
         <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
-          {rota.vinculosSemEndereco} responsável(is) vinculado(s) ainda não cadastrou endereço — não {rota.vinculosSemEndereco === 1 ? "entra" : "entram"} na rota.
+          {rota.vinculosSemEndereco} aluno(s) vinculado(s) ainda não {rota.vinculosSemEndereco === 1 ? "tem" : "têm"} endereço cadastrado — não {rota.vinculosSemEndereco === 1 ? "entra" : "entram"} na rota.
         </p>
       )}
 

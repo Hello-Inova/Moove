@@ -1,17 +1,18 @@
 import type { ReactNode } from "react";
-import { Link2, Users, Ticket, MapPin, Home } from "lucide-react";
+import { Link2, Users, Ticket, MapPin } from "lucide-react";
 
 import { AppHeader, type NavItem } from "@/components/layout/AppHeader";
 import { getAuthenticatedResponsavel } from "@/lib/auth/guards";
 
 const ICON_CLASS = "h-4 w-4 shrink-0";
 
+// Endereço não tem mais tela própria — cada aluno tem o seu, editável em
+// "Meus alunos" (ver AlunosClient.tsx).
 const NAV: NavItem[] = [
   { href: "/responsavel/dashboard", label: "Meus vínculos", icon: <Link2 className={ICON_CLASS} aria-hidden="true" /> },
   { href: "/responsavel/alunos", label: "Meus alunos", icon: <Users className={ICON_CLASS} aria-hidden="true" /> },
   { href: "/responsavel/vincular", label: "Usar convite", icon: <Ticket className={ICON_CLASS} aria-hidden="true" /> },
   { href: "/responsavel/buscar", label: "Ver localização", icon: <MapPin className={ICON_CLASS} aria-hidden="true" /> },
-  { href: "/responsavel/endereco", label: "Meu endereço", icon: <Home className={ICON_CLASS} aria-hidden="true" /> },
 ];
 
 /**

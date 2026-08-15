@@ -224,44 +224,6 @@ model Responsavel {
   senhaHash   String      @map("senha_hash")
   statusConta StatusConta @default(ATIVA) @map("status_conta")
 
-  // Endereço de embarque/desembarque do(s) aluno(s) deste responsável —
-  // preenchido no cadastro a partir do CEP (autocompletado via ViaCEP) e
-  // editável depois em "Meu endereço". `numero` e `complemento` continuam
-  // sendo digitados manualmente pelo responsável.
-  cep           String? @map("cep")
-  logradouro    String? @map("logradouro")
-  numero        String? @map("numero")
-  complemento   String? @map("complemento")
-  bairro        String? @map("bairro")
-  cidade        String? @map("cidade")
-  estado        String? @map("estado") // UF, 2 letras
-
-  // Geocodificado a partir do endereço acima (LocationIQ/Nominatim/
-  // BrasilAPI) — é o que a rota otimizada do motorista usa como parada. Pode
-  // ficar nulo se a geocodificação falhar (endereço não encontrado); a tela
-  // de "Meu endereço" deixa isso visível e permite tentar de novo.
-  enderecoLatitude  Float?    @map("endereco_latitude")
-  enderecoLongitude Float?    @map("endereco_longitude")
-  enderecoAtualizadoEm DateTime? @map("endereco_atualizado_em")
-
-  // Texto do lugar que o provedor de geocodificação resolveu (ex.: "Avenida
-  // Resedá, Portais, Cajamar - SP") — mostrado na UI ao lado do pino pra
-  // facilitar comparar com o endereço digitado sem precisar dar zoom no
-  // mapa. `enderecoConfirmado` só vira true quando a PESSOA efetivamente
-  // confirmou/ajustou o pino manualmente (ver PATCH .../coordenadas) — um
-  // endereço "geocodificado com sucesso" não é o mesmo que "conferido por
-  // humano", e é essa lacuna que causa pino em lugar errado sem ninguém
-  // perceber até o motorista já estar na rota.
-  enderecoTextoEncontrado String?  @map("endereco_texto_encontrado")
-  enderecoConfirmado      Boolean  @default(false) @map("endereco_confirmado")
-
-  // true quando a coordenada veio de uma etapa de baixa confiança (texto
-  // livre ou centro do CEP via BrasilAPI) — ver `GeocodeResult.precisao` em
-  // src/lib/geocoding.ts. Usado pra UI insistir mais na confirmação manual
-  // nesses casos, já que a coordenada pode estar em outra rua da região
-  // mesmo com o texto do endereço batendo certinho.
-  enderecoPrecisaoBaixa Boolean @default(false) @map("endereco_precisao_baixa")
-
   // LGPD: registro do aceite explícito no cadastro.
   consentimentoLgpdAceitoEm DateTime @map("consentimento_lgpd_aceito_em")
 
@@ -367,6 +329,47 @@ model Aluno {
   // nenhum dos dois fluxos, por isso nullable.
   dataNascimento DateTime?    @map("data_nascimento")
   genero         GeneroAluno?
+
+  // Endereço de embarque/desembarque DESTE aluno — cada filho de um mesmo
+  // responsável pode ter um endereço diferente (ex.: escolas diferentes),
+  // por isso o endereço fica no Aluno e não mais no Responsavel. Preenchido
+  // pelo responsável no cadastro/edição do aluno ("Meus alunos") a partir do
+  // CEP (autocompletado via ViaCEP). `numero` e `complemento` continuam
+  // sendo digitados manualmente.
+  cep           String? @map("cep")
+  logradouro    String? @map("logradouro")
+  numero        String? @map("numero")
+  complemento   String? @map("complemento")
+  bairro        String? @map("bairro")
+  cidade        String? @map("cidade")
+  estado        String? @map("estado") // UF, 2 letras
+
+  // Geocodificado a partir do endereço acima (LocationIQ/Nominatim/
+  // BrasilAPI) — é o que a rota otimizada do motorista usa como parada para
+  // este aluno. Pode ficar nulo se a geocodificação falhar (endereço não
+  // encontrado); a tela de edição do aluno deixa isso visível e permite
+  // tentar de novo.
+  enderecoLatitude  Float?    @map("endereco_latitude")
+  enderecoLongitude Float?    @map("endereco_longitude")
+  enderecoAtualizadoEm DateTime? @map("endereco_atualizado_em")
+
+  // Texto do lugar que o provedor de geocodificação resolveu (ex.: "Avenida
+  // Resedá, Portais, Cajamar - SP") — mostrado na UI ao lado do pino pra
+  // facilitar comparar com o endereço digitado sem precisar dar zoom no
+  // mapa. `enderecoConfirmado` só vira true quando a PESSOA efetivamente
+  // confirmou/ajustou o pino manualmente (ver PATCH .../coordenadas) — um
+  // endereço "geocodificado com sucesso" não é o mesmo que "conferido por
+  // humano", e é essa lacuna que causa pino em lugar errado sem ninguém
+  // perceber até o motorista já estar na rota.
+  enderecoTextoEncontrado String?  @map("endereco_texto_encontrado")
+  enderecoConfirmado      Boolean  @default(false) @map("endereco_confirmado")
+
+  // true quando a coordenada veio de uma etapa de baixa confiança (texto
+  // livre ou centro do CEP via BrasilAPI) — ver `GeocodeResult.precisao` em
+  // src/lib/geocoding.ts. Usado pra UI insistir mais na confirmação manual
+  // nesses casos, já que a coordenada pode estar em outra rua da região
+  // mesmo com o texto do endereço batendo certinho.
+  enderecoPrecisaoBaixa Boolean @default(false) @map("endereco_precisao_baixa")
 
   criadoEm DateTime @default(now()) @map("criado_em")
 

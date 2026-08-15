@@ -5,12 +5,14 @@ import { hashPassword } from "@/lib/auth/password";
 import { responsavelRegisterSchema } from "@/lib/validation/schemas";
 import { jsonError, jsonValidationError } from "@/lib/http";
 import { issueVerificationCode, EmailSendError, ResendCooldownError } from "@/lib/email/verification";
-import { geocodeEndereco } from "@/lib/geocoding";
 
 /**
  * Não cria a conta ainda — só emite o código de verificação. A conta só
  * passa a existir quando o código é confirmado em
  * POST /api/auth/responsavel/register/verificar (ver esse arquivo).
+ *
+ * Sem endereço aqui — o endereço agora é por aluno (ver Aluno no schema),
+ * cadastrado depois em "Meus alunos".
  */
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null);
@@ -19,7 +21,7 @@ export async function POST(request: NextRequest) {
   const parsed = responsavelRegisterSchema.safeParse(body);
   if (!parsed.success) return jsonValidationError(parsed.error);
 
-  const { nome, email, telefone, cpf, senha, cep, logradouro, numero, complemento, bairro, cidade, estado } = parsed.data;
+  const { nome, email, telefone, cpf, senha } = parsed.data;
 
   const existente = await prisma.responsavel.findUnique({ where: { email } });
   if (existente) {
@@ -33,14 +35,6 @@ export async function POST(request: NextRequest) {
 
   const senhaHash = await hashPassword(senha);
 
-  // Geocodifica o endereço agora (não é digitação em tempo real, é uma
-  // chamada só no envio do cadastro) — se falhar, a conta ainda é criada
-  // normalmente; o responsável pode corrigir/tentar de novo depois em
-  // "Meu endereço", e até lá esse vínculo simplesmente não entra na rota
-  // otimizada do motorista. Passa o número separado (não embutido numa
-  // frase única) para o Nominatim localizar a casa certa, não só a rua.
-  const coordenadas = await geocodeEndereco({ logradouro, numero, bairro, cidade, estado, cep });
-
   try {
     await issueVerificationCode({
       email,
@@ -53,17 +47,6 @@ export async function POST(request: NextRequest) {
         cpf,
         senhaHash,
         consentimentoLgpdAceitoEm: new Date().toISOString(),
-        cep,
-        logradouro,
-        numero,
-        complemento: complemento || null,
-        bairro,
-        cidade,
-        estado,
-        enderecoLatitude: coordenadas?.latitude ?? null,
-        enderecoLongitude: coordenadas?.longitude ?? null,
-        enderecoTextoEncontrado: coordenadas?.enderecoEncontrado ?? null,
-        enderecoPrecisaoBaixa: coordenadas?.precisao === "baixa",
       },
     });
   } catch (err) {

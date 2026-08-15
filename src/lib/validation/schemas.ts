@@ -61,6 +61,10 @@ export const motoristaRegisterSchema = z
     path: ["confirmarSenha"],
   });
 
+// O responsável NÃO cadastra endereço aqui — cada filho pode ter um
+// endereço de embarque/desembarque diferente (ver Aluno no schema), então o
+// endereço é cadastrado depois, por aluno, no fluxo "Meus alunos" (ver
+// alunoSchema mais abaixo).
 export const responsavelRegisterSchema = z
   .object({
     nome: z.string().trim().min(2, "Informe o nome completo."),
@@ -69,7 +73,6 @@ export const responsavelRegisterSchema = z
     cpf: cpfSchema,
     senha,
     confirmarSenha: z.string().min(1, "Repita a senha."),
-    ...enderecoCampos,
     aceitaLgpd: z.literal(true, {
       message: "É necessário aceitar o tratamento de dados (LGPD) para criar a conta.",
     }),
@@ -154,9 +157,18 @@ export const usarConviteSchema = z.object({
   escolaId: z.string().trim().min(1, "Selecione a escola."),
 });
 
+// Endereço obrigatório no cadastro do aluno — é dele que a rota do
+// motorista parte (ver GET /api/motorista/rota). Cada aluno de um mesmo
+// responsável pode ter um endereço diferente (irmãos em escolas/casas
+// diferentes), por isso o endereço vive aqui e não mais em Responsavel.
 export const alunoSchema = z.object({
   nome: z.string().trim().min(2, "Informe o nome do aluno.").max(120),
+  ...enderecoCampos,
 });
+
+// Usado só pra editar o endereço de um aluno já existente (reaproveita os
+// mesmos campos/validações do cadastro).
+export const editarEnderecoAlunoSchema = z.object(enderecoCampos);
 
 // Data no formato "YYYY-MM-DD" (vem de <input type="date">) — vazio/ausente
 // vira null (limpa o campo), string transforma em Date. `refine` evita

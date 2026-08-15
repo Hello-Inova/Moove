@@ -26,17 +26,6 @@ export async function POST(request: NextRequest) {
     cpf: string;
     senhaHash: string;
     consentimentoLgpdAceitoEm: string;
-    cep?: string;
-    logradouro?: string;
-    numero?: string;
-    complemento?: string | null;
-    bairro?: string;
-    cidade?: string;
-    estado?: string;
-    enderecoLatitude?: number | null;
-    enderecoLongitude?: number | null;
-    enderecoTextoEncontrado?: string | null;
-    enderecoPrecisaoBaixa?: boolean;
   } | null;
 
   if (!payload) {
@@ -55,18 +44,6 @@ export async function POST(request: NextRequest) {
         consentimentoLgpdAceitoEm: new Date(payload.consentimentoLgpdAceitoEm),
         emailVerificadoEm: agora,
         testeExpiraEm: calcularTesteExpiraEm(agora),
-        cep: payload.cep,
-        logradouro: payload.logradouro,
-        numero: payload.numero,
-        complemento: payload.complemento ?? null,
-        bairro: payload.bairro,
-        cidade: payload.cidade,
-        estado: payload.estado,
-        enderecoLatitude: payload.enderecoLatitude ?? null,
-        enderecoLongitude: payload.enderecoLongitude ?? null,
-        enderecoTextoEncontrado: payload.enderecoTextoEncontrado ?? null,
-        enderecoPrecisaoBaixa: payload.enderecoPrecisaoBaixa ?? false,
-        enderecoAtualizadoEm: payload.cep ? new Date() : null,
       },
     });
 

@@ -24,8 +24,8 @@ export type RotaResponse = {
   duracaoSegundos: number | null;
   /** [lat, lon][], pronto para o Leaflet <Polyline positions={...} />. */
   geometria: [number, number][] | null;
-  /** Vínculos ativos cujo responsável ainda não tem endereço geocodificado
-   * — não entram na rota, mas o motorista precisa saber que existem. */
+  /** Vínculos ativos cujo aluno ainda não tem endereço geocodificado — não
+   * entram na rota, mas o motorista precisa saber que existem. */
   vinculosSemEndereco: number;
   /** Preenchido só quando a rota é "ir até uma escola" (?escolaId=), pra a
    * UI saber que está num modo diferente do normal (todos os alunos). */
@@ -34,8 +34,9 @@ export type RotaResponse = {
 
 /**
  * Rota otimizada do motorista: a partir da posição atual dele (GPS), traça
- * o trajeto mais eficiente passando pelo endereço de cada responsável com
- * vínculo ATIVO (ver regra de negócio equivalente em
+ * o trajeto mais eficiente passando pelo endereço de CADA ALUNO com
+ * vínculo ATIVO (endereço é por aluno, não por responsável — irmãos podem
+ * ter endereços diferentes; ver regra de negócio equivalente em
  * `GET /api/responsavel/buscar-placa` — aqui o filtro é o inverso: todos
  * os vínculos ativos do motorista autenticado).
  *
@@ -64,8 +65,7 @@ export async function GET(request: NextRequest) {
   const vinculos = await prisma.vinculo.findMany({
     where: { motoristaId: motorista.id, status: "ATIVO" },
     include: {
-      aluno: { select: { nome: true } },
-      responsavel: {
+      aluno: {
         select: {
           nome: true,
           logradouro: true,
@@ -77,11 +77,12 @@ export async function GET(request: NextRequest) {
           enderecoLongitude: true,
         },
       },
+      responsavel: { select: { nome: true } },
     },
   });
 
   const comEndereco = vinculos.filter(
-    (v) => v.responsavel.enderecoLatitude !== null && v.responsavel.enderecoLongitude !== null
+    (v) => v.aluno.enderecoLatitude !== null && v.aluno.enderecoLongitude !== null
   );
   const vinculosSemEndereco = vinculos.length - comEndereco.length;
 
@@ -100,8 +101,8 @@ export async function GET(request: NextRequest) {
   const pontos = [
     { latitude: localizacao.latitude, longitude: localizacao.longitude },
     ...comEndereco.map((v) => ({
-      latitude: v.responsavel.enderecoLatitude as number,
-      longitude: v.responsavel.enderecoLongitude as number,
+      latitude: v.aluno.enderecoLatitude as number,
+      longitude: v.aluno.enderecoLongitude as number,
     })),
   ];
 
@@ -126,9 +127,9 @@ export async function GET(request: NextRequest) {
         sequencia: posicao + 1,
         alunoNome: vinculo.aluno.nome,
         responsavelNome: vinculo.responsavel.nome,
-        enderecoResumo: montarEnderecoTexto(vinculo.responsavel),
-        latitude: vinculo.responsavel.enderecoLatitude as number,
-        longitude: vinculo.responsavel.enderecoLongitude as number,
+        enderecoResumo: montarEnderecoTexto(vinculo.aluno),
+        latitude: vinculo.aluno.enderecoLatitude as number,
+        longitude: vinculo.aluno.enderecoLongitude as number,
       };
     });
 

@@ -20,7 +20,15 @@ type SalvarResposta = {
   centroAproximado: Coords | null;
 };
 
-export function EnderecoForm({
+/**
+ * Formulário de endereço de UM aluno específico — mesma UX que a antiga
+ * tela "Meu endereço" do responsável (CEP/Google autocomplete + mapa pra
+ * confirmar o pino), só que agora escopada a `alunoId` em vez de ao
+ * responsável, porque cada filho pode ter um endereço de embarque/
+ * desembarque diferente (ver Aluno no schema).
+ */
+export function EnderecoAlunoForm({
+  alunoId,
   defaultValues,
   geocodificado,
   enderecoLatitude,
@@ -28,7 +36,9 @@ export function EnderecoForm({
   enderecoTextoEncontrado,
   enderecoConfirmado,
   enderecoPrecisaoBaixa,
+  onSaved,
 }: {
+  alunoId: string;
   defaultValues: Partial<EnderecoValores>;
   geocodificado: boolean;
   enderecoLatitude?: number | null;
@@ -36,6 +46,7 @@ export function EnderecoForm({
   enderecoTextoEncontrado?: string | null;
   enderecoConfirmado?: boolean;
   enderecoPrecisaoBaixa?: boolean;
+  onSaved?: () => void;
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -43,10 +54,6 @@ export function EnderecoForm({
   const [issues, setIssues] = useState<Record<string, string[] | undefined>>({});
   const [aviso, setAviso] = useState<string | null>(null);
 
-  // Coordenada mostrada no mapa — vem do endereço já salvo (se geocodificado)
-  // e é atualizada sempre que o endereço é regeocodificado ou o pino é
-  // arrastado/clicado. Ficar `null` só quando nunca houve geocodificação (e
-  // nenhum centro aproximado disponível).
   const [coords, setCoords] = useState<Coords | null>(
     geocodificado && enderecoLatitude != null && enderecoLongitude != null
       ? { latitude: enderecoLatitude, longitude: enderecoLongitude }
@@ -82,7 +89,7 @@ export function EnderecoForm({
       estado: form.get("estado"),
     };
 
-    const result = await apiPatchJson<SalvarResposta>("/api/responsavel/endereco", payload);
+    const result = await apiPatchJson<SalvarResposta>(`/api/responsavel/alunos/${alunoId}/endereco`, payload);
     setLoading(false);
 
     if (!result.ok) {
@@ -91,8 +98,6 @@ export function EnderecoForm({
       return;
     }
 
-    // Todo (re)geocode reseta a confirmação — é um pino novo, ninguém olhou
-    // ele ainda.
     setConfirmado(false);
     setPrecisaoBaixa(result.data.enderecoPrecisaoBaixa);
 
@@ -103,7 +108,7 @@ export function EnderecoForm({
       setAviso(
         result.data.enderecoPrecisaoBaixa
           ? "Endereço salvo, mas essa coordenada é aproximada (não veio da rua exata) — o pino pode estar em outro lugar da região. Confira com atenção e ajuste antes de confirmar."
-          : "Endereço salvo. Confira o pino e o texto encontrado abaixo — se não for exatamente a sua casa, arraste o pino (ou toque no lugar certo) e confirme."
+          : "Endereço salvo. Confira o pino e o texto encontrado abaixo — se não for exatamente a casa, arraste o pino (ou toque no lugar certo) e confirme."
       );
     } else if (result.data.centroAproximado) {
       setCoords(result.data.centroAproximado);
@@ -116,11 +121,12 @@ export function EnderecoForm({
       setCoords(null);
       setTextoEncontrado(null);
       setAviso(
-        "Endereço salvo, mas não conseguimos localizá-lo no mapa automaticamente. Confira se está correto — sem isso, esse endereço não entra na rota do motorista."
+        "Endereço salvo, mas não conseguimos localizá-lo no mapa automaticamente. Confira se está correto — sem isso, esse aluno não entra na rota do motorista."
       );
     }
 
     router.refresh();
+    onSaved?.();
   }
 
   async function handleConfirmarPin() {
@@ -128,7 +134,7 @@ export function EnderecoForm({
     setSalvandoPin(true);
     setFormError(null);
 
-    const result = await apiPatchJson<{ ok: true }>("/api/responsavel/endereco/coordenadas", coords);
+    const result = await apiPatchJson<{ ok: true }>(`/api/responsavel/alunos/${alunoId}/endereco/coordenadas`, coords);
     setSalvandoPin(false);
 
     if (!result.ok) {
@@ -177,7 +183,7 @@ export function EnderecoForm({
             <p className="text-xs text-neutral-500 dark:text-neutral-400">
               {pinAproximado
                 ? "Mapa centralizado só na cidade — toque no ponto certo do mapa (ou arraste o pino) e confirme."
-                : "Se o pino não estiver na sua casa, arraste-o (ou toque no ponto certo do mapa) e clique em “Confirmar localização”."}
+                : "Se o pino não estiver no lugar certo, arraste-o (ou toque no ponto certo do mapa) e clique em “Confirmar localização”."}
             </p>
             {textoEncontrado && (
               <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">

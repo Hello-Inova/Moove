@@ -69,8 +69,16 @@ export async function GET(request: NextRequest) {
   });
   if (!veiculo) return jsonError(404, "Veículo não encontrado.");
 
+  // Se o responsável tem mais de um filho vinculado a este mesmo motorista,
+  // pega o vínculo ATIVO mais antigo — mesma ambiguidade que já existia
+  // aqui antes (esta busca sempre resolveu "o" vínculo entre o par
+  // responsável/motorista, nunca soube distinguir qual filho); o endereço
+  // usado agora é o desse aluno específico, não mais um endereço único
+  // compartilhado entre os irmãos.
   const vinculo = await prisma.vinculo.findFirst({
     where: { motoristaId: veiculo.motoristaId, responsavelId: responsavel.id, status: "ATIVO" },
+    orderBy: { criadoEm: "asc" },
+    include: { aluno: { select: { id: true, enderecoLatitude: true, enderecoLongitude: true } } },
   });
   if (!vinculo) {
     return jsonError(
@@ -81,17 +89,18 @@ export async function GET(request: NextRequest) {
 
   const localizacao = await prisma.localizacao.findUnique({ where: { motoristaId: veiculo.motoristaId } });
 
-  // Traça o caminho do motorista até o endereço do próprio responsável —
-  // só faz sentido calcular se temos as duas pontas: a posição atual do
-  // motorista e o endereço do responsável já geocodificado (ver
-  // src/app/responsavel/endereco). Sem uma das duas, não desenha rota
-  // nenhuma, só o marcador do veículo (comportamento de antes).
+  // Traça o caminho do motorista até o endereço do aluno (não mais do
+  // responsável — cada filho pode ter um endereço diferente, ver Aluno no
+  // schema) — só faz sentido calcular se temos as duas pontas: a posição
+  // atual do motorista e o endereço do aluno já geocodificado. Sem uma das
+  // duas, não desenha rota nenhuma, só o marcador do veículo (comportamento
+  // de antes).
   let rota: RotaAteResponsavel | null = null;
 
-  if (localizacao && responsavel.enderecoLatitude !== null && responsavel.enderecoLongitude !== null) {
-    const destino = { latitude: responsavel.enderecoLatitude, longitude: responsavel.enderecoLongitude };
+  if (localizacao && vinculo.aluno.enderecoLatitude !== null && vinculo.aluno.enderecoLongitude !== null) {
+    const destino = { latitude: vinculo.aluno.enderecoLatitude, longitude: vinculo.aluno.enderecoLongitude };
     const origem = { latitude: localizacao.latitude, longitude: localizacao.longitude };
-    const chaveCache = `${veiculo.motoristaId}:${responsavel.id}`;
+    const chaveCache = `${veiculo.motoristaId}:${vinculo.aluno.id}`;
     const emCache = rotaCache.get(chaveCache);
 
     const desdeUltimoCalculo = emCache ? Date.now() - emCache.calculadoEm : Infinity;
