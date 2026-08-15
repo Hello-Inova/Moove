@@ -201,8 +201,10 @@ export const atualizarPerfilSchema = z
     cpf: cpfSchema.optional(),
     // Texto livre de propósito — chave PIX pode ser CPF/CNPJ, e-mail,
     // telefone ou chave aleatória (UUID); não vale a pena validar formato
-    // específico aqui, é só repassada pro responsável via WhatsApp (ver
-    // src/components/motorista/WhatsAppCobrancaButton.tsx). Só existe pro
+    // específico aqui. É a chave que o motorista usa pra receber o
+    // pagamento do transporte direto das famílias (a cobrança por aluno
+    // excedente da plataforma é separada e paga via Asaas — ver
+    // src/lib/subscription/cobranca-aluno-pagamento.ts). Só existe pro
     // motorista, mas não custa aceitar no schema compartilhado.
     chavePix: z.string().trim().max(140, "Chave PIX muito longa.").optional().nullable(),
     senhaAtual: z.string().optional(),

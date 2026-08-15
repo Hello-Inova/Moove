@@ -117,8 +117,8 @@ export async function processarCobrancasAlunoVencidas(
           title: "Novas cobranças de alunos geradas",
           body:
             cobrancasDoMotorista === 1
-              ? `1 cobrança de ${formatarBRL(valorTotalDoMotorista)} pronta pra enviar — veja em "Alunos".`
-              : `${cobrancasDoMotorista} cobranças (total ${formatarBRL(valorTotalDoMotorista)}) prontas pra enviar — veja em "Alunos".`,
+              ? `1 cobrança de ${formatarBRL(valorTotalDoMotorista)} pronta pra pagar — veja em "Alunos".`
+              : `${cobrancasDoMotorista} cobranças (total ${formatarBRL(valorTotalDoMotorista)}) prontas pra pagar — veja em "Alunos".`,
           tag: `cobrancas-aluno-${motoristaId}-${agora.toISOString().slice(0, 10)}`,
         }
       );

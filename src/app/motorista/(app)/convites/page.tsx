@@ -50,8 +50,8 @@ export default async function MotoristaConvitesPage() {
       title: "Cada aluno vinculado pode gerar cobrança",
       text:
         assinaturaAtiva && alunosGratis !== null && valorPorAlunoExcedente !== null
-          ? `No seu plano atual, os primeiros ${alunosGratis} aluno${alunosGratis === 1 ? "" : "s"} vinculado${alunosGratis === 1 ? "" : "s"} são grátis. A partir do próximo, o sistema gera uma cobrança de ${formatarBRL(valorPorAlunoExcedente)} a cada 30 dias de vínculo ativo — você recebe e repassa direto pro responsável via PIX (aba "Alunos"). Fique de olho nisso antes de compartilhar muitos convites de uma vez.`
-          : "Assim que você ativar um plano pago, cada aluno vinculado além da franquia grátis do plano passa a gerar uma cobrança recorrente (a cada 30 dias) — você recebe e repassa pro responsável via PIX. Dá uma olhada na aba \"Planos\" pra saber a franquia e o valor antes de compartilhar muitos convites de uma vez.",
+          ? `No seu plano atual, os primeiros ${alunosGratis} aluno${alunosGratis === 1 ? "" : "s"} vinculado${alunosGratis === 1 ? "" : "s"} são grátis. A partir do próximo, o sistema gera uma cobrança de ${formatarBRL(valorPorAlunoExcedente)} a cada 30 dias de vínculo ativo — é você quem paga essa cobrança direto pela Asaas (aba "Alunos"), com PIX ou cartão. Fique de olho nisso antes de compartilhar muitos convites de uma vez.`
+          : "Assim que você ativar um plano pago, cada aluno vinculado além da franquia grátis do plano passa a gerar uma cobrança recorrente (a cada 30 dias) — é você quem paga essa cobrança direto pela Asaas, na aba \"Alunos\". Dá uma olhada na aba \"Planos\" pra saber a franquia e o valor antes de compartilhar muitos convites de uma vez.",
     },
     {
       targetId: "tour-convite-gerar",
@@ -87,13 +87,13 @@ export default async function MotoristaConvitesPage() {
             <>
               <strong>Atenção:</strong> seu plano inclui {alunosGratis} aluno{alunosGratis === 1 ? "" : "s"} grátis.
               A partir do próximo aluno vinculado, é gerada uma cobrança de {formatarBRL(valorPorAlunoExcedente)} a
-              cada 30 dias de vínculo ativo, que você repassa ao responsável — veja e cobre pelo WhatsApp na aba{" "}
+              cada 30 dias de vínculo ativo — é você quem paga, direto pela Asaas, na aba{" "}
               <span className="font-medium">Alunos</span>.
             </>
           ) : (
             <>
               <strong>Atenção:</strong> ao ativar um plano pago, cada aluno vinculado além da franquia grátis passa a
-              gerar uma cobrança recorrente que você repassa ao responsável. Confira os valores na aba{" "}
+              gerar uma cobrança recorrente que você mesmo paga, direto pela Asaas. Confira os valores na aba{" "}
               <span className="font-medium">Planos</span> antes de compartilhar muitos convites.
             </>
           )}

@@ -38,9 +38,10 @@ export async function POST(request: NextRequest) {
 
   if (evento && eventosDeConfirmacao.includes(evento) && paymentId) {
     try {
-      // Único tipo de cobrança pela plataforma hoje: a mensalidade fixa do
-      // motorista (a cobrança por aluno é PIX direto entre motorista e
-      // responsável, fora da Asaas — ver CobrancaAluno).
+      // Cobre os dois tipos de cobrança da plataforma hoje: a mensalidade
+      // fixa do motorista e a cobrança por aluno excedente (ver
+      // CobrancaAluno) — `confirmarPagamentoAsaas` identifica qual é pelo
+      // Pagamento ligado ao externalReference.
       await confirmarPagamentoAsaas(paymentId);
     } catch (err) {
       console.error("[webhook asaas] falha ao confirmar pagamento", err);

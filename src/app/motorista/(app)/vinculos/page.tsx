@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { CheckCircle2, XCircle, Gift, CircleDollarSign, Clock } from "lucide-react";
 
@@ -10,8 +11,8 @@ import { PixKeyForm } from "@/components/motorista/PixKeyForm";
 import { PushToggle } from "@/components/ui/PushToggle";
 import { RevogarButton } from "@/components/motorista/RevogarButton";
 import { ReativarButton } from "@/components/motorista/ReativarButton";
-import { MarcarPagaButton } from "@/components/motorista/MarcarPagaButton";
-import { WhatsAppCobrancaButton } from "@/components/motorista/WhatsAppCobrancaButton";
+import { PagarCobrancaAlunoButton } from "@/components/motorista/PagarCobrancaAlunoButton";
+import { CobrancaAlunoSync } from "@/components/motorista/CobrancaAlunoSync";
 import { GuideTour, type GuideStep } from "@/components/ui/GuideTour";
 
 function formatarData(data: Date): string {
@@ -61,7 +62,7 @@ export default async function MotoristaVinculosPage() {
     {
       targetId: "tour-vinculos-pix",
       title: "Cadastre sua chave PIX",
-      text: "É pra essa chave que o responsável manda o pagamento do aluno excedente — configure antes de compartilhar convites.",
+      text: "É a chave PIX que você usa pra receber o pagamento do transporte direto das famílias — mantenha atualizada. A cobrança por aluno excedente do plano é separada e paga por você via Asaas (veja abaixo).",
     },
     {
       targetId: "tour-vinculos-push",
@@ -71,7 +72,7 @@ export default async function MotoristaVinculosPage() {
     {
       targetId: "tour-vinculos-lista",
       title: "Seus alunos vinculados",
-      text: "O selo \"Grátis\" mostra os alunos dentro da sua franquia; \"Cobrado\" mostra os que já estão gerando cobrança. Quando houver uma cobrança pendente, use o botão de WhatsApp pra cobrar o responsável direto, ou marque como paga depois de receber.",
+      text: "O selo \"Grátis\" mostra os alunos dentro da sua franquia; \"Cobrado\" mostra os que já estão gerando cobrança. Quando houver uma cobrança pendente, clique em \"Pagar agora\" — você paga direto pela Asaas, com PIX ou cartão, e a cobrança é baixada automaticamente assim que o pagamento é confirmado.",
     },
   ];
 
@@ -88,6 +89,10 @@ export default async function MotoristaVinculosPage() {
         </div>
         <GuideTour steps={tourSteps} />
       </div>
+
+      <Suspense fallback={null}>
+        <CobrancaAlunoSync />
+      </Suspense>
 
       <div className="grid gap-3 sm:grid-cols-2">
         <section id="tour-vinculos-pix" className={cardClass}>
@@ -152,14 +157,7 @@ export default async function MotoristaVinculosPage() {
                         {formatarValor(Number(c.valor))} · ciclo {formatarData(c.cicloInicio)}–{formatarData(c.cicloFim)}
                       </p>
                       <div className="flex flex-wrap gap-1.5">
-                        <WhatsAppCobrancaButton
-                          telefoneResponsavel={v.responsavel.telefone}
-                          nomeResponsavel={v.responsavel.nome}
-                          nomeAluno={v.aluno.nome}
-                          valor={Number(c.valor)}
-                          chavePix={motorista.chavePix}
-                        />
-                        <MarcarPagaButton url={`/api/motorista/cobrancas-aluno/${c.id}/marcar-paga`} />
+                        <PagarCobrancaAlunoButton cobrancaId={c.id} />
                       </div>
                     </div>
                   ))}

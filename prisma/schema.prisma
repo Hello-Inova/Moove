@@ -620,7 +620,13 @@ model Assinatura {
 
 model Pagamento {
   id                  String          @id @default(cuid())
-  assinaturaId        String          @map("assinatura_id")
+  // Exatamente um dos dois abaixo é preenchido — este Pagamento é da
+  // mensalidade da plataforma (assinaturaId) OU de uma cobrança por aluno
+  // excedente (cobrancaAlunoId). Ambos nullable porque o mesmo modelo/gateway
+  // (Asaas) agora serve os dois fluxos; a checagem de "exatamente um" é feita
+  // na aplicação (ver criarAssinaturaComCheckout / criarCheckoutCobrancaAluno).
+  assinaturaId        String?         @map("assinatura_id")
+  cobrancaAlunoId     String?         @map("cobranca_aluno_id")
   gateway             String          @default("mercadopago")
   gatewayPagamentoId  String?         @unique @map("gateway_pagamento_id")
   gatewayPreferenceId String?         @map("gateway_preference_id")
@@ -630,21 +636,23 @@ model Pagamento {
   criadoEm            DateTime        @default(now()) @map("criado_em")
   pagoEm              DateTime?       @map("pago_em")
 
-  assinatura Assinatura @relation(fields: [assinaturaId], references: [id], onDelete: Cascade)
+  assinatura    Assinatura?    @relation(fields: [assinaturaId], references: [id], onDelete: Cascade)
+  cobrancaAluno CobrancaAluno? @relation(fields: [cobrancaAlunoId], references: [id], onDelete: Cascade)
 
+  @@index([cobrancaAlunoId, status])
   @@map("pagamentos")
 }
 
 // ---------------------------------------------------------------------------
 // CobrancaAluno — cobrança do MOTORISTA por um aluno vinculado, gerada pelo
 // cron de 30 em 30 dias de vínculo ATIVO (ver
-// src/lib/subscription/cobranca-aluno.ts). Substituiu o antigo modelo de
-// assinatura do responsável: agora é o motorista quem paga por aluno
-// excedente (além da faixa grátis do plano dele — SEMESTRAL/ANUAL), e o
-// cobra do responsável por fora da plataforma (PIX da própria chave do
-// motorista, ver `Motorista.chavePix`) — por isso não há gateway de
-// pagamento aqui, só um controle manual: PENDENTE até o motorista confirmar
-// que recebeu (`marcar como paga`), ou CANCELADO se decidir não cobrar.
+// src/lib/subscription/cobranca-aluno.ts). É o motorista quem paga por aluno
+// excedente (além da faixa grátis do plano dele — SEMESTRAL/ANUAL), e paga
+// direto pela plataforma via Asaas (mesmo gateway/checkout já usado pra
+// mensalidade — ver `Pagamento.cobrancaAlunoId` e
+// src/lib/subscription/cobranca-aluno-pagamento.ts): PENDENTE até a Asaas
+// confirmar o pagamento (webhook + sincronização), ou CANCELADO se decidir
+// não cobrar.
 // ---------------------------------------------------------------------------
 
 model CobrancaAluno {
@@ -662,8 +670,9 @@ model CobrancaAluno {
   pagoEm      DateTime? @map("pago_em")
   criadoEm    DateTime @default(now()) @map("criado_em")
 
-  vinculo   Vinculo   @relation(fields: [vinculoId], references: [id], onDelete: Cascade)
-  motorista Motorista @relation(fields: [motoristaId], references: [id], onDelete: Cascade)
+  vinculo    Vinculo     @relation(fields: [vinculoId], references: [id], onDelete: Cascade)
+  motorista  Motorista   @relation(fields: [motoristaId], references: [id], onDelete: Cascade)
+  pagamentos Pagamento[]
 
   @@index([motoristaId, status])
   @@index([vinculoId, cicloInicio])
