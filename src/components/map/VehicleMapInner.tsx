@@ -7,6 +7,7 @@ import "leaflet/dist/leaflet.css";
 
 import { FullscreenButton, InvalidateOnResize, useFecharComEsc } from "@/components/map/MapFullscreen";
 import { useDesvioTrail } from "@/lib/geo/useDesvioTrail";
+import { useMapaExpandido } from "@/contexts/MapaExpandidoContext";
 
 // Os ícones padrão do Leaflet referenciam URLs relativas ao pacote que não
 // resolvem no bundler do Next.js. Servimos as mesmas imagens via /public.
@@ -73,6 +74,15 @@ export function VehicleMapInner({
   const [expandido, setExpandido] = useState(false);
   const fecharFullscreen = useCallback(() => setExpandido(false), []);
   useFecharComEsc(expandido, fecharFullscreen);
+
+  // Avisa o AppHeader pra se esconder enquanto o mapa estiver em tela cheia
+  // — mesmo mecanismo do mapa do motorista, ver RotaMapInner.tsx e
+  // MapaExpandidoContext.tsx.
+  const { setExpandido: setExpandidoGlobal } = useMapaExpandido();
+  useEffect(() => {
+    setExpandidoGlobal(expandido);
+    return () => setExpandidoGlobal(false);
+  }, [expandido, setExpandidoGlobal]);
 
   // Mesmo rastro de desvio do mapa do motorista (ver RotaMapInner.tsx) —
   // some sozinho quando a rota até o endereço do responsável é recalculada.

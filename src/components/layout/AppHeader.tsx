@@ -8,6 +8,7 @@ import { Logo } from "@/components/ui/Logo";
 import { LogoutButton } from "@/components/auth/LogoutButton";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { EditProfileModal } from "@/components/ui/EditProfileModal";
+import { useMapaExpandido } from "@/contexts/MapaExpandidoContext";
 
 // `icon` é um elemento já renderizado (ReactNode), não o componente em si —
 // MotoristaShell/ResponsavelShell são Server Components e AppHeader é
@@ -58,6 +59,12 @@ export function AppHeader({
   const [perfilAberto, setPerfilAberto] = useState(false);
   const [nomeAtual, setNomeAtual] = useState(userName ?? "");
   const pathname = usePathname();
+  // Enquanto algum mapa da tela estiver expandido em tela cheia (ver
+  // MapaExpandidoContext.tsx), some com sidebar/barra superior por completo
+  // — não dá pra resolver só com z-index porque o mapa expandido vive dentro
+  // de um wrapper `isolate` (ver RotaPanel.tsx/BuscarPlacaClient.tsx) que
+  // prende o z-index dele nesse contexto de empilhamento local.
+  const { expandido: mapaExpandido } = useMapaExpandido();
 
   // As páginas do motorista moram num layout compartilhado (ver
   // src/app/motorista/(app)/layout.tsx), então o LocationSharingProvider —
@@ -127,41 +134,45 @@ export function AppHeader({
 
   return (
     <>
-      {/* Sidebar fixa — md e acima */}
-      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 border-r border-neutral-200 bg-white md:block dark:border-neutral-700 dark:bg-neutral-950">
-        {sidebarConteudo}
-      </aside>
-
-      {/* Barra superior + gaveta — abaixo de md */}
-      <header className="sticky top-0 z-30 flex items-center justify-between border-b border-neutral-200 bg-white/90 px-4 py-2.5 backdrop-blur supports-[backdrop-filter]:bg-white/70 md:hidden dark:border-neutral-800 dark:bg-neutral-950/90 dark:supports-[backdrop-filter]:bg-neutral-950/70">
-        <Link href={homeHref} className="flex items-center gap-2" onClick={handleNavClick}>
-          <Logo height={24} />
-        </Link>
-        <div className="flex items-center gap-2">
-          <ThemeToggle />
-          <button
-            type="button"
-            className="flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-200 text-neutral-700 transition hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
-            aria-label={open ? "Fechar menu" : "Abrir menu"}
-            aria-expanded={open}
-            onClick={() => setOpen((o) => !o)}
-          >
-            {open ? <CloseIcon /> : <MenuIcon />}
-          </button>
-        </div>
-      </header>
-
-      {open && (
-        <div className="fixed inset-0 z-40 md:hidden">
-          <button
-            aria-label="Fechar menu"
-            className="absolute inset-0 bg-black/50"
-            onClick={() => setOpen(false)}
-          />
-          <div className="absolute inset-y-0 left-0 w-72 max-w-[85vw] bg-white shadow-xl dark:bg-neutral-950">
+      {!mapaExpandido && (
+        <>
+          {/* Sidebar fixa — md e acima */}
+          <aside className="sticky top-0 hidden h-screen w-64 shrink-0 border-r border-neutral-200 bg-white md:block dark:border-neutral-700 dark:bg-neutral-950">
             {sidebarConteudo}
-          </div>
-        </div>
+          </aside>
+
+          {/* Barra superior + gaveta — abaixo de md */}
+          <header className="sticky top-0 z-30 flex items-center justify-between border-b border-neutral-200 bg-white/90 px-4 py-2.5 backdrop-blur supports-[backdrop-filter]:bg-white/70 md:hidden dark:border-neutral-800 dark:bg-neutral-950/90 dark:supports-[backdrop-filter]:bg-neutral-950/70">
+            <Link href={homeHref} className="flex items-center gap-2" onClick={handleNavClick}>
+              <Logo height={24} />
+            </Link>
+            <div className="flex items-center gap-2">
+              <ThemeToggle />
+              <button
+                type="button"
+                className="flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-200 text-neutral-700 transition hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                aria-label={open ? "Fechar menu" : "Abrir menu"}
+                aria-expanded={open}
+                onClick={() => setOpen((o) => !o)}
+              >
+                {open ? <CloseIcon /> : <MenuIcon />}
+              </button>
+            </div>
+          </header>
+
+          {open && (
+            <div className="fixed inset-0 z-40 md:hidden">
+              <button
+                aria-label="Fechar menu"
+                className="absolute inset-0 bg-black/50"
+                onClick={() => setOpen(false)}
+              />
+              <div className="absolute inset-y-0 left-0 w-72 max-w-[85vw] bg-white shadow-xl dark:bg-neutral-950">
+                {sidebarConteudo}
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {perfilAberto && (

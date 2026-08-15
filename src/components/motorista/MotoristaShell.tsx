@@ -5,6 +5,7 @@ import { AppHeader, type NavItem } from "@/components/layout/AppHeader";
 import { AccessGate } from "@/components/layout/AccessGate";
 import { TrialBanner } from "@/components/layout/TrialBanner";
 import { LocationSharingProvider } from "@/contexts/LocationSharingContext";
+import { MapaExpandidoProvider } from "@/contexts/MapaExpandidoContext";
 import { getAuthenticatedMotorista } from "@/lib/auth/guards";
 import { contaEmTeste, diasRestantesConta, getAssinaturaAtual, motoristaTemAcesso } from "@/lib/subscription/service";
 
@@ -36,22 +37,24 @@ export async function MotoristaShell({ children }: { children: ReactNode }) {
 
   return (
     <LocationSharingProvider>
-      <div className="flex min-h-full flex-1 flex-col bg-neutral-50 dark:bg-neutral-950 md:flex-row">
-        <AppHeader role="motorista" roleLabel="motorista" homeHref="/motorista/dashboard" nav={NAV} userName={motorista?.nome} />
-        <div className="flex min-w-0 flex-1 flex-col">
-          {motorista && (
-            <TrialBanner
-              emTeste={contaEmTeste(motorista.testeExpiraEm)}
-              diasRestantes={diasRestantesConta(motorista.testeExpiraEm)}
-              assinaturaAtiva={assinaturaAtiva}
-              planosHref="/motorista/planos"
-            />
-          )}
-          <AccessGate bloqueado={bloqueado} allowlist={ALLOWLIST} planosHref="/motorista/planos" role="motorista">
-            <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6">{children}</main>
-          </AccessGate>
+      <MapaExpandidoProvider>
+        <div className="flex min-h-full flex-1 flex-col bg-neutral-50 dark:bg-neutral-950 md:flex-row">
+          <AppHeader role="motorista" roleLabel="motorista" homeHref="/motorista/dashboard" nav={NAV} userName={motorista?.nome} />
+          <div className="flex min-w-0 flex-1 flex-col">
+            {motorista && (
+              <TrialBanner
+                emTeste={contaEmTeste(motorista.testeExpiraEm)}
+                diasRestantes={diasRestantesConta(motorista.testeExpiraEm)}
+                assinaturaAtiva={assinaturaAtiva}
+                planosHref="/motorista/planos"
+              />
+            )}
+            <AccessGate bloqueado={bloqueado} allowlist={ALLOWLIST} planosHref="/motorista/planos" role="motorista">
+              <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6">{children}</main>
+            </AccessGate>
+          </div>
         </div>
-      </div>
+      </MapaExpandidoProvider>
     </LocationSharingProvider>
   );
 }

@@ -8,6 +8,7 @@ import "leaflet/dist/leaflet.css";
 import type { ParadaRota } from "@/app/api/motorista/rota/route";
 import { FullscreenButton, InvalidateOnResize, useFecharComEsc } from "@/components/map/MapFullscreen";
 import { useDesvioTrail } from "@/lib/geo/useDesvioTrail";
+import { useMapaExpandido } from "@/contexts/MapaExpandidoContext";
 
 const motoristaIcon = L.icon({
   iconUrl: "/leaflet/marker-icon.png",
@@ -143,6 +144,17 @@ export function RotaMapInner({
   const [expandido, setExpandido] = useState(false);
   const fecharFullscreen = useCallback(() => setExpandido(false), []);
   useFecharComEsc(expandido, fecharFullscreen);
+
+  // Avisa o AppHeader (fora desse componente) pra se esconder enquanto o
+  // mapa estiver em tela cheia — ver MapaExpandidoContext.tsx pro motivo de
+  // não dar pra resolver só com z-index. Reseta ao desmontar (ex.: saiu da
+  // página com o mapa ainda expandido) pra não deixar o header escondido
+  // pra sempre.
+  const { setExpandido: setExpandidoGlobal } = useMapaExpandido();
+  useEffect(() => {
+    setExpandidoGlobal(expandido);
+    return () => setExpandidoGlobal(false);
+  }, [expandido, setExpandidoGlobal]);
 
   // Rastro de quando o motorista sai do traçado — some sozinho assim que a
   // rota é recalculada (ver useDesvioTrail.ts).
