@@ -64,21 +64,30 @@ export default async function MotoristaCobrancasPage() {
         {pagamentos.length === 0 && (
           <p className="text-sm text-neutral-500 dark:text-neutral-400">Nenhum pagamento gerado ainda.</p>
         )}
-        {pagamentos.map((p) => (
-          <div key={p.id} className="rounded-2xl border border-neutral-200 bg-white shadow-sm p-4 dark:bg-neutral-900 dark:border-neutral-700">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="font-medium">Plano {p.assinatura.planoLabel || p.assinatura.tipoPlano}</p>
-              <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_CLASS[p.status]}`}>
-                {STATUS_LABEL[p.status]}
-              </span>
+        {pagamentos.map((p) => {
+          // A query acima já filtra só pagamentos com assinatura (ver
+          // `where`), mas o campo é opcional no schema desde que Pagamento
+          // passou a servir também a cobrança por aluno (ver model
+          // Pagamento) — essa guarda só ajusta o tipo pro TypeScript, não
+          // deveria nunca cair no `return null` na prática.
+          if (!p.assinatura) return null;
+
+          return (
+            <div key={p.id} className="rounded-2xl border border-neutral-200 bg-white shadow-sm p-4 dark:bg-neutral-900 dark:border-neutral-700">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="font-medium">Plano {p.assinatura.planoLabel || p.assinatura.tipoPlano}</p>
+                <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_CLASS[p.status]}`}>
+                  {STATUS_LABEL[p.status]}
+                </span>
+              </div>
+              <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
+                {p.criadoEm.toLocaleDateString("pt-BR")}
+                {p.pagoEm && ` · pago em ${p.pagoEm.toLocaleDateString("pt-BR")}`}
+              </p>
+              <p className="mt-1 font-semibold">{formatarBRL(Number(p.valor))}</p>
             </div>
-            <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-              {p.criadoEm.toLocaleDateString("pt-BR")}
-              {p.pagoEm && ` · pago em ${p.pagoEm.toLocaleDateString("pt-BR")}`}
-            </p>
-            <p className="mt-1 font-semibold">{formatarBRL(Number(p.valor))}</p>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
