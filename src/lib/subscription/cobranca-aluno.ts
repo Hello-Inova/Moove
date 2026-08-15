@@ -3,12 +3,13 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import { notificarPush } from "@/lib/push/notificar";
 import { formatarBRL } from "@/lib/subscription/plans";
+import { adicionarDias } from "@/lib/date-utils";
 
-export function adicionarDias(data: Date, dias: number): Date {
-  const resultado = new Date(data);
-  resultado.setDate(resultado.getDate() + dias);
-  return resultado;
-}
+/** Reexportado de `@/lib/date-utils` (movido pra lá pra poder ser testado em
+ * unidade sem depender do Prisma Client/`server-only`) — mantido aqui pra
+ * não quebrar quem já importa `adicionarDias` deste módulo, que continua
+ * usando a função internamente (import acima). */
+export { adicionarDias };
 
 /**
  * Motor de cobrança por aluno — chamado pelo cron diário (ver

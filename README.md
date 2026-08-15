@@ -305,6 +305,54 @@ src/components/
 src/hooks/useLocationSharing.ts   watchPosition + envio throttled de localização
 ```
 
+## Testes
+
+Duas suítes, propositalmente separadas:
+
+### Unitários (`npm test`)
+
+Cobrem só lógica **pura** — sem Prisma, sem banco, sem runtime do Next.
+Rodam em menos de 2s, então rodam sempre (inclusive antes de commitar).
+
+```bash
+npm test          # roda uma vez
+npm run test:watch
+```
+
+Alguns módulos que originalmente misturavam lógica pura com acesso ao
+Prisma (`geocoding.ts`, `subscription/cobranca-aluno.ts`,
+`subscription/cobranca-aluno-pagamento.ts`) tiveram a parte pura extraída
+pra um arquivo próprio sem `import "server-only"`/Prisma (ex.:
+`geo/endereco-texto.ts`, `date-utils.ts`,
+`subscription/cobranca-aluno-pagamento-regras.ts`), reexportada do módulo
+original pra não quebrar quem já importava de lá. Isso existe só pra viabilizar
+teste unitário rápido — a lógica em si não mudou.
+
+### Integração (`npm run test:integration`)
+
+Batem num Postgres de teste de verdade via Prisma — cobrem fluxos com
+estado (ex.: `processarCobrancasAlunoVencidas` com o ranking dinâmico da
+faixa grátis, `processarMensalidadesTransporteVencidas` com a geração
+idempotente). Mais lentos, exigem infra local, por isso ficam fora do
+`npm test` padrão (arquivos `*.integration.test.ts`, config separada em
+`vitest.integration.config.ts`).
+
+```bash
+docker compose -f docker-compose.test.yml up -d   # Postgres só de teste, porta 5434
+cp .env.test.example .env.test                    # ajuste se mudar porta/credenciais
+npm run test:integration:migrate                   # só na 1a vez / após mudar o schema
+npm run test:integration
+```
+
+`docker-compose.test.yml` é um Postgres **separado** do
+`docker-compose.yml` de desenvolvimento (porta/usuário/banco diferentes) —
+os testes de integração truncam tabelas inteiras entre cada `it()` (ver
+`src/test/db.ts`), então nunca devem apontar pro banco de dev. Por
+segurança, `src/test/db.ts` recusa rodar se `DATABASE_URL` não contiver
+"test" no nome.
+
+`npm run test:all` roda as duas suítes em sequência.
+
 ## Deploy (Vercel + Neon)
 
 Stack de hospedagem recomendada — gratuita pra começar, sem servidor pra

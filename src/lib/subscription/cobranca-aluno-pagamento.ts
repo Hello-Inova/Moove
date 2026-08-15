@@ -3,23 +3,19 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import { createAsaasCheckout } from "@/lib/payment/asaas";
 import { confirmarPagamentoAsaas } from "@/lib/subscription/service";
+import {
+  SemCobrancaPendenteError,
+  ValorAbaixoDoMinimoError,
+  VALOR_MINIMO_ASAAS,
+  somarPendentes,
+  atingiuMinimoAsaas,
+} from "@/lib/subscription/cobranca-aluno-pagamento-regras";
 
-export class SemCobrancaPendenteError extends Error {}
-
-/** A Asaas recusa cobrança abaixo desse valor (mesmo mínimo pra Pix, boleto
- * e cartão nesse tipo de checkout — ver createAsaasCheckout). */
-export const VALOR_MINIMO_ASAAS = 5;
-
-export class ValorAbaixoDoMinimoError extends Error {
-  constructor(
-    public totalPendente: number,
-    public minimo: number = VALOR_MINIMO_ASAAS
-  ) {
-    super(
-      `Suas cobranças pendentes somam R$ ${totalPendente.toFixed(2)} — a Asaas só aceita pagamentos a partir de R$ ${minimo.toFixed(2)}. Assim que o total atingir esse valor, o pagamento fica disponível.`
-    );
-  }
-}
+/** Reexportados de `@/lib/subscription/cobranca-aluno-pagamento-regras`
+ * (movidos pra lá pra poderem ser testados em unidade sem depender do
+ * Prisma Client/`server-only`) — mantidos aqui pra não quebrar quem já
+ * importa deste módulo. */
+export { SemCobrancaPendenteError, ValorAbaixoDoMinimoError, VALOR_MINIMO_ASAAS };
 
 /**
  * Gera o link de pagamento Asaas cobrindo TODAS as cobranças por aluno
@@ -43,8 +39,8 @@ export async function criarCheckoutCobrancasAlunoPendentes(motoristaId: string):
     throw new SemCobrancaPendenteError("Não há cobrança pendente pra pagar.");
   }
 
-  const total = pendentes.reduce((soma, c) => soma + Number(c.valor), 0);
-  if (total < VALOR_MINIMO_ASAAS) {
+  const total = somarPendentes(pendentes);
+  if (!atingiuMinimoAsaas(total)) {
     throw new ValorAbaixoDoMinimoError(total);
   }
 

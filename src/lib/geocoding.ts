@@ -669,17 +669,7 @@ export async function geocodeCidadeAproximado(cidade: string, estado: string): P
   return resultado ? { latitude: resultado.latitude, longitude: resultado.longitude } : null;
 }
 
-/** Monta a string de endereço padrão usada para exibir na UI (lista de
- * paradas do motorista, tela de perfil) — não é mais usada para
- * geocodificar (ver `geocodeEndereco`, que usa busca estruturada). */
-export function montarEnderecoTexto(endereco: {
-  logradouro?: string | null;
-  numero?: string | null;
-  bairro?: string | null;
-  cidade?: string | null;
-  estado?: string | null;
-}): string {
-  const linha1 = [endereco.logradouro, endereco.numero].filter(Boolean).join(", ");
-  const linha2 = [endereco.bairro, endereco.cidade, endereco.estado].filter(Boolean).join(", ");
-  return [linha1, linha2].filter(Boolean).join(" — ");
-}
+/** Reexportado de `@/lib/geo/endereco-texto` (movido pra lá pra poder ser
+ * testado em unidade sem depender do Prisma Client/`server-only`) — mantido
+ * aqui pra não quebrar quem já importa `montarEnderecoTexto` deste módulo. */
+export { montarEnderecoTexto } from "@/lib/geo/endereco-texto";

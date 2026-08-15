@@ -1,0 +1,33 @@
+# Postgres SÓ para os testes de integração (vitest.integration.config.ts).
+# Porta, usuário e nome de banco diferentes do docker-compose.yml de
+# desenvolvimento de propósito — os dois podem rodar ao mesmo tempo sem
+# conflito, e os testes de integração NUNCA encostam no banco de dev (os
+# helpers em src/test/db.ts truncam tabelas entre testes, o que seria
+# destrutivo demais pra apontar sem querer pro banco errado).
+#
+# Uso:
+#   docker compose -f docker-compose.test.yml up -d
+#   npm run test:integration:migrate   # só na primeira vez / após mudar o schema
+#   npm run test:integration
+#   docker compose -f docker-compose.test.yml down -v   # quando quiser zerar tudo
+
+services:
+  db-test:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: moove_test
+      POSTGRES_PASSWORD: moove_test
+      POSTGRES_DB: moove_test
+    ports:
+      - "5434:5432"
+    volumes:
+      - moove_db_test_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U moove_test -d moove_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  moove_db_test_data:
