@@ -11,8 +11,9 @@ import { PixKeyForm } from "@/components/motorista/PixKeyForm";
 import { PushToggle } from "@/components/ui/PushToggle";
 import { RevogarButton } from "@/components/motorista/RevogarButton";
 import { ReativarButton } from "@/components/motorista/ReativarButton";
-import { PagarCobrancaAlunoButton } from "@/components/motorista/PagarCobrancaAlunoButton";
+import { PagarCobrancasPendentesButton } from "@/components/motorista/PagarCobrancasPendentesButton";
 import { CobrancaAlunoSync } from "@/components/motorista/CobrancaAlunoSync";
+import { VALOR_MINIMO_ASAAS } from "@/lib/subscription/cobranca-aluno-pagamento";
 import { GuideTour, type GuideStep } from "@/components/ui/GuideTour";
 
 function formatarData(data: Date): string {
@@ -57,6 +58,11 @@ export default async function MotoristaVinculosPage() {
 
   const ativos = vinculos.filter((v) => v.status === "ATIVO").length;
   const cobrancasPendentesTotal = vinculos.reduce((soma, v) => soma + v.cobrancas.length, 0);
+  const valorPendenteTotal = vinculos.reduce(
+    (soma, v) => soma + v.cobrancas.reduce((s, c) => s + Number(c.valor), 0),
+    0
+  );
+  const faltaParaMinimo = VALOR_MINIMO_ASAAS - valorPendenteTotal;
 
   const tourSteps: GuideStep[] = [
     {
@@ -72,7 +78,7 @@ export default async function MotoristaVinculosPage() {
     {
       targetId: "tour-vinculos-lista",
       title: "Seus alunos vinculados",
-      text: "O selo \"Grátis\" mostra os alunos dentro da sua franquia; \"Cobrado\" mostra os que já estão gerando cobrança. Quando houver uma cobrança pendente, clique em \"Pagar agora\" — você paga direto pela Asaas, com PIX ou cartão, e a cobrança é baixada automaticamente assim que o pagamento é confirmado.",
+      text: "O selo \"Grátis\" mostra os alunos dentro da sua franquia; \"Cobrado\" mostra os que já estão gerando cobrança. As cobranças pendentes aparecem somadas no topo da tela — a Asaas só libera o pagamento a partir de R$5,00, então elas se acumulam até bater esse valor. Quando o botão \"Pagar tudo agora\" aparecer, é só clicar: você paga direto pela Asaas, com PIX ou cartão, e as cobranças são baixadas automaticamente assim que o pagamento é confirmado.",
     },
   ];
 
@@ -93,6 +99,23 @@ export default async function MotoristaVinculosPage() {
       <Suspense fallback={null}>
         <CobrancaAlunoSync />
       </Suspense>
+
+      {cobrancasPendentesTotal > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/20">
+          <div>
+            <p className="font-medium text-amber-900 dark:text-amber-300">
+              {formatarValor(valorPendenteTotal)} pendente
+              {cobrancasPendentesTotal > 1 && ` (${cobrancasPendentesTotal} cobranças)`}
+            </p>
+            <p className="text-xs text-amber-800/80 dark:text-amber-400/80">
+              {valorPendenteTotal >= VALOR_MINIMO_ASAAS
+                ? "Pague tudo de uma vez, direto pela Asaas."
+                : `A Asaas só libera o pagamento a partir de R$ ${VALOR_MINIMO_ASAAS.toFixed(2)} — falta ${formatarValor(faltaParaMinimo)} pra liberar (as cobranças se acumulam sozinhas a cada corte de 30 dias).`}
+            </p>
+          </div>
+          {valorPendenteTotal >= VALOR_MINIMO_ASAAS && <PagarCobrancasPendentesButton />}
+        </div>
+      )}
 
       <div className="grid gap-3 sm:grid-cols-2">
         <section id="tour-vinculos-pix" className={cardClass}>
@@ -150,16 +173,11 @@ export default async function MotoristaVinculosPage() {
               )}
 
               {v.cobrancas.length > 0 && (
-                <div className="space-y-2 rounded-xl bg-amber-50 p-3 dark:bg-amber-950/20">
+                <div className="space-y-1.5 rounded-xl bg-amber-50 p-3 dark:bg-amber-950/20">
                   {v.cobrancas.map((c) => (
-                    <div key={c.id} className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="text-xs text-amber-800 dark:text-amber-300">
-                        {formatarValor(Number(c.valor))} · ciclo {formatarData(c.cicloInicio)}–{formatarData(c.cicloFim)}
-                      </p>
-                      <div className="flex flex-wrap gap-1.5">
-                        <PagarCobrancaAlunoButton cobrancaId={c.id} />
-                      </div>
-                    </div>
+                    <p key={c.id} className="text-xs text-amber-800 dark:text-amber-300">
+                      {formatarValor(Number(c.valor))} · ciclo {formatarData(c.cicloInicio)}–{formatarData(c.cicloFim)}
+                    </p>
                   ))}
                 </div>
               )}

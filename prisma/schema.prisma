@@ -620,13 +620,14 @@ model Assinatura {
 
 model Pagamento {
   id                  String          @id @default(cuid())
-  // Exatamente um dos dois abaixo é preenchido — este Pagamento é da
-  // mensalidade da plataforma (assinaturaId) OU de uma cobrança por aluno
-  // excedente (cobrancaAlunoId). Ambos nullable porque o mesmo modelo/gateway
-  // (Asaas) agora serve os dois fluxos; a checagem de "exatamente um" é feita
-  // na aplicação (ver criarAssinaturaComCheckout / criarCheckoutCobrancaAluno).
+  // Preenchido quando este Pagamento é da mensalidade da plataforma. Um
+  // Pagamento "de cobrança por aluno" não tem uma FK escalar aqui — em vez
+  // disso é dono de várias `CobrancaAluno` (ver relação abaixo e comentário
+  // no model CobrancaAluno) porque a Asaas exige valor mínimo de R$5,00 por
+  // cobrança e o valor por aluno excedente costuma ser bem menor, então
+  // várias cobranças pendentes do mesmo motorista são agrupadas num Pagamento
+  // só (ver src/lib/subscription/cobranca-aluno-pagamento.ts).
   assinaturaId        String?         @map("assinatura_id")
-  cobrancaAlunoId     String?         @map("cobranca_aluno_id")
   gateway             String          @default("mercadopago")
   gatewayPagamentoId  String?         @unique @map("gateway_pagamento_id")
   gatewayPreferenceId String?         @map("gateway_preference_id")
@@ -636,10 +637,9 @@ model Pagamento {
   criadoEm            DateTime        @default(now()) @map("criado_em")
   pagoEm              DateTime?       @map("pago_em")
 
-  assinatura    Assinatura?    @relation(fields: [assinaturaId], references: [id], onDelete: Cascade)
-  cobrancaAluno CobrancaAluno? @relation(fields: [cobrancaAlunoId], references: [id], onDelete: Cascade)
+  assinatura     Assinatura?     @relation(fields: [assinaturaId], references: [id], onDelete: Cascade)
+  cobrancasAluno CobrancaAluno[]
 
-  @@index([cobrancaAlunoId, status])
   @@map("pagamentos")
 }
 
@@ -648,11 +648,13 @@ model Pagamento {
 // cron de 30 em 30 dias de vínculo ATIVO (ver
 // src/lib/subscription/cobranca-aluno.ts). É o motorista quem paga por aluno
 // excedente (além da faixa grátis do plano dele — SEMESTRAL/ANUAL), e paga
-// direto pela plataforma via Asaas (mesmo gateway/checkout já usado pra
-// mensalidade — ver `Pagamento.cobrancaAlunoId` e
-// src/lib/subscription/cobranca-aluno-pagamento.ts): PENDENTE até a Asaas
-// confirmar o pagamento (webhook + sincronização), ou CANCELADO se decidir
-// não cobrar.
+// direto pela plataforma via Asaas (mesmo gateway já usado pra mensalidade).
+// Como a Asaas recusa cobrança abaixo de R$5,00 e o valor por aluno costuma
+// ser bem menor, várias CobrancaAluno PENDENTE do mesmo motorista são
+// agrupadas num único `Pagamento` na hora de gerar o link (ver
+// `pagamentoId` abaixo e src/lib/subscription/cobranca-aluno-pagamento.ts):
+// PENDENTE até a Asaas confirmar o pagamento (webhook + sincronização), ou
+// CANCELADO se decidir não cobrar.
 // ---------------------------------------------------------------------------
 
 model CobrancaAluno {
@@ -669,13 +671,21 @@ model CobrancaAluno {
   status      StatusCobrancaAluno @default(PENDENTE)
   pagoEm      DateTime? @map("pago_em")
   criadoEm    DateTime @default(now()) @map("criado_em")
+  // Última tentativa de pagamento Asaas que incluiu essa cobrança — sempre
+  // reescrita a cada novo checkout gerado (não há reaproveitamento de link
+  // entre tentativas, mesmo padrão simples já usado no checkout de
+  // assinatura). Null até o motorista clicar em "Pagar" pela primeira vez;
+  // onDelete SetNull porque a cobrança (a dívida em si) sobrevive mesmo se o
+  // registro do Pagamento for removido.
+  pagamentoId String?  @map("pagamento_id")
 
-  vinculo    Vinculo     @relation(fields: [vinculoId], references: [id], onDelete: Cascade)
-  motorista  Motorista   @relation(fields: [motoristaId], references: [id], onDelete: Cascade)
-  pagamentos Pagamento[]
+  vinculo   Vinculo    @relation(fields: [vinculoId], references: [id], onDelete: Cascade)
+  motorista Motorista  @relation(fields: [motoristaId], references: [id], onDelete: Cascade)
+  pagamento Pagamento? @relation(fields: [pagamentoId], references: [id], onDelete: SetNull)
 
   @@index([motoristaId, status])
   @@index([vinculoId, cicloInicio])
+  @@index([pagamentoId])
   @@map("cobrancas_aluno")
 }
 

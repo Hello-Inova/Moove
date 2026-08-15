@@ -230,8 +230,9 @@ export function PlanoForm({ planoExistente }: { planoExistente?: PlanoDefinicao 
           />
           <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
             Cobrado do motorista pra cada aluno além da faixa grátis acima, gerado a cada 30 dias de vínculo ativo
-            (ver painel &quot;Alunos&quot; do motorista). Cobrança feita pelo próprio motorista via PIX — a
-            plataforma não processa esse valor.
+            e pago direto pela Asaas (ver painel &quot;Alunos&quot; do motorista). Como a Asaas exige valor mínimo
+            de R$5,00 por cobrança, valores menores que isso (comuns aqui) vão sendo somados até bater o mínimo
+            antes do motorista poder pagar — não precisa configurar acima de R$5.
           </p>
           <FieldError message={issues.valorPorAlunoExcedente?.[0]} />
         </div>

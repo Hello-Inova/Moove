@@ -3,36 +3,31 @@ import { NextResponse } from "next/server";
 import { getAuthenticatedMotorista } from "@/lib/auth/guards";
 import { jsonError } from "@/lib/http";
 import {
-  criarCheckoutCobrancaAluno,
-  CobrancaAlunoNaoEncontradaError,
-  CobrancaAlunoJaFinalizadaError,
+  criarCheckoutCobrancasAlunoPendentes,
+  SemCobrancaPendenteError,
+  ValorAbaixoDoMinimoError,
 } from "@/lib/subscription/cobranca-aluno-pagamento";
 import { AsaasNotConfiguredError, AsaasApiError, AsaasPayerSemCpfError } from "@/lib/payment/asaas";
 
 /**
- * Gera (ou reaproveita) o link de pagamento Asaas de uma cobrança por aluno
- * pendente — o motorista clica em "Pagar" na tela /motorista/vinculos e é
- * redirecionado pra essa URL. Mesmo padrão de erros da rota de checkout de
- * assinatura (ver /api/motorista/assinatura/checkout).
+ * Gera o link de pagamento Asaas cobrindo TODAS as cobranças por aluno
+ * pendentes do motorista autenticado de uma vez (nunca uma por uma — ver
+ * criarCheckoutCobrancasAlunoPendentes pro motivo). O motorista clica em
+ * "Pagar tudo" na tela /motorista/vinculos e é redirecionado pra essa URL.
  */
-export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function POST() {
   const motorista = await getAuthenticatedMotorista();
   if (!motorista) return jsonError(401, "Não autenticado.");
 
-  const { id } = await params;
-
   try {
-    const { checkoutUrl } = await criarCheckoutCobrancaAluno({
-      cobrancaAlunoId: id,
-      motoristaId: motorista.id,
-    });
+    const { checkoutUrl } = await criarCheckoutCobrancasAlunoPendentes(motorista.id);
 
     return NextResponse.json({ checkoutUrl }, { status: 201 });
   } catch (err) {
-    if (err instanceof CobrancaAlunoNaoEncontradaError) {
+    if (err instanceof SemCobrancaPendenteError) {
       return jsonError(404, err.message);
     }
-    if (err instanceof CobrancaAlunoJaFinalizadaError) {
+    if (err instanceof ValorAbaixoDoMinimoError) {
       return jsonError(409, err.message);
     }
     if (err instanceof AsaasNotConfiguredError) {

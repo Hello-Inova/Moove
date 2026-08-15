@@ -4,58 +4,71 @@ import { prisma } from "@/lib/prisma";
 import { createAsaasCheckout } from "@/lib/payment/asaas";
 import { confirmarPagamentoAsaas } from "@/lib/subscription/service";
 
-export class CobrancaAlunoNaoEncontradaError extends Error {}
-export class CobrancaAlunoJaFinalizadaError extends Error {}
+export class SemCobrancaPendenteError extends Error {}
 
-/**
- * Gera (ou reaproveita) o link de pagamento Asaas de uma CobrancaAluno
- * específica — mesma ideia do checkout de assinatura (ver
- * `criarAssinaturaComCheckout`), só que aqui a cobrança já existe (criada
- * pelo cron diário, ver cobranca-aluno.ts) e só falta o motorista pagar.
- *
- * Se já existir um Pagamento PENDENTE com link ativo pra essa mesma
- * cobrança, devolve o mesmo link em vez de criar outra cobrança na Asaas —
- * evita duplicar cobrança pro mesmo débito a cada clique em "Pagar".
- */
-export async function criarCheckoutCobrancaAluno(params: {
-  cobrancaAlunoId: string;
-  motoristaId: string;
-}): Promise<{ checkoutUrl: string }> {
-  const cobranca = await prisma.cobrancaAluno.findUnique({
-    where: { id: params.cobrancaAlunoId },
-    include: { vinculo: { include: { aluno: true } }, motorista: true },
-  });
+/** A Asaas recusa cobrança abaixo desse valor (mesmo mínimo pra Pix, boleto
+ * e cartão nesse tipo de checkout — ver createAsaasCheckout). */
+export const VALOR_MINIMO_ASAAS = 5;
 
-  if (!cobranca || cobranca.motoristaId !== params.motoristaId) {
-    throw new CobrancaAlunoNaoEncontradaError("Cobrança não encontrada.");
-  }
-  if (cobranca.status !== "PENDENTE") {
-    throw new CobrancaAlunoJaFinalizadaError(
-      cobranca.status === "PAGO" ? "Esta cobrança já foi paga." : "Esta cobrança foi cancelada."
+export class ValorAbaixoDoMinimoError extends Error {
+  constructor(
+    public totalPendente: number,
+    public minimo: number = VALOR_MINIMO_ASAAS
+  ) {
+    super(
+      `Suas cobranças pendentes somam R$ ${totalPendente.toFixed(2)} — a Asaas só aceita pagamentos a partir de R$ ${minimo.toFixed(2)}. Assim que o total atingir esse valor, o pagamento fica disponível.`
     );
   }
+}
 
-  const pagamentoExistente = await prisma.pagamento.findFirst({
-    where: { cobrancaAlunoId: cobranca.id, status: "PENDENTE" },
-    orderBy: { criadoEm: "desc" },
+/**
+ * Gera o link de pagamento Asaas cobrindo TODAS as cobranças por aluno
+ * ainda PENDENTES desse motorista de uma vez — nunca uma por uma. Isso
+ * existe porque a Asaas recusa cobrança abaixo de R$5,00 e o valor por
+ * aluno excedente dos planos costuma ser bem menor (ex.: R$1,20): agrupando
+ * várias cobranças (de alunos e/ou ciclos diferentes) no mesmo Pagamento, o
+ * total chega no mínimo exigido sem precisar mudar o valor do plano.
+ *
+ * Sempre cria uma tentativa nova (mesmo padrão simples já usado em
+ * `criarAssinaturaComCheckout` — sem reaproveitar link de tentativa
+ * anterior); o botão que chama isso já trava contra duplo clique.
+ */
+export async function criarCheckoutCobrancasAlunoPendentes(motoristaId: string): Promise<{ checkoutUrl: string }> {
+  const pendentes = await prisma.cobrancaAluno.findMany({
+    where: { motoristaId, status: "PENDENTE" },
+    orderBy: { criadoEm: "asc" },
   });
-  if (pagamentoExistente?.checkoutUrl) {
-    return { checkoutUrl: pagamentoExistente.checkoutUrl };
+
+  if (pendentes.length === 0) {
+    throw new SemCobrancaPendenteError("Não há cobrança pendente pra pagar.");
   }
 
-  const pagamento =
-    pagamentoExistente ??
-    (await prisma.pagamento.create({
-      data: { cobrancaAlunoId: cobranca.id, valor: cobranca.valor, gateway: "asaas" },
-    }));
+  const total = pendentes.reduce((soma, c) => soma + Number(c.valor), 0);
+  if (total < VALOR_MINIMO_ASAAS) {
+    throw new ValorAbaixoDoMinimoError(total);
+  }
+
+  const motorista = await prisma.motorista.findUniqueOrThrow({ where: { id: motoristaId } });
+
+  const pagamento = await prisma.pagamento.create({
+    data: { valor: total, gateway: "asaas" },
+  });
+
+  await prisma.cobrancaAluno.updateMany({
+    where: { id: { in: pendentes.map((c) => c.id) } },
+    data: { pagamentoId: pagamento.id },
+  });
 
   const checkout = await createAsaasCheckout({
-    titulo: `Moove — Cobrança por aluno (${cobranca.vinculo.aluno.nome})`,
-    valor: Number(cobranca.valor),
+    titulo:
+      pendentes.length === 1
+        ? "Moove — Cobrança por aluno excedente"
+        : `Moove — Cobrança por aluno excedente (${pendentes.length} cobranças)`,
+    valor: total,
     externalReference: pagamento.id,
-    payerEmail: cobranca.motorista.email,
-    payerNome: cobranca.motorista.nome,
-    payerCpf: cobranca.motorista.cpf,
+    payerEmail: motorista.email,
+    payerNome: motorista.nome,
+    payerCpf: motorista.cpf,
     backUrlPath: "/motorista/vinculos",
   });
 
@@ -69,19 +82,24 @@ export async function criarCheckoutCobrancaAluno(params: {
 
 /**
  * Rede de segurança contra falha do webhook da Asaas (mesmo padrão já usado
- * em `/api/motorista/assinatura/sincronizar`): revalida direto na API deles
+ * em /api/motorista/assinatura/sincronizar) — chamada pela tela
+ * /motorista/vinculos sempre que ela abre, pra revalidar direto na Asaas
  * qualquer Pagamento de cobrança-por-aluno ainda PENDENTE desse motorista,
  * em vez de depender só da notificação assíncrona chegar. Devolve quantas
  * cobranças foram confirmadas nesta chamada.
  */
 export async function sincronizarCobrancasAlunoPendentes(motoristaId: string): Promise<number> {
-  const pendentes = await prisma.pagamento.findMany({
-    where: { status: "PENDENTE", cobrancaAluno: { motoristaId }, gatewayPreferenceId: { not: null } },
+  const pagamentosPendentes = await prisma.pagamento.findMany({
+    where: {
+      status: "PENDENTE",
+      gatewayPreferenceId: { not: null },
+      cobrancasAluno: { some: { motoristaId, status: "PENDENTE" } },
+    },
     select: { id: true, gatewayPreferenceId: true },
   });
 
   let atualizados = 0;
-  for (const p of pendentes) {
+  for (const p of pagamentosPendentes) {
     if (!p.gatewayPreferenceId) continue;
     await confirmarPagamentoAsaas(p.gatewayPreferenceId);
     const atual = await prisma.pagamento.findUnique({ where: { id: p.id }, select: { status: true } });

@@ -185,8 +185,9 @@ export async function forcarAssinaturaAtiva(motoristaId: string, tipoPlano: stri
  * de Pagamento que passam pela Asaas hoje (ver comentário no schema, model
  * Pagamento): mensalidade da plataforma (`assinaturaId`) — ativa a
  * assinatura e cancela outras em aberto do mesmo motorista (troca de plano /
- * renovação) — ou cobrança por aluno excedente (`cobrancaAlunoId`) — marca a
- * `CobrancaAluno` correspondente como PAGO.
+ * renovação) — ou cobrança por aluno excedente (`cobrancasAluno`, plural —
+ * um Pagamento pode agrupar várias CobrancaAluno pra bater o mínimo da
+ * Asaas, ver cobranca-aluno-pagamento.ts) — marca todas como PAGO.
  *
  * `CONFIRMED` já é suficiente pra liberar acesso (pagamento garantido, só o
  * repasse do saldo é que ainda não caiu) — não esperamos `RECEIVED`, que no
@@ -198,7 +199,7 @@ export async function confirmarPagamentoAsaas(asaasPaymentId: string): Promise<b
 
   const pagamento = await prisma.pagamento.findUnique({
     where: { id: payment.externalReference },
-    include: { assinatura: true, cobrancaAluno: true },
+    include: { assinatura: true, cobrancasAluno: true },
   });
   if (!pagamento) return false;
 
@@ -234,21 +235,25 @@ export async function confirmarPagamentoAsaas(asaasPaymentId: string): Promise<b
           },
           data: { status: "CANCELADA" },
         });
-      } else if (pagamento.cobrancaAluno) {
-        await tx.cobrancaAluno.update({
-          where: { id: pagamento.cobrancaAluno.id },
+      } else if (pagamento.cobrancasAluno.length > 0) {
+        await tx.cobrancaAluno.updateMany({
+          where: { id: { in: pagamento.cobrancasAluno.map((c) => c.id) } },
           data: { status: "PAGO", pagoEm: new Date() },
         });
       }
     });
 
-    if (pagamento.cobrancaAluno) {
+    if (pagamento.cobrancasAluno.length > 0) {
+      const motoristaId = pagamento.cobrancasAluno[0].motoristaId;
       await notificarPush(
-        { motoristaId: pagamento.cobrancaAluno.motoristaId },
+        { motoristaId },
         {
           title: "Cobrança de aluno paga",
-          body: `Pagamento de ${formatarBRL(Number(pagamento.valor))} confirmado — veja em "Alunos".`,
-          tag: `cobranca-aluno-paga-${pagamento.cobrancaAluno.id}`,
+          body:
+            pagamento.cobrancasAluno.length === 1
+              ? `Pagamento de ${formatarBRL(Number(pagamento.valor))} confirmado — veja em "Alunos".`
+              : `Pagamento de ${formatarBRL(Number(pagamento.valor))} (${pagamento.cobrancasAluno.length} cobranças) confirmado — veja em "Alunos".`,
+          tag: `cobranca-aluno-paga-${pagamento.id}`,
         }
       );
     }
@@ -265,9 +270,10 @@ export async function confirmarPagamentoAsaas(asaasPaymentId: string): Promise<b
       // Estorno de uma cobrança por aluno reabre o débito — diferente da
       // assinatura (onde um estorno não reverte automaticamente o acesso já
       // concedido), aqui a dívida em si volta a existir.
-      if (pagamento.cobrancaAluno && pagamento.cobrancaAluno.status === "PAGO") {
-        await tx.cobrancaAluno.update({
-          where: { id: pagamento.cobrancaAluno.id },
+      const pagas = pagamento.cobrancasAluno.filter((c) => c.status === "PAGO");
+      if (pagas.length > 0) {
+        await tx.cobrancaAluno.updateMany({
+          where: { id: { in: pagas.map((c) => c.id) } },
           data: { status: "PENDENTE", pagoEm: null },
         });
       }
