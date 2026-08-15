@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
   const parsed = alunoSchema.safeParse(body);
   if (!parsed.success) return jsonValidationError(parsed.error);
 
-  const { nome, cep, logradouro, numero, complemento, bairro, cidade, estado } = parsed.data;
+  const { nome, dataNascimento, genero, cep, logradouro, numero, complemento, bairro, cidade, estado } = parsed.data;
 
   const coordenadas = await geocodeEndereco({ logradouro, numero, bairro, cidade, estado, cep });
 
@@ -75,6 +75,8 @@ export async function POST(request: NextRequest) {
     data: {
       responsavelId: responsavel.id,
       nome,
+      dataNascimento,
+      genero,
       cep,
       logradouro,
       numero,

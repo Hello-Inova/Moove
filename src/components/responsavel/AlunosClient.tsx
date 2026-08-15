@@ -1,13 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { MapPin, CheckCircle2 } from "lucide-react";
+import { MapPin, CheckCircle2, Plus } from "lucide-react";
 
-import { apiGet, apiPostJson, apiDelete } from "@/lib/api-client";
-import { FieldError, inputClass, primaryButtonClass, secondaryButtonClass, dangerButtonClass } from "@/components/ui/form-elements";
-import { EnderecoFields } from "@/components/ui/EnderecoFields";
+import { apiGet, apiDelete } from "@/lib/api-client";
+import { secondaryButtonClass, primaryButtonClass, dangerButtonClass } from "@/components/ui/form-elements";
 import { EditarEnderecoAlunoModal } from "@/components/responsavel/EditarEnderecoAlunoModal";
+import { NovoAlunoModal } from "@/components/responsavel/NovoAlunoModal";
 import { useConfirm } from "@/components/ui/ConfirmProvider";
 import { Skeleton } from "@/components/ui/Skeleton";
 
@@ -46,10 +46,8 @@ export function AlunosClient() {
   const confirm = useConfirm();
   const [alunos, setAlunos] = useState<Aluno[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [formError, setFormError] = useState<string | null>(null);
-  const [issues, setIssues] = useState<Record<string, string[] | undefined>>({});
-  const [loading, setLoading] = useState(false);
   const [editandoEnderecoDe, setEditandoEnderecoDe] = useState<Aluno | null>(null);
+  const [novoAlunoAberto, setNovoAlunoAberto] = useState(false);
 
   const carregar = useCallback(async () => {
     const alunosResult = await apiGet<Aluno[]>("/api/responsavel/alunos");
@@ -64,37 +62,6 @@ export function AlunosClient() {
   useEffect(() => {
     void carregar();
   }, [carregar]);
-
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setLoading(true);
-    setFormError(null);
-    setIssues({});
-
-    const form = new FormData(event.currentTarget);
-    const payload = {
-      nome: form.get("nome"),
-      cep: form.get("cep"),
-      logradouro: form.get("logradouro"),
-      numero: form.get("numero"),
-      complemento: form.get("complemento"),
-      bairro: form.get("bairro"),
-      cidade: form.get("cidade"),
-      estado: form.get("estado"),
-    };
-    const result = await apiPostJson<Aluno>("/api/responsavel/alunos", payload);
-    setLoading(false);
-
-    if (!result.ok) {
-      setFormError(result.error);
-      setIssues(result.issues ?? {});
-      return;
-    }
-
-    event.currentTarget.reset();
-    toast.success("Aluno adicionado.");
-    void carregar();
-  }
 
   async function handleDelete(id: string, nome: string) {
     if (!(await confirm(`Remover "${nome}" da sua lista de alunos?`, { danger: true, confirmLabel: "Remover" }))) return;
@@ -112,7 +79,17 @@ export function AlunosClient() {
   return (
     <div className="space-y-6">
       <section className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm dark:border-neutral-700 dark:bg-neutral-900">
-        <h2 className="mb-3 font-medium">Meus alunos</h2>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="font-medium">Meus alunos</h2>
+          <button
+            type="button"
+            onClick={() => setNovoAlunoAberto(true)}
+            className={primaryButtonClass + " inline-flex w-auto items-center gap-1.5 px-3.5 py-1.5 text-sm"}
+          >
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            Novo aluno
+          </button>
+        </div>
 
         {!alunos && (
           <div className="space-y-2">
@@ -121,7 +98,9 @@ export function AlunosClient() {
           </div>
         )}
         {alunos && alunos.length === 0 && (
-          <p className="text-sm text-neutral-500 dark:text-neutral-400">Nenhum aluno cadastrado ainda.</p>
+          <p className="text-sm text-neutral-500 dark:text-neutral-400">
+            Nenhum aluno cadastrado ainda. Toque em &quot;Novo aluno&quot; para começar.
+          </p>
         )}
 
         <ul className="space-y-2">
@@ -186,28 +165,17 @@ export function AlunosClient() {
             );
           })}
         </ul>
-
-        <form onSubmit={handleSubmit} className="mt-4 space-y-4 border-t border-neutral-200 pt-4 dark:border-neutral-700" noValidate>
-          <div>
-            <label className="mb-1 block text-sm font-medium" htmlFor="nome">
-              Nome do aluno
-            </label>
-            <input id="nome" name="nome" required className={inputClass} />
-            <FieldError message={issues.nome?.[0]} />
-          </div>
-
-          <div>
-            <p className="mb-3 text-sm font-medium">Endereço de embarque/desembarque</p>
-            <EnderecoFields issues={issues} />
-          </div>
-
-          {formError && <p className="text-sm text-red-600">{formError}</p>}
-
-          <button type="submit" disabled={loading} className={primaryButtonClass + " sm:w-auto sm:px-6"}>
-            {loading ? "Adicionando…" : "Adicionar aluno"}
-          </button>
-        </form>
       </section>
+
+      {novoAlunoAberto && (
+        <NovoAlunoModal
+          onClose={() => setNovoAlunoAberto(false)}
+          onCriado={() => {
+            setNovoAlunoAberto(false);
+            void carregar();
+          }}
+        />
+      )}
 
       {editandoEnderecoDe && (
         <EditarEnderecoAlunoModal

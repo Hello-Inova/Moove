@@ -28,8 +28,8 @@ export default async function ResponsavelAlunosPage({
 
         {novo === "1" && (
           <div className="rounded-xl border border-blue-300 bg-blue-50 p-4 text-sm text-blue-900 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300">
-            Sua conta foi criada! Cadastre abaixo o(s) aluno(s), com o endereço de cada um — é assim que o motorista
-            encontra vocês.
+            Sua conta foi criada! Toque em &quot;Novo aluno&quot; para cadastrar o(s) aluno(s), com o endereço de
+            cada um — é assim que o motorista encontra vocês.
           </div>
         )}
 

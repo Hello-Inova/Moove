@@ -157,19 +157,6 @@ export const usarConviteSchema = z.object({
   escolaId: z.string().trim().min(1, "Selecione a escola."),
 });
 
-// Endereço obrigatório no cadastro do aluno — é dele que a rota do
-// motorista parte (ver GET /api/motorista/rota). Cada aluno de um mesmo
-// responsável pode ter um endereço diferente (irmãos em escolas/casas
-// diferentes), por isso o endereço vive aqui e não mais em Responsavel.
-export const alunoSchema = z.object({
-  nome: z.string().trim().min(2, "Informe o nome do aluno.").max(120),
-  ...enderecoCampos,
-});
-
-// Usado só pra editar o endereço de um aluno já existente (reaproveita os
-// mesmos campos/validações do cadastro).
-export const editarEnderecoAlunoSchema = z.object(enderecoCampos);
-
 // Data no formato "YYYY-MM-DD" (vem de <input type="date">) — vazio/ausente
 // vira null (limpa o campo), string transforma em Date. `refine` evita
 // datas absurdas tipo "2026-13-99" passarem como Date inválida silenciosa.
@@ -181,6 +168,26 @@ const dataOpcional = z
   .transform((v) => (v ? new Date(`${v}T00:00:00`) : null))
   .refine((d) => d === null || !Number.isNaN(d.getTime()), "Data inválida.");
 
+const generoAlunoOpcional = z.enum(["MASCULINO", "FEMININO", "OUTRO"]).optional().nullable();
+
+// Endereço obrigatório no cadastro do aluno — é dele que a rota do
+// motorista parte (ver GET /api/motorista/rota). Cada aluno de um mesmo
+// responsável pode ter um endereço diferente (irmãos em escolas/casas
+// diferentes), por isso o endereço vive aqui e não mais em Responsavel.
+// Nascimento/gênero são opcionais aqui — o responsável pode preenchê-los já
+// no cadastro ou deixar pro motorista completar depois na tela de perfil do
+// aluno (ver editarPerfilAlunoSchema logo abaixo, mesmos dois campos).
+export const alunoSchema = z.object({
+  nome: z.string().trim().min(2, "Informe o nome do aluno.").max(120),
+  dataNascimento: dataOpcional,
+  genero: generoAlunoOpcional,
+  ...enderecoCampos,
+});
+
+// Usado só pra editar o endereço de um aluno já existente (reaproveita os
+// mesmos campos/validações do cadastro).
+export const editarEnderecoAlunoSchema = z.object(enderecoCampos);
+
 // Usada pela tela de perfil do aluno (motorista) — completa dados que o
 // responsável pode não ter preenchido no cadastro (nascimento/gênero) e
 // configura o que é exclusivo do motorista: período/escola dessa rota e os
@@ -189,7 +196,7 @@ const dataOpcional = z
 // parcial de qualquer seção do perfil.
 export const editarPerfilAlunoSchema = z.object({
   dataNascimento: dataOpcional,
-  genero: z.enum(["MASCULINO", "FEMININO", "OUTRO"]).optional().nullable(),
+  genero: generoAlunoOpcional,
   periodo: z.enum(["MANHA", "TARDE", "INTEGRAL", "NOITE"]).optional().nullable(),
   escolaId: z.string().trim().optional().nullable(),
   valorMensalidade: z.number().min(0, "Valor inválido.").max(1_000_000).optional().nullable(),
