@@ -1,3 +1,5 @@
+import type { Prisma } from "@prisma/client";
+
 import { prismaTest } from "@/test/db";
 
 // Helpers de fixture pros testes de integração — só o mínimo de campos
@@ -23,7 +25,7 @@ function testeExpiraEmPadrao(): Date {
   return d;
 }
 
-export async function criarMotorista(overrides: Partial<Parameters<typeof prismaTest.motorista.create>[0]["data"]> = {}) {
+export async function criarMotorista(overrides: Partial<Prisma.MotoristaUncheckedCreateInput> = {}) {
   const sufixo = proximoSufixo();
   return prismaTest.motorista.create({
     data: {
@@ -40,8 +42,8 @@ export async function criarMotorista(overrides: Partial<Parameters<typeof prisma
 
 export async function criarResponsavelComAluno(
   overrides: {
-    responsavel?: Partial<Parameters<typeof prismaTest.responsavel.create>[0]["data"]>;
-    aluno?: Partial<Parameters<typeof prismaTest.aluno.create>[0]["data"]>;
+    responsavel?: Partial<Prisma.ResponsavelUncheckedCreateInput>;
+    aluno?: Partial<Prisma.AlunoUncheckedCreateInput>;
   } = {}
 ) {
   const sufixo = proximoSufixo();
