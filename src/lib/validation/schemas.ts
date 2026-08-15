@@ -158,6 +158,45 @@ export const alunoSchema = z.object({
   nome: z.string().trim().min(2, "Informe o nome do aluno.").max(120),
 });
 
+// Data no formato "YYYY-MM-DD" (vem de <input type="date">) — vazio/ausente
+// vira null (limpa o campo), string transforma em Date. `refine` evita
+// datas absurdas tipo "2026-13-99" passarem como Date inválida silenciosa.
+const dataOpcional = z
+  .string()
+  .trim()
+  .optional()
+  .nullable()
+  .transform((v) => (v ? new Date(`${v}T00:00:00`) : null))
+  .refine((d) => d === null || !Number.isNaN(d.getTime()), "Data inválida.");
+
+// Usada pela tela de perfil do aluno (motorista) — completa dados que o
+// responsável pode não ter preenchido no cadastro (nascimento/gênero) e
+// configura o que é exclusivo do motorista: período/escola dessa rota e os
+// termos da mensalidade do transporte (ver Vinculo no schema). Todos os
+// campos são opcionais individualmente — a mesma rota aceita atualização
+// parcial de qualquer seção do perfil.
+export const editarPerfilAlunoSchema = z.object({
+  dataNascimento: dataOpcional,
+  genero: z.enum(["MASCULINO", "FEMININO", "OUTRO"]).optional().nullable(),
+  periodo: z.enum(["MANHA", "TARDE", "INTEGRAL", "NOITE"]).optional().nullable(),
+  escolaId: z.string().trim().optional().nullable(),
+  valorMensalidade: z.number().min(0, "Valor inválido.").max(1_000_000).optional().nullable(),
+  diaPagamentoMensalidade: z.number().int().min(1, "Dia inválido.").max(31, "Dia inválido.").optional().nullable(),
+  vigenciaInicio: dataOpcional,
+  vigenciaFim: dataOpcional,
+});
+
+export const criarContratoTransporteSchema = z.object({
+  titulo: z.string().trim().min(2, "Informe um título.").max(120),
+  observacoes: z.string().trim().max(2000).optional().nullable(),
+  arquivoUrl: z
+    .union([z.string().trim().url("Link inválido — cole a URL completa (https://...)."), z.literal("")])
+    .optional()
+    .nullable(),
+  vigenciaInicio: dataOpcional,
+  vigenciaFim: dataOpcional,
+});
+
 export const escolaSchema = z.object({
   nome: z.string().trim().min(2, "Informe o nome da escola.").max(120),
   ...enderecoCampos,

@@ -90,6 +90,31 @@ enum StatusCobrancaAluno {
   @@map("status_cobranca_aluno")
 }
 
+enum GeneroAluno {
+  MASCULINO
+  FEMININO
+  OUTRO
+
+  @@map("genero_aluno")
+}
+
+enum TurnoEscolar {
+  MANHA
+  TARDE
+  INTEGRAL
+  NOITE
+
+  @@map("turno_escolar")
+}
+
+enum StatusMensalidadeTransporte {
+  PENDENTE
+  PAGO
+  CANCELADO
+
+  @@map("status_mensalidade_transporte")
+}
+
 // ---------------------------------------------------------------------------
 // Motorista
 // ---------------------------------------------------------------------------
@@ -149,15 +174,16 @@ model Motorista {
 
   criadoEm DateTime @default(now()) @map("criado_em")
 
-  veiculos          Veiculo[]
-  convites          Convite[]
-  vinculos          Vinculo[]
-  localizacao       Localizacao?
-  assinaturas       Assinatura[]
-  escolas           Escola[]
-  percursos         PercursoDia[]
-  cobrancasAluno    CobrancaAluno[]
-  pushSubscriptions PushSubscription[]
+  veiculos             Veiculo[]
+  convites             Convite[]
+  vinculos             Vinculo[]
+  localizacao          Localizacao?
+  assinaturas          Assinatura[]
+  escolas              Escola[]
+  percursos            PercursoDia[]
+  cobrancasAluno       CobrancaAluno[]
+  pushSubscriptions    PushSubscription[]
+  mensalidadesTransporte MensalidadeTransporte[]
 
   @@map("motoristas")
 }
@@ -336,6 +362,12 @@ model Aluno {
   responsavelId String @map("responsavel_id")
   nome          String
 
+  // Preenchidos no cadastro do responsável (opcional lá) ou completados
+  // depois pelo motorista na tela de perfil do aluno — não são exigidos em
+  // nenhum dos dois fluxos, por isso nullable.
+  dataNascimento DateTime?    @map("data_nascimento")
+  genero         GeneroAluno?
+
   criadoEm DateTime @default(now()) @map("criado_em")
 
   responsavel Responsavel @relation(fields: [responsavelId], references: [id], onDelete: Cascade)
@@ -406,6 +438,22 @@ model Vinculo {
   // incompleto — ver comentário na função de cobrança).
   proximaCobrancaEm DateTime? @map("proxima_cobranca_em")
 
+  // Turno escolar desse aluno nessa rota — informativo, preenchido pelo
+  // motorista na tela de perfil (ver imagem de referência "Dados
+  // escolares"). Não afeta cálculo de cobrança nenhuma.
+  periodo TurnoEscolar? @map("periodo")
+
+  // Termos da mensalidade de TRANSPORTE combinada entre motorista e
+  // responsável — dinheiro que vai direto pro motorista, fora da
+  // plataforma (bem diferente da CobrancaAluno, que é a taxa da Moove por
+  // aluno excedente do plano). Preenchidos pelo motorista; enquanto
+  // `valorMensalidade` for null, nenhuma MensalidadeTransporte é gerada
+  // pro cron (ver src/lib/mensalidade/mensalidade-transporte.ts).
+  valorMensalidade        Decimal?  @db.Decimal(10, 2) @map("valor_mensalidade")
+  diaPagamentoMensalidade Int?      @map("dia_pagamento_mensalidade") // 1–31
+  vigenciaInicio          DateTime? @map("vigencia_inicio") // primeiro dia do mês de início
+  vigenciaFim             DateTime? @map("vigencia_fim") // primeiro dia do mês final (null = sem prazo definido)
+
   motorista   Motorista   @relation(fields: [motoristaId], references: [id], onDelete: Cascade)
   responsavel Responsavel @relation(fields: [responsavelId], references: [id], onDelete: Cascade)
   aluno       Aluno       @relation(fields: [alunoId], references: [id], onDelete: Cascade)
@@ -414,6 +462,8 @@ model Vinculo {
   embarquesDia EmbarqueDia[]
   alertasProximidade AlertaProximidade[]
   cobrancas   CobrancaAluno[]
+  mensalidades MensalidadeTransporte[]
+  contratos    ContratoTransporte[]
 
   // Índice usado pela checagem crítica de segurança: existe vínculo ATIVO
   // entre este responsável e este motorista?
@@ -422,6 +472,65 @@ model Vinculo {
   @@index([alunoId, status])
   @@index([escolaId])
   @@map("vinculos")
+}
+
+// ---------------------------------------------------------------------------
+// MensalidadeTransporte — cobrança mensal do transporte em si (o serviço
+// prestado pelo motorista à família), gerada automaticamente a partir dos
+// termos definidos no Vinculo (valorMensalidade/diaPagamentoMensalidade/
+// vigência). Dinheiro combinado direto entre motorista e responsável, por
+// isso o controle aqui é manual (PENDENTE até o motorista confirmar que
+// recebeu) — mesmo espírito do antigo fluxo de CobrancaAluno via WhatsApp,
+// só que essa aqui é intencionalmente peer-to-peer e nunca vai passar pela
+// Asaas.
+// ---------------------------------------------------------------------------
+
+model MensalidadeTransporte {
+  id            String   @id @default(cuid())
+  vinculoId     String   @map("vinculo_id")
+  // Redundante com vinculo.motoristaId de propósito — mesma razão do
+  // padrão já usado em CobrancaAluno (consulta simples sem join extra).
+  motoristaId   String   @map("motorista_id")
+  // Sempre o dia 1 do mês de referência (ex.: 2026-08-01) — facilita
+  // comparar/ordenar sem se preocupar com o dia exato de vencimento.
+  mesReferencia DateTime @map("mes_referencia")
+  valor         Decimal  @db.Decimal(10, 2)
+  status        StatusMensalidadeTransporte @default(PENDENTE)
+  pagoEm        DateTime? @map("pago_em")
+  criadoEm      DateTime @default(now()) @map("criado_em")
+
+  vinculo   Vinculo   @relation(fields: [vinculoId], references: [id], onDelete: Cascade)
+  motorista Motorista @relation(fields: [motoristaId], references: [id], onDelete: Cascade)
+
+  // Nunca gerar duas mensalidades pro mesmo mês do mesmo vínculo, mesmo se
+  // o cron rodar mais de uma vez no dia.
+  @@unique([vinculoId, mesReferencia])
+  @@index([motoristaId, status])
+  @@map("mensalidades_transporte")
+}
+
+// ---------------------------------------------------------------------------
+// ContratoTransporte — registro do combinado de prestação de serviço entre
+// motorista e responsável pra aquele aluno. Texto livre + link opcional
+// (não há upload de arquivo no sistema — se o motorista já tem um PDF
+// assinado em outro lugar, cola o link aqui). Histórico: pode haver mais de
+// um ao longo do tempo (renovações, reajustes).
+// ---------------------------------------------------------------------------
+
+model ContratoTransporte {
+  id             String    @id @default(cuid())
+  vinculoId      String    @map("vinculo_id")
+  titulo         String
+  observacoes    String?
+  arquivoUrl     String?   @map("arquivo_url")
+  vigenciaInicio DateTime? @map("vigencia_inicio")
+  vigenciaFim    DateTime? @map("vigencia_fim")
+  criadoEm       DateTime  @default(now()) @map("criado_em")
+
+  vinculo Vinculo @relation(fields: [vinculoId], references: [id], onDelete: Cascade)
+
+  @@index([vinculoId])
+  @@map("contratos_transporte")
 }
 
 // ---------------------------------------------------------------------------

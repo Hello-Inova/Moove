@@ -1,11 +1,12 @@
 import { Suspense } from "react";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { CheckCircle2, XCircle, Gift, CircleDollarSign, Clock } from "lucide-react";
 
 import { getAuthenticatedMotorista } from "@/lib/auth/guards";
 import { getAssinaturaAtual } from "@/lib/subscription/service";
 import { prisma } from "@/lib/prisma";
-import { cardClass } from "@/components/ui/form-elements";
+import { cardClass, secondaryButtonClass } from "@/components/ui/form-elements";
 import { Badge } from "@/components/ui/Badge";
 import { PixKeyForm } from "@/components/motorista/PixKeyForm";
 import { PushToggle } from "@/components/ui/PushToggle";
@@ -183,6 +184,9 @@ export default async function MotoristaVinculosPage() {
               )}
 
               <div className="mt-auto flex flex-wrap gap-2 pt-1">
+                <Link href={`/motorista/vinculos/${v.id}`} className={secondaryButtonClass + " w-auto px-3 py-1.5 text-sm"}>
+                  Ver perfil
+                </Link>
                 {v.status === "ATIVO" ? (
                   <RevogarButton
                     url={`/api/motorista/vinculos/${v.id}/revogar`}
