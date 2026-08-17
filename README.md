@@ -388,13 +388,70 @@ gerenciar:
 > comercial nos termos deles — bom para validar o produto, mas migre para o
 > plano Pro (pago) quando o Moove estiver em operação real.
 
+## App mobile (Android/iOS)
+
+O app nativo **não é um bundle separado** — é uma casca nativa (via
+[Capacitor](https://capacitorjs.com)) que carrega o site em produção de
+verdade dentro de um WebView (`server.url` em `capacitor.config.ts`). Tudo
+que já existe (páginas, API routes, autenticação por cookie, cron jobs)
+continua funcionando exatamente igual e sem duplicação — um deploy novo no
+site já reflete no app, sem precisar publicar uma versão nova na loja (só é
+preciso reconstruir/republicar quando algo *nativo* mudar: plugin,
+permissão, ícone etc.).
+
+Estrutura:
+
+- `capacitor.config.ts` — configuração raiz, incluindo `appId`
+  (`br.com.helloinova.moove`) e a URL de produção. **O `appId` fica
+  praticamente permanente depois da primeira publicação numa loja** —
+  confirme antes de publicar a primeira versão.
+- `android/` — projeto nativo Android (Gradle/Android Studio).
+- `ios/` — projeto nativo iOS (Xcode). Usa Swift Package Manager, não exige
+  CocoaPods.
+- `www/` — conteúdo local mínimo exigido pelo Capacitor (`webDir`); na
+  prática nunca aparece, é só um fallback — o app carrega a URL real.
+
+### Build/rodar localmente
+
+Requer Android Studio (Android) ou um Mac com Xcode (iOS) — nenhum dos dois
+roda dentro deste ambiente sandbox, só numa máquina com as ferramentas
+instaladas.
+
+```bash
+npm install                # instala @capacitor/* junto com o resto
+npx cap sync                # sincroniza config/plugins nas pastas nativas
+npx cap open android        # abre no Android Studio
+npx cap open ios            # abre no Xcode (só em macOS)
+```
+
+A partir daí, Run/Play normal em cada IDE — o app abre já carregando
+`https://app.mooveraster.com.br`.
+
+### O que falta pra publicar de verdade nas lojas
+
+O wrapper básico já funciona (é o que este commit entrega), mas duas coisas
+que a web sozinha não resolve bem ainda precisam de plugin nativo antes de
+submeter às lojas de verdade:
+
+1. **Localização em segundo plano** — hoje o compartilhamento de GPS do
+   motorista depende da aba/app estar em primeiro plano (limitação do
+   navegador, mais severa no iOS). Resolve com um plugin de background
+   geolocation (ex.: `@capacitor-community/background-geolocation`,
+   gratuito, ou a opção paga da Transistor Software, mais robusta) —
+   decisão de custo que fica pra quando formos configurar isso.
+2. **Push nativo** — hoje usa Web Push (VAPID, já implementado). Pra
+   confiabilidade melhor dentro do app nativo, trocar por
+   `@capacitor/push-notifications` (FCM no Android, APNs no iOS).
+
+Sem isso, o app já é publicável (é justamente ter esses dois pontos nativos
+que evita a Apple rejeitar por "app é só um site" — guideline 4.2), mas o
+rastreamento em segundo plano ainda ficaria limitado até o item 1 ser feito.
+
 ## O que fica para depois
 
 - Cobrança recorrente automática (hoje a renovação do plano é feita
   manualmente pelo motorista a cada fim de ciclo — ver Assinaturas e pagamento).
-- App nativo (fase futura, fora do escopo atual).
-- PWA/Service Worker para estender a janela de compartilhamento em segundo
-  plano no mobile.
-- Testes automatizados (o fluxo crítico foi validado manualmente ponta a
-  ponta durante o desenvolvimento, mas não há suíte de testes no repositório
-  ainda).
+- Plugin de background geolocation e push nativo no app mobile (ver seção
+  acima) — necessários antes da primeira publicação nas lojas.
+- Ícones/splash screens nativos personalizados (Android/iOS usam os
+  placeholders padrão do Capacitor por enquanto).

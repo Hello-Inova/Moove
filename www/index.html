@@ -1,0 +1,19 @@
+<!doctype html>
+<!--
+  Conteúdo "local" mínimo exigido pelo Capacitor (webDir precisa ter algo).
+  Na prática nunca aparece: o app está configurado com `server.url` no
+  capacitor.config.ts, que faz o WebView carregar o site em produção de
+  verdade (https://app.mooveraster.com.br) em vez desse arquivo. Isso só
+  seria mostrado num cenário raro de falha muito precoce de rede, antes do
+  WebView conseguir navegar pra URL configurada.
+-->
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Moove</title>
+  </head>
+  <body style="margin:0;display:flex;align-items:center;justify-content:center;height:100vh;font-family:system-ui,sans-serif;background:#1e293b;color:#fff;">
+    <p>Carregando o Moove…</p>
+  </body>
+</html>
