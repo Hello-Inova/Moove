@@ -447,11 +447,56 @@ Sem isso, o app já é publicável (é justamente ter esses dois pontos nativos
 que evita a Apple rejeitar por "app é só um site" — guideline 4.2), mas o
 rastreamento em segundo plano ainda ficaria limitado até o item 1 ser feito.
 
+### Publicando na Google Play Store (Android)
+
+Ícones já gerados (`android/app/src/main/res/mipmap-*`, a partir de
+`public/icons/icon-512*.png`) e a assinatura de release já configurada
+(`android/app/build.gradle` lê `android/keystore.properties`, que não vai
+pro Git — ver `android/keystore.properties.example`). Passos que dependem
+de conta/pagamento/design, então ficam com você:
+
+1. **Conta de desenvolvedor Google Play** — crie em
+   [play.google.com/console](https://play.google.com/console), taxa única
+   de US$ 25.
+2. **Backup da keystore** — `android/app/upload-keystore.jks` e
+   `android/keystore.properties` foram gerados localmente e só existem na
+   sua máquina (nunca vão pro Git). Copie os dois pra um cofre de senhas ou
+   backup seguro AGORA, antes de continuar. Com o **Play App Signing**
+   (obrigatório pra apps novos), perder isso não é mais permanente — dá
+   pra pedir reset pelo suporte do Google — mas ainda assim evite depender
+   disso.
+3. **Gerar o `.aab` assinado**:
+   ```bash
+   cd android
+   ./gradlew bundleRelease
+   ```
+   Gera `android/app/build/outputs/bundle/release/app-release.aab`. (Ou,
+   pelo Android Studio: Build → Generate Signed Bundle/APK.)
+4. **Criar o app no Play Console** e preencher a ficha da loja:
+   - Nome, descrição curta/completa, categoria (Mapas e navegação, ou
+     Produtividade).
+   - Ícone 512×512 — já existe em `public/icons/icon-512.png`.
+   - **Gráfico de destaque (1024×500)** e **screenshots** (mín. 2, celular)
+     — ainda faltam gerar; precisam do app rodando de verdade num
+     emulador/aparelho, não dá pra fazer sem isso.
+   - **Política de privacidade** — já existe, use
+     `https://app.mooveraster.com.br/privacidade`.
+   - **Formulário de segurança de dados** — declare o que o app
+     coleta: nome/e-mail/telefone/CPF (cadastro), localização em tempo real
+     (motorista), e dados de alunos cadastrados pelo responsável (nome,
+     data de nascimento, endereço). Preencha com atenção — é obrigatório e
+     checado pela revisão.
+   - Classificação indicativa (questionário padrão do Google).
+   - País/preço: Brasil, gratuito.
+5. **Enviar pra revisão** — a primeira análise costuma levar de algumas
+   horas a poucos dias.
+
 ## O que fica para depois
 
 - Cobrança recorrente automática (hoje a renovação do plano é feita
   manualmente pelo motorista a cada fim de ciclo — ver Assinaturas e pagamento).
 - Plugin de background geolocation e push nativo no app mobile (ver seção
   acima) — necessários antes da primeira publicação nas lojas.
-- Ícones/splash screens nativos personalizados (Android/iOS usam os
-  placeholders padrão do Capacitor por enquanto).
+- Gráfico de destaque e screenshots da Play Store (ver checklist acima).
+- Splash screen nativa personalizada (usa o padrão do Capacitor por
+  enquanto — os ícones do launcher já foram customizados).
