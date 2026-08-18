@@ -19,6 +19,7 @@ import { cardClass } from "@/components/ui/form-elements";
 import { Badge } from "@/components/ui/Badge";
 import { EditarPerfilAlunoButton } from "@/components/motorista/EditarPerfilAlunoButton";
 import { MarcarMensalidadePagaButton } from "@/components/motorista/MarcarMensalidadePagaButton";
+import { MarcarMensalidadePendenteButton } from "@/components/motorista/MarcarMensalidadePendenteButton";
 import { ContratosSection } from "@/components/motorista/ContratosSection";
 import { linkWhatsApp } from "@/lib/whatsapp";
 
@@ -234,6 +235,7 @@ export default async function PerfilAlunoPage({ params }: { params: Promise<{ id
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant={MENSALIDADE_STATUS_VARIANT[m.status]}>{MENSALIDADE_STATUS_LABEL[m.status]}</Badge>
                   {m.status === "PENDENTE" && <MarcarMensalidadePagaButton mensalidadeId={m.id} />}
+                  {m.status === "PAGO" && <MarcarMensalidadePendenteButton mensalidadeId={m.id} />}
                 </div>
               </div>
             ))}
