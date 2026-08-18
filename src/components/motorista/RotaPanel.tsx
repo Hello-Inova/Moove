@@ -7,21 +7,16 @@ import { apiGet, apiPatchJson, apiPostJson } from "@/lib/api-client";
 import { inputClass, primaryButtonClass, secondaryButtonClass, dangerButtonClass } from "@/components/ui/form-elements";
 import { RotaMap } from "@/components/map/RotaMap";
 import { useLocationSharingContext } from "@/contexts/LocationSharingContext";
-import { haversineMetros } from "@/lib/geo/distancia";
 import type { ParadaRota, RotaResponse } from "@/app/api/motorista/rota/route";
 
 type StatusEmbarque = "EMBARCOU" | "AUSENTE";
 type EmbarqueRegistro = { vinculoId: string; status: StatusEmbarque };
 
-// Recálculo automático da rota tem dois gatilhos: distância percorrida (o
-// que de fato importa — a rota só muda de verdade quando o motorista se
-// afasta o bastante do ponto onde ela foi traçada) e um teto de tempo como
-// rede de segurança (cobre o caso raro de ficar parado tempo suficiente pra
-// algo mudar por fora, ex: um responsável acabou de cadastrar endereço).
-// Os dois respeitam o uso justo do OSRM público — não recalcula a cada
-// atualização de GPS (12s), só quando um dos dois critérios bate.
-const RECALCULO_DISTANCIA_MINIMA_M = 100;
-const RECALCULO_COOLDOWN_MS = 30_000;
+// Não há mais rota multi-parada pré-calculada (ver route.ts) — o mapa, no
+// modo normal, só mostra os balões (motorista + alunos), sem custo de
+// OSRM. Esse teto é só uma rede de segurança pra manter a LISTA de alunos
+// atualizada (ex.: um responsável acabou de cadastrar endereço), não pra
+// recalcular nenhum trajeto.
 const RECALCULO_TETO_MS = 1 * 60_000;
 
 type Escola = { id: string; nome: string };
@@ -69,16 +64,9 @@ export function RotaPanel() {
   // aluno sem perder a lista completa).
   const [listaAlunos, setListaAlunos] = useState<ParadaRota[]>([]);
 
-  // Posição (ao vivo, do GPS) e horário do último recálculo bem-sucedido —
-  // é a partir daqui que decidimos se já andou longe/tempo o suficiente pra
-  // valer a pena recalcular de novo. Refs porque só são lidos dentro de
-  // callbacks/efeitos, não precisam disparar re-render sozinhos.
-  const posicaoUltimoCalculoRef = useRef<{ latitude: number; longitude: number } | null>(null);
+  // Horário da última busca bem-sucedida — usado só pelo teto de segurança
+  // abaixo (mantém a LISTA de alunos atualizada, não recalcula rota).
   const ultimoCalculoEmRef = useRef<number>(0);
-  const posicaoAtualRef = useRef(position);
-  useEffect(() => {
-    posicaoAtualRef.current = position;
-  }, [position]);
   // Lido dentro do interval de segurança (ver efeito abaixo) — precisa ser
   // ref pra não ficar "preso" no valor de quando o interval foi criado.
   const destinoManualRef = useRef(destinoManual);
@@ -100,11 +88,10 @@ export function RotaPanel() {
     }
     setError(null);
     setRota(result.data);
-    // Só atualiza a lista "estável" quando é a busca normal (multi-parada)
-    // — uma busca de destino único tem só 1 parada e não deve substituir a
-    // lista completa exibida abaixo do mapa.
+    // Só atualiza a lista "estável" quando é a busca normal (todos os
+    // alunos) — uma busca de destino único tem só 1 parada e não deve
+    // substituir a lista completa exibida abaixo do mapa.
     if (!destino) setListaAlunos(result.data.paradas);
-    posicaoUltimoCalculoRef.current = posicaoAtualRef.current;
     ultimoCalculoEmRef.current = Date.now();
   }, []);
 
@@ -137,29 +124,6 @@ export function RotaPanel() {
     }, 30_000);
     return () => clearInterval(tetoInterval);
   }, [isSharing, carregar]);
-
-  // Recálculo automático conforme o motorista se move — dispara quando ele
-  // se afasta o bastante do ponto onde a rota foi traçada por último (não
-  // a cada tick de GPS: teria custo alto no OSRM público pra um ganho
-  // mínimo, já que a rota mal muda de um quarteirão pro outro). O teto de
-  // tempo é só uma rede de segurança pro caso raro de ficar parado tempo
-  // demais. Só se aplica ao modo normal — no modo "ir até escola" o
-  // motorista pediu explicitamente, não faz sentido recalcular sozinho.
-  useEffect(() => {
-    if (!isSharing || destinoManual || loading || !position) return;
-
-    const ultimaPosicao = posicaoUltimoCalculoRef.current;
-    if (!ultimaPosicao) return; // ainda não teve o primeiro cálculo bem-sucedido
-
-    const desdeUltimoCalculo = Date.now() - ultimoCalculoEmRef.current;
-    if (desdeUltimoCalculo < RECALCULO_COOLDOWN_MS) return;
-
-    const distanciaPercorrida = haversineMetros(ultimaPosicao, position);
-    const deveRecalcular =
-      distanciaPercorrida >= RECALCULO_DISTANCIA_MINIMA_M || desdeUltimoCalculo >= RECALCULO_TETO_MS;
-
-    if (deveRecalcular) void carregar();
-  }, [position, isSharing, destinoManual, loading, carregar]);
 
   function irParaEscola() {
     if (!escolaSelecionada) return;
@@ -219,7 +183,7 @@ export function RotaPanel() {
       <section className="rounded-2xl border border-neutral-200 bg-white shadow-sm p-5 dark:bg-neutral-900 dark:border-neutral-700">
         <h2 className="font-medium">Rota do dia</h2>
         <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-          Inicie o compartilhamento de localização acima para traçar a rota otimizada até os alunos.
+          Inicie o compartilhamento de localização acima para ver os alunos no mapa e escolher pra qual ir primeiro.
         </p>
       </section>
     );
@@ -245,7 +209,13 @@ export function RotaPanel() {
             disabled={loading}
             className={secondaryButtonClass + " w-auto px-4 py-1.5 text-sm"}
           >
-            {loading ? "Calculando…" : "Recalcular rota"}
+            {destinoManual
+              ? loading
+                ? "Calculando…"
+                : "Recalcular rota"
+              : loading
+                ? "Atualizando…"
+                : "Atualizar lista"}
           </button>
           <button
             onClick={encerrarRota}
@@ -358,7 +328,7 @@ export function RotaPanel() {
                   >
                     <div className={`min-w-0 ${status ? "line-through opacity-60" : ""}`}>
                       <p className="font-medium">
-                        {p.sequencia}. {p.alunoNome}
+                        {p.alunoNome}
                         {status === "AUSENTE" && " (ausente hoje)"}
                       </p>
                       <p className="break-words text-neutral-500 dark:text-neutral-400">{p.enderecoResumo}</p>
@@ -368,13 +338,11 @@ export function RotaPanel() {
                         onClick={() => (emFoco ? voltarRotaNormal() : irParaAluno(p.vinculoId))}
                         className={
                           (emFoco ? secondaryButtonClass : primaryButtonClass) +
-                          " inline-flex w-auto shrink-0 items-center gap-1 px-3 py-1.5 text-xs"
+                          " inline-flex w-16 shrink-0 items-center justify-center gap-1 px-2 py-1.5 text-xs"
                         }
                       >
                         {emFoco ? (
-                          <>
-                            <X className="h-3.5 w-3.5" /> Cancelar
-                          </>
+                          <X className="h-3.5 w-3.5" />
                         ) : (
                           <>
                             <Navigation className="h-3.5 w-3.5" /> Ir

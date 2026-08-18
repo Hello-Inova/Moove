@@ -4,8 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { getAuthenticatedMotorista } from "@/lib/auth/guards";
 import { jsonError } from "@/lib/http";
 import { montarEnderecoTexto } from "@/lib/geocoding";
-import { calcularRotaOtimizada, calcularRotaSimples } from "@/lib/routing/osrm";
-import { calcularRotaOtimizadaGoogle, calcularRotaSimplesGoogle } from "@/lib/routing/google-directions";
+import { calcularRotaSimples } from "@/lib/routing/osrm";
+import { calcularRotaSimplesGoogle } from "@/lib/routing/google-directions";
 
 export type ParadaRota = {
   vinculoId: string;
@@ -35,24 +35,21 @@ export type RotaResponse = {
 };
 
 /**
- * Rota otimizada do motorista: a partir da posição atual dele (GPS), traça
- * o trajeto mais eficiente passando pelo endereço de CADA ALUNO com
- * vínculo ATIVO (endereço é por aluno, não por responsável — irmãos podem
- * ter endereços diferentes; ver regra de negócio equivalente em
- * `GET /api/responsavel/buscar-placa` — aqui o filtro é o inverso: todos
- * os vínculos ativos do motorista autenticado).
+ * Lista os alunos (vínculos ATIVOS) do motorista, com a posição do aluno
+ * geocodificada, pra desenhar os balões no mapa e a lista com o botão
+ * "Ir" (ver RotaPanel.tsx). NÃO pré-calcula mais um trajeto multi-parada
+ * otimizado via OSRM — só marca no mapa onde o motorista está (balão azul,
+ * posição ao vivo do GPS) e onde cada aluno está (balão laranja, com as
+ * iniciais do nome). O motorista escolhe manualmente pra qual aluno ir
+ * (botão "Ir" de cada item), e só nesse momento uma rota de verdade é
+ * calculada — ver `rotaAteVinculo` abaixo.
  *
- * Com `?escolaId=`, ignora os alunos e traça direto até aquela escola.
- * Com `?vinculoId=`, ignora a ordem otimizada e traça direto até UM aluno
- * específico — usado quando o motorista escolhe, na lista de alunos, para
- * qual quer ir primeiro (botão "Ir", ver RotaPanel.tsx). Em ambos os casos
- * o alerta de proximidade automático (`/api/motorista/localizacao`) não
- * muda — continua avaliando todos os vínculos ativos pela config do
- * motorista, independente de qual destino está em foco no mapa.
- *
- * Não é chamado a cada atualização de GPS — só quando o motorista inicia a
- * rota, pede pra recalcular, ou marca uma parada como concluída (ver
- * `RotaMapa.tsx`), para respeitar o uso justo do servidor público do OSRM.
+ * Com `?escolaId=`, traça direto até uma escola. Com `?vinculoId=`, traça
+ * direto até UM aluno específico — usado quando o motorista escolhe, na
+ * lista, pra qual quer ir (botão "Ir"). Em ambos os casos o alerta de
+ * proximidade automático (`/api/motorista/localizacao`) não muda —
+ * continua avaliando todos os vínculos ativos pela config do motorista,
+ * independente de qual destino está em foco no mapa.
  */
 export async function GET(request: NextRequest) {
   const motorista = await getAuthenticatedMotorista();
@@ -92,66 +89,29 @@ export async function GET(request: NextRequest) {
     },
   });
 
-  const comEndereco = vinculos.filter(
-    (v) => v.aluno.enderecoLatitude !== null && v.aluno.enderecoLongitude !== null
-  );
+  const comEndereco = vinculos
+    .filter((v) => v.aluno.enderecoLatitude !== null && v.aluno.enderecoLongitude !== null)
+    // Sem rota otimizada não há mais uma "ordem de visita" — lista em ordem
+    // alfabética só pra ficar estável e previsível pro motorista.
+    .sort((a, b) => a.aluno.nome.localeCompare(b.aluno.nome, "pt-BR"));
   const vinculosSemEndereco = vinculos.length - comEndereco.length;
 
-  if (comEndereco.length === 0) {
-    return NextResponse.json({
-      motorista: { latitude: localizacao.latitude, longitude: localizacao.longitude },
-      paradas: [],
-      distanciaMetros: null,
-      duracaoSegundos: null,
-      geometria: null,
-      vinculosSemEndereco,
-      modoDestino: null,
-    } satisfies RotaResponse);
-  }
-
-  const pontos = [
-    { latitude: localizacao.latitude, longitude: localizacao.longitude },
-    ...comEndereco.map((v) => ({
-      latitude: v.aluno.enderecoLatitude as number,
-      longitude: v.aluno.enderecoLongitude as number,
-    })),
-  ];
-
-  let resultado = await calcularRotaOtimizada(pontos);
-  if (!resultado) {
-    // OSRM (gratuito) falhou — tenta o fallback pago (Google Routes API),
-    // só aqui no painel do motorista (nunca no polling do responsável).
-    resultado = await calcularRotaOtimizadaGoogle(pontos);
-  }
-  if (!resultado) {
-    return jsonError(502, "Não foi possível calcular a rota agora. Tente novamente em instantes.");
-  }
-
-  // `resultado.ordem` são índices em `pontos` (0 = motorista); removemos o
-  // índice 0 e convertemos os demais para posição em `comEndereco`.
-  const paradas: ParadaRota[] = resultado.ordem
-    .filter((indice) => indice !== 0)
-    .map((indice, posicao) => {
-      const vinculo = comEndereco[indice - 1];
-      return {
-        vinculoId: vinculo.id,
-        sequencia: posicao + 1,
-        alunoNome: vinculo.aluno.nome,
-        responsavelNome: vinculo.responsavel.nome,
-        enderecoResumo: montarEnderecoTexto(vinculo.aluno),
-        latitude: vinculo.aluno.enderecoLatitude as number,
-        longitude: vinculo.aluno.enderecoLongitude as number,
-      };
-    });
-
-  const geometria: [number, number][] = resultado.geometria.coordinates.map(([lon, lat]) => [lat, lon]);
+  const paradas: ParadaRota[] = comEndereco.map((vinculo, posicao) => ({
+    vinculoId: vinculo.id,
+    sequencia: posicao + 1,
+    alunoNome: vinculo.aluno.nome,
+    responsavelNome: vinculo.responsavel.nome,
+    enderecoResumo: montarEnderecoTexto(vinculo.aluno),
+    latitude: vinculo.aluno.enderecoLatitude as number,
+    longitude: vinculo.aluno.enderecoLongitude as number,
+  }));
 
   return NextResponse.json({
     motorista: { latitude: localizacao.latitude, longitude: localizacao.longitude },
     paradas,
-    distanciaMetros: resultado.distanciaMetros,
-    duracaoSegundos: resultado.duracaoSegundos,
-    geometria,
+    distanciaMetros: null,
+    duracaoSegundos: null,
+    geometria: null,
     vinculosSemEndereco,
     modoDestino: null,
   } satisfies RotaResponse);

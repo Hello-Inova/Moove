@@ -20,19 +20,30 @@ const motoristaIcon = L.icon({
   shadowSize: [41, 41],
 });
 
-function paradaIcon(sequencia: number, concluida: boolean) {
+/** "Levi Brune" -> "LB", "Joca" -> "JO" (nome de uma palavra só, sem
+ * sobrenome pra tirar a segunda inicial) — identifica o aluno no balão do
+ * mapa sem precisar de legenda. */
+function iniciaisNome(nome: string): string {
+  const partes = nome.trim().split(/\s+/).filter(Boolean);
+  if (partes.length === 0) return "?";
+  if (partes.length === 1) return partes[0].slice(0, 2).toUpperCase();
+  return (partes[0][0] + partes[partes.length - 1][0]).toUpperCase();
+}
+
+function paradaIcon(alunoNome: string, concluida: boolean) {
+  const rotulo = concluida ? "✓" : iniciaisNome(alunoNome);
   return L.divIcon({
     className: "",
     html: `<div style="
       display:flex; align-items:center; justify-content:center;
-      width:28px; height:28px; border-radius:9999px;
+      width:30px; height:30px; border-radius:9999px;
       background:${concluida ? "#16a34a" : "#f97316"};
-      color:white; font:600 13px/1 system-ui, sans-serif;
+      color:white; font:700 11px/1 system-ui, sans-serif;
       border:2px solid white; box-shadow:0 1px 4px rgba(0,0,0,.4);
-    ">${concluida ? "✓" : sequencia}</div>`,
-    iconSize: [28, 28],
-    iconAnchor: [14, 14],
-    popupAnchor: [0, -14],
+    ">${rotulo}</div>`,
+    iconSize: [30, 30],
+    iconAnchor: [15, 15],
+    popupAnchor: [0, -15],
   });
 }
 
@@ -179,12 +190,10 @@ export function RotaMapInner({
           <Marker
             key={p.vinculoId}
             position={[p.latitude, p.longitude]}
-            icon={paradaIcon(p.sequencia, concluidas.has(p.vinculoId))}
+            icon={paradaIcon(p.alunoNome, concluidas.has(p.vinculoId))}
           >
             <Popup>
-              <strong>
-                {p.sequencia}. {p.alunoNome}
-              </strong>
+              <strong>{p.alunoNome}</strong>
               <br />
               {p.enderecoResumo}
             </Popup>
