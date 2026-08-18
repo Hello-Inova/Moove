@@ -27,9 +27,11 @@ export type RotaResponse = {
   /** Vínculos ativos cujo aluno ainda não tem endereço geocodificado — não
    * entram na rota, mas o motorista precisa saber que existem. */
   vinculosSemEndereco: number;
-  /** Preenchido só quando a rota é "ir até uma escola" (?escolaId=), pra a
-   * UI saber que está num modo diferente do normal (todos os alunos). */
-  modoEscola: { escolaId: string; nome: string } | null;
+  /** Preenchido só quando a rota é "ir direto" pra um destino único —
+   * `?escolaId=` (uma escola) ou `?vinculoId=` (um aluno específico,
+   * escolhido pelo botão "Ir" de cada item da lista) — pra a UI saber que
+   * está num modo diferente do normal (todos os alunos, otimizado). */
+  modoDestino: { tipo: "escola" | "aluno"; id: string; nome: string } | null;
 };
 
 /**
@@ -40,9 +42,13 @@ export type RotaResponse = {
  * `GET /api/responsavel/buscar-placa` — aqui o filtro é o inverso: todos
  * os vínculos ativos do motorista autenticado).
  *
- * Com `?escolaId=`, ignora os alunos e traça direto até aquela escola —
- * usado quando o motorista quer ir para uma escola mesmo sem ter
- * terminado de coletar todos os alunos (ver RotaPanel.tsx).
+ * Com `?escolaId=`, ignora os alunos e traça direto até aquela escola.
+ * Com `?vinculoId=`, ignora a ordem otimizada e traça direto até UM aluno
+ * específico — usado quando o motorista escolhe, na lista de alunos, para
+ * qual quer ir primeiro (botão "Ir", ver RotaPanel.tsx). Em ambos os casos
+ * o alerta de proximidade automático (`/api/motorista/localizacao`) não
+ * muda — continua avaliando todos os vínculos ativos pela config do
+ * motorista, independente de qual destino está em foco no mapa.
  *
  * Não é chamado a cada atualização de GPS — só quando o motorista inicia a
  * rota, pede pra recalcular, ou marca uma parada como concluída (ver
@@ -60,6 +66,11 @@ export async function GET(request: NextRequest) {
   const escolaId = request.nextUrl.searchParams.get("escolaId");
   if (escolaId) {
     return rotaAteEscola(motorista.id, escolaId, localizacao);
+  }
+
+  const vinculoId = request.nextUrl.searchParams.get("vinculoId");
+  if (vinculoId) {
+    return rotaAteVinculo(motorista.id, vinculoId, localizacao);
   }
 
   const vinculos = await prisma.vinculo.findMany({
@@ -94,7 +105,7 @@ export async function GET(request: NextRequest) {
       duracaoSegundos: null,
       geometria: null,
       vinculosSemEndereco,
-      modoEscola: null,
+      modoDestino: null,
     } satisfies RotaResponse);
   }
 
@@ -142,7 +153,7 @@ export async function GET(request: NextRequest) {
     duracaoSegundos: resultado.duracaoSegundos,
     geometria,
     vinculosSemEndereco,
-    modoEscola: null,
+    modoDestino: null,
   } satisfies RotaResponse);
 }
 
@@ -190,6 +201,77 @@ async function rotaAteEscola(
     duracaoSegundos: resultado.duracaoSegundos,
     geometria,
     vinculosSemEndereco: 0,
-    modoEscola: { escolaId: escola.id, nome: escola.nome },
+    modoDestino: { tipo: "escola", id: escola.id, nome: escola.nome },
+  } satisfies RotaResponse);
+}
+
+/**
+ * Rota direta até UM aluno específico (destino escolhido manualmente pelo
+ * motorista via botão "Ir" — ver RotaPanel.tsx), ignorando a ordem
+ * otimizada dos demais. Mesma lógica de `rotaAteEscola`, só que o destino é
+ * o endereço geocodificado do aluno em vez do endereço da escola.
+ */
+async function rotaAteVinculo(
+  motoristaId: string,
+  vinculoId: string,
+  localizacao: { latitude: number; longitude: number }
+) {
+  const vinculo = await prisma.vinculo.findUnique({
+    where: { id: vinculoId },
+    include: {
+      aluno: {
+        select: {
+          nome: true,
+          logradouro: true,
+          numero: true,
+          bairro: true,
+          cidade: true,
+          estado: true,
+          enderecoLatitude: true,
+          enderecoLongitude: true,
+        },
+      },
+      responsavel: { select: { nome: true } },
+    },
+  });
+  if (!vinculo || vinculo.motoristaId !== motoristaId || vinculo.status !== "ATIVO") {
+    return jsonError(404, "Vínculo não encontrado.");
+  }
+  if (vinculo.aluno.enderecoLatitude === null || vinculo.aluno.enderecoLongitude === null) {
+    return jsonError(409, "Este aluno ainda não tem endereço localizado no mapa.");
+  }
+
+  const destino = { latitude: vinculo.aluno.enderecoLatitude, longitude: vinculo.aluno.enderecoLongitude };
+  const origem = { latitude: localizacao.latitude, longitude: localizacao.longitude };
+  let resultado = await calcularRotaSimples(origem, destino);
+  if (!resultado) {
+    // OSRM (gratuito) falhou — tenta o fallback pago (Google Routes API),
+    // só aqui no painel do motorista (nunca no polling do responsável).
+    resultado = await calcularRotaSimplesGoogle(origem, destino);
+  }
+  if (!resultado) {
+    return jsonError(502, "Não foi possível calcular a rota até esse aluno agora. Tente novamente em instantes.");
+  }
+
+  const geometria: [number, number][] = resultado.geometria.coordinates.map(([lon, lat]) => [lat, lon]);
+
+  return NextResponse.json({
+    motorista: { latitude: localizacao.latitude, longitude: localizacao.longitude },
+    paradas: [
+      {
+        vinculoId: vinculo.id,
+        sequencia: 1,
+        alunoNome: vinculo.aluno.nome,
+        responsavelNome: vinculo.responsavel.nome,
+        enderecoResumo: montarEnderecoTexto(vinculo.aluno),
+        latitude: destino.latitude,
+        longitude: destino.longitude,
+      },
+    ],
+    distanciaMetros: resultado.distanciaMetros,
+    duracaoSegundos: resultado.duracaoSegundos,
+    geometria,
+    vinculosSemEndereco: 0,
+    modoDestino: { tipo: "aluno", id: vinculo.id, nome: vinculo.aluno.nome },
   } satisfies RotaResponse);
 }

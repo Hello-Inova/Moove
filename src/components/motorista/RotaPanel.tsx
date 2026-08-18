@@ -1,13 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Navigation, X } from "lucide-react";
 
 import { apiGet, apiPatchJson, apiPostJson } from "@/lib/api-client";
 import { inputClass, primaryButtonClass, secondaryButtonClass, dangerButtonClass } from "@/components/ui/form-elements";
 import { RotaMap } from "@/components/map/RotaMap";
 import { useLocationSharingContext } from "@/contexts/LocationSharingContext";
 import { haversineMetros } from "@/lib/geo/distancia";
-import type { RotaResponse } from "@/app/api/motorista/rota/route";
+import type { ParadaRota, RotaResponse } from "@/app/api/motorista/rota/route";
 
 type StatusEmbarque = "EMBARCOU" | "AUSENTE";
 type EmbarqueRegistro = { vinculoId: string; status: StatusEmbarque };
@@ -57,8 +58,16 @@ export function RotaPanel() {
 
   const [escolas, setEscolas] = useState<Escola[]>([]);
   const [escolaSelecionada, setEscolaSelecionada] = useState<string>("");
-  // "" = rota normal (todos os alunos); id = modo "ir até uma escola".
-  const [modoEscolaAtivo, setModoEscolaAtivo] = useState<string>("");
+  // null = rota normal (todos os alunos, ordem otimizada); preenchido = "ir
+  // direto" pra um destino único — uma escola ou um aluno específico
+  // (botão "Ir" de cada item da lista, estilo Uber/99 — ver render abaixo).
+  const [destinoManual, setDestinoManual] = useState<{ tipo: "escola" | "aluno"; id: string } | null>(null);
+  // Lista "estável" de paradas (todos os vínculos, ordem otimizada) usada
+  // pra renderizar a lista de alunos com os botões Ir/Embarcou/Ausente —
+  // independente do que está no mapa no momento (`rota`), pra continuar
+  // visível mesmo com um destino único em foco (o motorista pode trocar de
+  // aluno sem perder a lista completa).
+  const [listaAlunos, setListaAlunos] = useState<ParadaRota[]>([]);
 
   // Posição (ao vivo, do GPS) e horário do último recálculo bem-sucedido —
   // é a partir daqui que decidimos se já andou longe/tempo o suficiente pra
@@ -72,14 +81,16 @@ export function RotaPanel() {
   }, [position]);
   // Lido dentro do interval de segurança (ver efeito abaixo) — precisa ser
   // ref pra não ficar "preso" no valor de quando o interval foi criado.
-  const modoEscolaAtivoRef = useRef(modoEscolaAtivo);
+  const destinoManualRef = useRef(destinoManual);
   useEffect(() => {
-    modoEscolaAtivoRef.current = modoEscolaAtivo;
-  }, [modoEscolaAtivo]);
+    destinoManualRef.current = destinoManual;
+  }, [destinoManual]);
 
-  const carregar = useCallback(async (escolaId?: string) => {
+  const carregar = useCallback(async (destino?: { tipo: "escola" | "aluno"; id: string }) => {
     setLoading(true);
-    const url = escolaId ? `/api/motorista/rota?escolaId=${encodeURIComponent(escolaId)}` : "/api/motorista/rota";
+    const url = destino
+      ? `/api/motorista/rota?${destino.tipo === "escola" ? "escolaId" : "vinculoId"}=${encodeURIComponent(destino.id)}`
+      : "/api/motorista/rota";
     const result = await apiGet<RotaResponse>(url);
     setLoading(false);
 
@@ -89,6 +100,10 @@ export function RotaPanel() {
     }
     setError(null);
     setRota(result.data);
+    // Só atualiza a lista "estável" quando é a busca normal (multi-parada)
+    // — uma busca de destino único tem só 1 parada e não deve substituir a
+    // lista completa exibida abaixo do mapa.
+    if (!destino) setListaAlunos(result.data.paradas);
     posicaoUltimoCalculoRef.current = posicaoAtualRef.current;
     ultimoCalculoEmRef.current = Date.now();
   }, []);
@@ -116,12 +131,11 @@ export function RotaPanel() {
     // recálculo periódico no modo normal — mesma garantia que já existia
     // antes do recálculo por distância.
     const tetoInterval = setInterval(() => {
-      if (!modoEscolaAtivoRef.current && Date.now() - ultimoCalculoEmRef.current >= RECALCULO_TETO_MS) {
+      if (!destinoManualRef.current && Date.now() - ultimoCalculoEmRef.current >= RECALCULO_TETO_MS) {
         void carregar();
       }
     }, 30_000);
     return () => clearInterval(tetoInterval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSharing, carregar]);
 
   // Recálculo automático conforme o motorista se move — dispara quando ele
@@ -132,7 +146,7 @@ export function RotaPanel() {
   // demais. Só se aplica ao modo normal — no modo "ir até escola" o
   // motorista pediu explicitamente, não faz sentido recalcular sozinho.
   useEffect(() => {
-    if (!isSharing || modoEscolaAtivo || loading || !position) return;
+    if (!isSharing || destinoManual || loading || !position) return;
 
     const ultimaPosicao = posicaoUltimoCalculoRef.current;
     if (!ultimaPosicao) return; // ainda não teve o primeiro cálculo bem-sucedido
@@ -145,16 +159,26 @@ export function RotaPanel() {
       distanciaPercorrida >= RECALCULO_DISTANCIA_MINIMA_M || desdeUltimoCalculo >= RECALCULO_TETO_MS;
 
     if (deveRecalcular) void carregar();
-  }, [position, isSharing, modoEscolaAtivo, loading, carregar]);
+  }, [position, isSharing, destinoManual, loading, carregar]);
 
   function irParaEscola() {
     if (!escolaSelecionada) return;
-    setModoEscolaAtivo(escolaSelecionada);
-    void carregar(escolaSelecionada);
+    setDestinoManual({ tipo: "escola", id: escolaSelecionada });
+    void carregar({ tipo: "escola", id: escolaSelecionada });
+  }
+
+  // Botão "Ir" de cada item da lista de alunos — traça a rota direto até
+  // esse aluno (ignora a ordem otimizada dos demais), igual ao Uber/99.
+  // O alerta de proximidade continua avaliando todos os vínculos ativos
+  // pela config do motorista (ver /api/motorista/localizacao), não só o
+  // que está em foco aqui — escolher "Ir" não muda quem recebe alerta.
+  function irParaAluno(vinculoId: string) {
+    setDestinoManual({ tipo: "aluno", id: vinculoId });
+    void carregar({ tipo: "aluno", id: vinculoId });
   }
 
   function voltarRotaNormal() {
-    setModoEscolaAtivo("");
+    setDestinoManual(null);
     void carregar();
   }
 
@@ -204,10 +228,20 @@ export function RotaPanel() {
   return (
     <section className="rounded-2xl border border-neutral-200 bg-white shadow-sm p-5 dark:bg-neutral-900 dark:border-neutral-700">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-medium">{modoEscolaAtivo ? `Indo para: ${rota?.modoEscola?.nome ?? "escola"}` : "Rota do dia"}</h2>
+        <h2 className="font-medium">
+          {destinoManual ? `Indo para: ${rota?.modoDestino?.nome ?? "..."}` : "Rota do dia"}
+        </h2>
         <div className="flex flex-wrap gap-2">
+          {destinoManual && (
+            <button
+              onClick={voltarRotaNormal}
+              className={secondaryButtonClass + " w-auto px-4 py-1.5 text-sm"}
+            >
+              Voltar pra rota normal
+            </button>
+          )}
           <button
-            onClick={() => void carregar(modoEscolaAtivo || undefined)}
+            onClick={() => void carregar(destinoManual ?? undefined)}
             disabled={loading}
             className={secondaryButtonClass + " w-auto px-4 py-1.5 text-sm"}
           >
@@ -255,11 +289,7 @@ export function RotaPanel() {
               ))}
             </select>
           </div>
-          {modoEscolaAtivo ? (
-            <button onClick={voltarRotaNormal} className={secondaryButtonClass + " w-auto px-4 py-2"}>
-              Voltar pra rota dos alunos
-            </button>
-          ) : (
+          {destinoManual?.tipo !== "escola" && (
             <button onClick={irParaEscola} className={primaryButtonClass + " w-auto px-4 py-2"}>
               Traçar rota até a escola
             </button>
@@ -308,19 +338,22 @@ export function RotaPanel() {
             </p>
           )}
 
-          {!modoEscolaAtivo && (
+          {destinoManual?.tipo !== "escola" && listaAlunos.length > 0 && (
             <ol className="mt-4 space-y-2">
-              {rota.paradas.map((p) => {
+              {listaAlunos.map((p) => {
                 const status = statusPorVinculo[p.vinculoId];
+                const emFoco = destinoManual?.tipo === "aluno" && destinoManual.id === p.vinculoId;
                 return (
                   <li
                     key={p.vinculoId}
                     className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3 text-sm ${
-                      status === "EMBARCOU"
-                        ? "border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950/30"
-                        : status === "AUSENTE"
-                          ? "border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30"
-                          : "border-neutral-200 dark:border-neutral-700"
+                      emFoco
+                        ? "border-brand-orange bg-orange-50 dark:border-brand-orange dark:bg-orange-950/20"
+                        : status === "EMBARCOU"
+                          ? "border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950/30"
+                          : status === "AUSENTE"
+                            ? "border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30"
+                            : "border-neutral-200 dark:border-neutral-700"
                     }`}
                   >
                     <div className={`min-w-0 ${status ? "line-through opacity-60" : ""}`}>
@@ -331,6 +364,23 @@ export function RotaPanel() {
                       <p className="break-words text-neutral-500 dark:text-neutral-400">{p.enderecoResumo}</p>
                     </div>
                     <div className="flex flex-wrap gap-2">
+                      <button
+                        onClick={() => (emFoco ? voltarRotaNormal() : irParaAluno(p.vinculoId))}
+                        className={
+                          (emFoco ? secondaryButtonClass : primaryButtonClass) +
+                          " inline-flex w-auto shrink-0 items-center gap-1 px-3 py-1.5 text-xs"
+                        }
+                      >
+                        {emFoco ? (
+                          <>
+                            <X className="h-3.5 w-3.5" /> Cancelar
+                          </>
+                        ) : (
+                          <>
+                            <Navigation className="h-3.5 w-3.5" /> Ir
+                          </>
+                        )}
+                      </button>
                       {status ? (
                         <button
                           onClick={() => void marcarStatus(p.vinculoId, null)}
