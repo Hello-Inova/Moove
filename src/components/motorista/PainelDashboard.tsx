@@ -224,21 +224,23 @@ export function PainelDashboard({ dados }: { dados: PainelData }) {
       </div>
 
       {/* Grid compacto mesmo no celular (2 colunas) — pedido explícito pra
-          não virar uma tela enorme rolando 7 cards empilhados. */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
+          não virar uma tela enorme rolando 7 cards empilhados. Valor
+          quebra linha em vez de truncar (evita cortar "R$ 1.234,56" no meio
+          num card estreito de ~170px em telas de ~360-390px). */}
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
         {cards.map((card, i) => (
           <button
             key={card.id}
             type="button"
             onClick={() => setCardAberto(card.id)}
             style={{ ["--delay" as string]: `${i * 60}ms` }}
-            className={`painel-card-in group relative overflow-hidden rounded-2xl bg-gradient-to-br ${card.from} ${card.to} p-3 text-left text-white shadow-sm transition hover:shadow-md active:scale-[0.98] sm:p-4`}
+            className={`painel-card-in flex min-h-[104px] flex-col overflow-hidden rounded-2xl bg-gradient-to-br ${card.from} ${card.to} p-3 text-left text-white shadow-sm transition hover:shadow-md active:scale-[0.98] sm:min-h-[124px] sm:p-4`}
           >
-            <div className={`mb-2 flex h-9 w-9 items-center justify-center rounded-full ${card.iconBg} sm:h-10 sm:w-10`}>
+            <div className={`mb-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${card.iconBg} sm:h-10 sm:w-10`}>
               {card.icon}
             </div>
-            <p className="text-[11px] font-medium text-white/85 sm:text-xs">{card.label}</p>
-            <p className="mt-0.5 truncate text-lg font-bold leading-tight sm:text-2xl">{card.valor}</p>
+            <p className="text-[11px] font-medium leading-snug text-white/85 sm:text-xs">{card.label}</p>
+            <p className="mt-auto break-words pt-1 text-base font-bold leading-tight sm:text-2xl">{card.valor}</p>
             {card.sublinha && <p className="mt-0.5 text-[10px] text-white/75 sm:text-xs">{card.sublinha}</p>}
           </button>
         ))}
