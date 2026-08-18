@@ -333,17 +333,23 @@ export function RotaPanel() {
                       </p>
                       <p className="break-words text-neutral-500 dark:text-neutral-400">{p.enderecoResumo}</p>
                     </div>
-                    <div className="flex flex-wrap gap-2">
+                    {/* `flex-nowrap` + largura fixa igual (w-24) em todos os
+                        botões — ficam sempre na mesma linha, um do lado do
+                        outro. Esse bloco de botões inteiro ainda pode
+                        quebrar pra debaixo do texto no card (o <li> pai é
+                        `flex-wrap`), então continua cabendo em telas de
+                        celular sem forçar scroll horizontal. */}
+                    <div className="flex flex-nowrap gap-2">
                       <button
                         onClick={() => (emFoco ? voltarRotaNormal() : irParaAluno(p.vinculoId))}
                         className={
                           emFoco
-                            ? secondaryButtonClass + " inline-flex w-16 shrink-0 items-center justify-center gap-1 px-2 py-1.5 text-xs"
+                            ? secondaryButtonClass + " inline-flex w-24 shrink-0 items-center justify-center gap-1 px-2 py-1.5 text-xs"
                             // Não usa primaryButtonClass aqui: ele embute `w-full`, que na
-                            // ordem de geração do Tailwind vence qualquer `w-16` acrescentado
+                            // ordem de geração do Tailwind vence qualquer largura acrescentada
                             // depois na string — por isso o botão ficava esticado. Reescreve
                             // o mesmo visual (navy, preenchido) sem a largura total.
-                            : "inline-flex w-16 shrink-0 items-center justify-center gap-1 rounded-xl bg-brand-navy px-2 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-brand-navy-light active:scale-[0.99]"
+                            : "inline-flex w-24 shrink-0 items-center justify-center gap-1 rounded-xl bg-brand-navy px-2 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-brand-navy-light active:scale-[0.99]"
                         }
                       >
                         {emFoco ? (
@@ -357,7 +363,7 @@ export function RotaPanel() {
                       {status ? (
                         <button
                           onClick={() => void marcarStatus(p.vinculoId, null)}
-                          className={secondaryButtonClass + " w-auto shrink-0 px-3 py-1.5 text-xs"}
+                          className={secondaryButtonClass + " w-24 shrink-0 text-center px-2 py-1.5 text-xs"}
                         >
                           Desfazer
                         </button>
@@ -365,13 +371,13 @@ export function RotaPanel() {
                         <>
                           <button
                             onClick={() => void marcarStatus(p.vinculoId, "EMBARCOU")}
-                            className={secondaryButtonClass + " w-auto shrink-0 px-3 py-1.5 text-xs"}
+                            className={secondaryButtonClass + " w-24 shrink-0 text-center px-2 py-1.5 text-xs"}
                           >
                             Embarcou
                           </button>
                           <button
                             onClick={() => void marcarStatus(p.vinculoId, "AUSENTE")}
-                            className={secondaryButtonClass + " w-auto shrink-0 px-3 py-1.5 text-xs border-amber-300 text-amber-800 dark:border-amber-800 dark:text-amber-400"}
+                            className={secondaryButtonClass + " w-24 shrink-0 text-center px-2 py-1.5 text-xs border-amber-300 text-amber-800 dark:border-amber-800 dark:text-amber-400"}
                           >
                             Ausente
                           </button>
