@@ -206,6 +206,18 @@ export function RotaPanel() {
       // real do servidor em vez de tentar adivinhar o valor anterior.
       const retry = await apiGet<EmbarqueRegistro[]>(embarquesUrl(sentido));
       if (retry.ok) setStatusPorVinculo(Object.fromEntries(retry.data.map((r) => [r.vinculoId, r.status])));
+      return;
+    }
+
+    // No sentido VOLTA, marcar/desmarcar "Embarcou" muda a FASE desse aluno
+    // (buscar na escola -> levar pra casa, e vice-versa se desfizer — ver
+    // rotaAteVinculo/listaVolta no backend) — recarrega o destino em foco
+    // (ou a lista toda) pra o mapa refletir isso na hora, sem esperar o
+    // refresh periódico.
+    if (destinoManual?.tipo === "aluno" && destinoManual.id === vinculoId) {
+      void carregar({ tipo: "aluno", id: vinculoId }, sentido);
+    } else {
+      void carregar(undefined, sentido);
     }
   }
 
@@ -367,6 +379,13 @@ export function RotaPanel() {
               {listaAlunos.map((p) => {
                 const status = statusPorVinculo[p.vinculoId];
                 const emFoco = destinoManual?.tipo === "aluno" && destinoManual.id === p.vinculoId;
+                // No sentido VOLTA, "Embarcou" não é o fim da linha — o
+                // aluno já foi buscado na escola, mas ainda falta entregar
+                // em casa (é essa segunda fase que muda o destino do "Ir",
+                // ver rotaAteVinculo/listaVolta) — então não some/apaga o
+                // item, só na ida (aí sim não tem mais ação pendente) ou
+                // quando marcado ausente (em qualquer sentido).
+                const semAcaoPendente = status === "AUSENTE" || (status === "EMBARCOU" && sentido === "IDA");
                 return (
                   <li
                     key={p.vinculoId}
@@ -380,10 +399,11 @@ export function RotaPanel() {
                             : "border-neutral-200 dark:border-neutral-700"
                     }`}
                   >
-                    <div className={`min-w-0 ${status ? "line-through opacity-60" : ""}`}>
+                    <div className={`min-w-0 ${semAcaoPendente ? "line-through opacity-60" : ""}`}>
                       <p className="font-medium">
                         {p.alunoNome}
                         {status === "AUSENTE" && " (ausente hoje)"}
+                        {status === "EMBARCOU" && sentido === "VOLTA" && " (a caminho de casa)"}
                       </p>
                       <p className="break-words text-neutral-500 dark:text-neutral-400">{p.enderecoResumo}</p>
                     </div>

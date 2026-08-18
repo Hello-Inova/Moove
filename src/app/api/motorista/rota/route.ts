@@ -41,6 +41,13 @@ function sentidoDaQuery(request: NextRequest): Sentido {
   return request.nextUrl.searchParams.get("sentido") === "volta" ? "VOLTA" : "IDA";
 }
 
+/** Data de hoje truncada (sem hora), em UTC — mesma convenção usada em
+ * embarques_dia (ver /api/motorista/embarques). */
+function hojeData(): Date {
+  const agora = new Date();
+  return new Date(Date.UTC(agora.getUTCFullYear(), agora.getUTCMonth(), agora.getUTCDate()));
+}
+
 /**
  * Lista os alunos (vínculos ATIVOS) do motorista, com a posição de destino
  * geocodificada, pra desenhar os balões no mapa e a lista com o botão "Ir"
@@ -137,14 +144,35 @@ async function listaIda(motoristaId: string, localizacao: { latitude: number; lo
   } satisfies RotaResponse);
 }
 
-/** Mesma lógica de `listaIda`, mas o destino de cada aluno é a escola
- * cadastrada no vínculo (`Vinculo.escolaId`) em vez do endereço de casa —
- * usada pelo botão "Retorno" (buscar os alunos nas escolas). */
+/**
+ * Igual `listaIda`, mas o destino de cada aluno depende da fase da volta:
+ *
+ * 1. Ainda não foi buscado — destino é a escola cadastrada no vínculo
+ *    (`Vinculo.escolaId`).
+ * 2. Já foi marcado "Embarcou" hoje na volta (buscado na escola) — destino
+ *    vira o endereço de casa dele, pra completar a entrega.
+ *
+ * A fase 2 é o que implementa a "entrega em casa depois de buscar na
+ * escola": o motorista marca Embarcou ao pegar o aluno, e o próprio balão
+ * dele no mapa (e o botão "Ir") passa a apontar pra casa a partir daí — sem
+ * precisar de um terceiro status, só reaproveita a marcação que já existe.
+ */
 async function listaVolta(motoristaId: string, localizacao: { latitude: number; longitude: number }) {
   const vinculos = await prisma.vinculo.findMany({
     where: { motoristaId, status: "ATIVO" },
     include: {
-      aluno: { select: { nome: true } },
+      aluno: {
+        select: {
+          nome: true,
+          logradouro: true,
+          numero: true,
+          bairro: true,
+          cidade: true,
+          estado: true,
+          enderecoLatitude: true,
+          enderecoLongitude: true,
+        },
+      },
       responsavel: { select: { nome: true } },
       escola: {
         select: {
@@ -158,26 +186,49 @@ async function listaVolta(motoristaId: string, localizacao: { latitude: number; 
           enderecoLongitude: true,
         },
       },
+      // No máximo 1 registro (chave única vinculoId+data+sentido) — diz se
+      // esse aluno já foi buscado na escola hoje, na volta.
+      embarquesDia: { where: { data: hojeData(), sentido: "VOLTA" }, select: { status: true } },
     },
   });
 
-  const comEscola = vinculos
-    .filter((v) => v.escola !== null && v.escola.enderecoLatitude !== null && v.escola.enderecoLongitude !== null)
-    .sort((a, b) => a.aluno.nome.localeCompare(b.aluno.nome, "pt-BR"));
-  const vinculosSemEndereco = vinculos.length - comEscola.length;
+  const paradasCandidatas: Omit<ParadaRota, "sequencia">[] = [];
+  let vinculosSemEndereco = 0;
 
-  const paradas: ParadaRota[] = comEscola.map((vinculo, posicao) => {
-    const escola = vinculo.escola as NonNullable<typeof vinculo.escola>;
-    return {
-      vinculoId: vinculo.id,
-      sequencia: posicao + 1,
-      alunoNome: vinculo.aluno.nome,
-      responsavelNome: vinculo.responsavel.nome,
-      enderecoResumo: `${escola.nome} — ${montarEnderecoTexto(escola)}`,
-      latitude: escola.enderecoLatitude as number,
-      longitude: escola.enderecoLongitude as number,
-    };
-  });
+  for (const vinculo of vinculos) {
+    const jaBuscado = vinculo.embarquesDia[0]?.status === "EMBARCOU";
+
+    if (jaBuscado) {
+      if (vinculo.aluno.enderecoLatitude === null || vinculo.aluno.enderecoLongitude === null) {
+        vinculosSemEndereco++;
+        continue;
+      }
+      paradasCandidatas.push({
+        vinculoId: vinculo.id,
+        alunoNome: vinculo.aluno.nome,
+        responsavelNome: vinculo.responsavel.nome,
+        enderecoResumo: `Levar para casa — ${montarEnderecoTexto(vinculo.aluno)}`,
+        latitude: vinculo.aluno.enderecoLatitude,
+        longitude: vinculo.aluno.enderecoLongitude,
+      });
+    } else {
+      if (!vinculo.escola || vinculo.escola.enderecoLatitude === null || vinculo.escola.enderecoLongitude === null) {
+        vinculosSemEndereco++;
+        continue;
+      }
+      paradasCandidatas.push({
+        vinculoId: vinculo.id,
+        alunoNome: vinculo.aluno.nome,
+        responsavelNome: vinculo.responsavel.nome,
+        enderecoResumo: `Buscar na escola (${vinculo.escola.nome}) — ${montarEnderecoTexto(vinculo.escola)}`,
+        latitude: vinculo.escola.enderecoLatitude,
+        longitude: vinculo.escola.enderecoLongitude,
+      });
+    }
+  }
+
+  paradasCandidatas.sort((a, b) => a.alunoNome.localeCompare(b.alunoNome, "pt-BR"));
+  const paradas: ParadaRota[] = paradasCandidatas.map((p, posicao) => ({ ...p, sequencia: posicao + 1 }));
 
   return NextResponse.json({
     motorista: { latitude: localizacao.latitude, longitude: localizacao.longitude },
@@ -242,8 +293,9 @@ async function rotaAteEscola(
  * Rota direta até UM aluno específico (destino escolhido manualmente pelo
  * motorista via botão "Ir" — ver RotaPanel.tsx), ignorando a ordem
  * otimizada dos demais. Mesma lógica de `rotaAteEscola`, só que o destino é
- * geocodificado por vínculo: o endereço do aluno na ida, ou a escola
- * cadastrada no vínculo na volta (ver `sentido`).
+ * geocodificado por vínculo: o endereço do aluno na ida; na volta, a
+ * escola cadastrada (se ainda não foi buscado hoje) ou o endereço de casa
+ * (se já foi — ver mesma lógica de duas fases em `listaVolta`).
  */
 async function rotaAteVinculo(
   motoristaId: string,
@@ -279,6 +331,7 @@ async function rotaAteVinculo(
         },
       },
       responsavel: { select: { nome: true } },
+      embarquesDia: { where: { data: hojeData(), sentido: "VOLTA" }, select: { status: true } },
     },
   });
   if (!vinculo || vinculo.motoristaId !== motoristaId || vinculo.status !== "ATIVO") {
@@ -290,15 +343,26 @@ async function rotaAteVinculo(
   let modoNome: string;
 
   if (sentido === "VOLTA") {
-    if (!vinculo.escola) {
-      return jsonError(409, "Este aluno ainda não tem uma escola cadastrada no vínculo — defina em \"Minhas escolas\".");
+    const jaBuscado = vinculo.embarquesDia[0]?.status === "EMBARCOU";
+
+    if (jaBuscado) {
+      if (vinculo.aluno.enderecoLatitude === null || vinculo.aluno.enderecoLongitude === null) {
+        return jsonError(409, "Este aluno ainda não tem endereço localizado no mapa.");
+      }
+      destino = { latitude: vinculo.aluno.enderecoLatitude, longitude: vinculo.aluno.enderecoLongitude };
+      enderecoResumo = `Levar para casa — ${montarEnderecoTexto(vinculo.aluno)}`;
+      modoNome = `${vinculo.aluno.nome} (levar pra casa)`;
+    } else {
+      if (!vinculo.escola) {
+        return jsonError(409, "Este aluno ainda não tem uma escola cadastrada no vínculo — defina em \"Minhas escolas\".");
+      }
+      if (vinculo.escola.enderecoLatitude === null || vinculo.escola.enderecoLongitude === null) {
+        return jsonError(409, "A escola deste aluno ainda não tem endereço localizado no mapa.");
+      }
+      destino = { latitude: vinculo.escola.enderecoLatitude, longitude: vinculo.escola.enderecoLongitude };
+      enderecoResumo = `Buscar na escola (${vinculo.escola.nome}) — ${montarEnderecoTexto(vinculo.escola)}`;
+      modoNome = `${vinculo.aluno.nome} (buscar na ${vinculo.escola.nome})`;
     }
-    if (vinculo.escola.enderecoLatitude === null || vinculo.escola.enderecoLongitude === null) {
-      return jsonError(409, "A escola deste aluno ainda não tem endereço localizado no mapa.");
-    }
-    destino = { latitude: vinculo.escola.enderecoLatitude, longitude: vinculo.escola.enderecoLongitude };
-    enderecoResumo = `${vinculo.escola.nome} — ${montarEnderecoTexto(vinculo.escola)}`;
-    modoNome = `${vinculo.aluno.nome} (na ${vinculo.escola.nome})`;
   } else {
     if (vinculo.aluno.enderecoLatitude === null || vinculo.aluno.enderecoLongitude === null) {
       return jsonError(409, "Este aluno ainda não tem endereço localizado no mapa.");
