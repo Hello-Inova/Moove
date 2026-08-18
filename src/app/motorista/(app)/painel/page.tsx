@@ -16,5 +16,5 @@ export default async function MotoristaPainelPage({
   const mesReferencia = parseMesReferencia(mes);
   const dados = await getPainelData(motorista.id, mesReferencia);
 
-  return <PainelDashboard dados={dados} />;
+  return <PainelDashboard dados={dados} motoristaChavePix={motorista.chavePix} />;
 }

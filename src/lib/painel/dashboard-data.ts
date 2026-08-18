@@ -10,9 +10,12 @@ export type MensalidadeResumo = {
   escolaNome: string | null;
   valor: number;
   status: StatusMensalidade;
+  mesReferencia: Date;
   vencimento: Date;
   pagoEm: Date | null;
   atrasado: boolean;
+  responsavelNome: string;
+  responsavelTelefone: string;
 };
 
 export type AlunoResumo = { id: string; nome: string; escolaNome: string | null };
@@ -122,6 +125,7 @@ export async function getPainelData(motoristaId: string, mesReferencia: Date): P
             diaPagamentoMensalidade: true,
             aluno: { select: { nome: true } },
             escola: { select: { nome: true } },
+            responsavel: { select: { nome: true, telefone: true } },
           },
         },
       },
@@ -158,9 +162,12 @@ export async function getPainelData(motoristaId: string, mesReferencia: Date): P
         escolaNome: m.vinculo.escola?.nome ?? null,
         valor: Number(m.valor),
         status: m.status,
+        mesReferencia: inicioMes,
         vencimento,
         pagoEm: m.pagoEm,
         atrasado,
+        responsavelNome: m.vinculo.responsavel.nome,
+        responsavelTelefone: m.vinculo.responsavel.telefone,
       };
     })
     .sort((a, b) => a.vencimento.getTime() - b.vencimento.getTime());

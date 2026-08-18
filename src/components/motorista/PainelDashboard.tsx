@@ -12,11 +12,13 @@ import {
   Route as RouteIcon,
   ChevronLeft,
   ChevronRight,
+  MessageCircle,
   X,
 } from "lucide-react";
 
 import { secondaryButtonClass } from "@/components/ui/form-elements";
 import { formatarBRL } from "@/lib/subscription/plans";
+import { linkWhatsApp } from "@/lib/whatsapp";
 import type {
   AlunoResumo,
   EscolaResumo,
@@ -80,7 +82,13 @@ type CardConfig = {
  * últimos 30 dias, independente do mês filtrado (ver comentário em
  * dashboard-data.ts).
  */
-export function PainelDashboard({ dados }: { dados: PainelData }) {
+export function PainelDashboard({
+  dados,
+  motoristaChavePix,
+}: {
+  dados: PainelData;
+  motoristaChavePix: string | null;
+}) {
   const router = useRouter();
   const [cardAberto, setCardAberto] = useState<CardId | null>(null);
 
@@ -246,12 +254,29 @@ export function PainelDashboard({ dados }: { dados: PainelData }) {
         ))}
       </div>
 
-      {cardAberto && <DetalheModal cardId={cardAberto} dados={dados} onClose={() => setCardAberto(null)} />}
+      {cardAberto && (
+        <DetalheModal
+          cardId={cardAberto}
+          dados={dados}
+          motoristaChavePix={motoristaChavePix}
+          onClose={() => setCardAberto(null)}
+        />
+      )}
     </div>
   );
 }
 
-function DetalheModal({ cardId, dados, onClose }: { cardId: CardId; dados: PainelData; onClose: () => void }) {
+function DetalheModal({
+  cardId,
+  dados,
+  motoristaChavePix,
+  onClose,
+}: {
+  cardId: CardId;
+  dados: PainelData;
+  motoristaChavePix: string | null;
+  onClose: () => void;
+}) {
   const config: Record<CardId, { titulo: string; corpo: ReactNode }> = {
     alunos: { titulo: "Alunos vinculados", corpo: <ListaAlunos itens={dados.alunosVinculados.detalhes} /> },
     escolas: { titulo: "Escolas vinculadas", corpo: <ListaEscolas itens={dados.escolasVinculadas.detalhes} /> },
@@ -269,7 +294,14 @@ function DetalheModal({ cardId, dados, onClose }: { cardId: CardId; dados: Paine
     },
     atrasados: {
       titulo: "Pagamentos atrasados",
-      corpo: <ListaMensalidades itens={dados.pagamentosAtrasados.detalhes} mostrarVencimento destaqueAtraso />,
+      corpo: (
+        <ListaMensalidades
+          itens={dados.pagamentosAtrasados.detalhes}
+          mostrarVencimento
+          destaqueAtraso
+          motoristaChavePix={motoristaChavePix}
+        />
+      ),
     },
     km: { titulo: "Km rodados — últimos 30 dias", corpo: <ListaKm itens={dados.kmUltimos30Dias.detalhes} /> },
   };
@@ -349,18 +381,35 @@ function ListaEscolas({ itens }: { itens: EscolaResumo[] }) {
   );
 }
 
+/** Mensagem de cobrança pro WhatsApp do responsável — inclui a chave PIX do
+ * motorista quando configurada (perfil → Vínculos); sem ela, manda a
+ * cobrança mesmo assim, só sem a linha do PIX. */
+function mensagemCobranca(m: MensalidadeResumo, chavePix: string | null): string {
+  const linhas = [
+    `Olá, ${m.responsavelNome}! Aqui é o motorista escolar de ${m.alunoNome}.`,
+    `A mensalidade do transporte de ${formatarMesAno(m.mesReferencia)} (${formatarBRL(m.valor)}) venceu em ${formatarData(
+      m.vencimento
+    )} e ainda está em aberto.`,
+    chavePix ? `Você pode pagar via PIX: ${chavePix}` : null,
+    "Qualquer dúvida, me chama por aqui!",
+  ].filter((linha): linha is string => Boolean(linha));
+  return linhas.join("\n\n");
+}
+
 function ListaMensalidades({
   itens,
   mostrarStatus,
   mostrarPagoEm,
   mostrarVencimento,
   destaqueAtraso,
+  motoristaChavePix,
 }: {
   itens: MensalidadeResumo[];
   mostrarStatus?: boolean;
   mostrarPagoEm?: boolean;
   mostrarVencimento?: boolean;
   destaqueAtraso?: boolean;
+  motoristaChavePix?: string | null;
 }) {
   if (itens.length === 0) return <EstadoVazio texto="Nada por aqui nesse mês." />;
 
@@ -372,31 +421,53 @@ function ListaMensalidades({
 
   return (
     <ul className="space-y-2">
-      {itens.map((m) => (
-        <li
-          key={m.id}
-          className={`rounded-xl border p-3 ${
-            destaqueAtraso
-              ? "border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950/30"
-              : "border-neutral-200 dark:border-neutral-700"
-          }`}
-        >
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <p className="truncate font-medium">{m.alunoNome}</p>
-              {m.escolaNome && (
-                <p className="truncate text-xs text-neutral-500 dark:text-neutral-400">{m.escolaNome}</p>
-              )}
+      {itens.map((m) => {
+        const cobrancaHref = destaqueAtraso
+          ? linkWhatsApp(m.responsavelTelefone, mensagemCobranca(m, motoristaChavePix ?? null))
+          : null;
+
+        return (
+          <li
+            key={m.id}
+            className={`rounded-xl border p-3 ${
+              destaqueAtraso
+                ? "border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950/30"
+                : "border-neutral-200 dark:border-neutral-700"
+            }`}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="truncate font-medium">{m.alunoNome}</p>
+                {m.escolaNome && (
+                  <p className="truncate text-xs text-neutral-500 dark:text-neutral-400">{m.escolaNome}</p>
+                )}
+              </div>
+              <p className="shrink-0 font-semibold">{formatarBRL(m.valor)}</p>
             </div>
-            <p className="shrink-0 font-semibold">{formatarBRL(m.valor)}</p>
-          </div>
-          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-neutral-500 dark:text-neutral-400">
-            {mostrarStatus && <span>{rotuloStatus[m.status]}</span>}
-            {mostrarVencimento && <span>Vence em {formatarData(m.vencimento)}</span>}
-            {mostrarPagoEm && m.pagoEm && <span>Pago em {formatarData(m.pagoEm)}</span>}
-          </div>
-        </li>
-      ))}
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-neutral-500 dark:text-neutral-400">
+              {mostrarStatus && <span>{rotuloStatus[m.status]}</span>}
+              {mostrarVencimento && <span>Vence em {formatarData(m.vencimento)}</span>}
+              {mostrarPagoEm && m.pagoEm && <span>Pago em {formatarData(m.pagoEm)}</span>}
+            </div>
+            {destaqueAtraso &&
+              (cobrancaHref ? (
+                <a
+                  href={cobrancaHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-green-200 bg-green-50 px-3 py-1.5 text-xs font-medium text-green-700 transition hover:bg-green-100 dark:border-green-900 dark:bg-green-950/40 dark:text-green-400 dark:hover:bg-green-950/70"
+                >
+                  <MessageCircle className="h-3.5 w-3.5" aria-hidden="true" />
+                  Cobrar
+                </a>
+              ) : (
+                <p className="mt-2 text-xs text-neutral-400 dark:text-neutral-500">
+                  Sem telefone do responsável cadastrado pra cobrar por WhatsApp.
+                </p>
+              ))}
+          </li>
+        );
+      })}
     </ul>
   );
 }
