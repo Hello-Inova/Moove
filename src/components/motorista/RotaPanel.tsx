@@ -337,8 +337,13 @@ export function RotaPanel() {
                       <button
                         onClick={() => (emFoco ? voltarRotaNormal() : irParaAluno(p.vinculoId))}
                         className={
-                          (emFoco ? secondaryButtonClass : primaryButtonClass) +
-                          " inline-flex w-16 shrink-0 items-center justify-center gap-1 px-2 py-1.5 text-xs"
+                          emFoco
+                            ? secondaryButtonClass + " inline-flex w-16 shrink-0 items-center justify-center gap-1 px-2 py-1.5 text-xs"
+                            // Não usa primaryButtonClass aqui: ele embute `w-full`, que na
+                            // ordem de geração do Tailwind vence qualquer `w-16` acrescentado
+                            // depois na string — por isso o botão ficava esticado. Reescreve
+                            // o mesmo visual (navy, preenchido) sem a largura total.
+                            : "inline-flex w-16 shrink-0 items-center justify-center gap-1 rounded-xl bg-brand-navy px-2 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-brand-navy-light active:scale-[0.99]"
                         }
                       >
                         {emFoco ? (
