@@ -35,8 +35,14 @@ export type PainelData = {
   kmUltimos30Dias: CardResumo<KmDia>;
 };
 
+// Todo `Date` que representa um MÊS/DIA de calendário (não um instante) é
+// construído com `Date.UTC` e lido com os getters `UTC*` neste arquivo — o
+// mesmo vale no client (PainelDashboard.tsx). Misturar local com UTC aqui
+// causava o filtro de mês mostrar o mês anterior ao selecionado: meia-noite
+// UTC do dia 1 vira 21h do dia 31 do mês anterior em fusos negativos (ex.:
+// Brasil, UTC-3), e ler isso com getters locais devolve o mês errado.
 function ultimoDiaDoMes(ano: number, mesIndiceZero: number): number {
-  return new Date(ano, mesIndiceZero + 1, 0).getDate();
+  return new Date(Date.UTC(ano, mesIndiceZero + 1, 0)).getUTCDate();
 }
 
 function somaValor(lista: MensalidadeResumo[]): number {
@@ -51,14 +57,14 @@ function somaValor(lista: MensalidadeResumo[]): number {
 export function parseMesReferencia(mesParam: string | undefined): Date {
   if (mesParam && /^\d{4}-\d{2}$/.test(mesParam)) {
     const [ano, mes] = mesParam.split("-").map(Number);
-    if (mes >= 1 && mes <= 12) return new Date(ano, mes - 1, 1);
+    if (mes >= 1 && mes <= 12) return new Date(Date.UTC(ano, mes - 1, 1));
   }
   const hoje = new Date();
-  return new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+  return new Date(Date.UTC(hoje.getFullYear(), hoje.getMonth(), 1));
 }
 
 export function formatarMesParam(data: Date): string {
-  return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}`;
+  return `${data.getUTCFullYear()}-${String(data.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
 /**
@@ -83,9 +89,9 @@ export async function getPainelData(motoristaId: string, mesReferencia: Date): P
   const hoje = new Date();
   hoje.setHours(0, 0, 0, 0);
 
-  const inicioMes = new Date(mesReferencia.getFullYear(), mesReferencia.getMonth(), 1);
-  const fimMesExclusivo = new Date(mesReferencia.getFullYear(), mesReferencia.getMonth() + 1, 1);
-  const ultimoDia = ultimoDiaDoMes(mesReferencia.getFullYear(), mesReferencia.getMonth());
+  const inicioMes = new Date(Date.UTC(mesReferencia.getUTCFullYear(), mesReferencia.getUTCMonth(), 1));
+  const fimMesExclusivo = new Date(Date.UTC(mesReferencia.getUTCFullYear(), mesReferencia.getUTCMonth() + 1, 1));
+  const ultimoDia = ultimoDiaDoMes(mesReferencia.getUTCFullYear(), mesReferencia.getUTCMonth());
 
   // `PercursoDia.data` é `@db.Date` — comparar em UTC truncado, mesmo padrão
   // usado em toda a base pra esse tipo de coluna (ver `hojeData()` em
@@ -154,8 +160,8 @@ export async function getPainelData(motoristaId: string, mesReferencia: Date): P
     .filter((m) => m.status !== "CANCELADO")
     .map((m) => {
       const diaVencimento = Math.min(m.vinculo.diaPagamentoMensalidade ?? ultimoDia, ultimoDia);
-      const vencimento = new Date(mesReferencia.getFullYear(), mesReferencia.getMonth(), diaVencimento);
-      const atrasado = m.status === "PENDENTE" && vencimento < hoje;
+      const vencimento = new Date(Date.UTC(mesReferencia.getUTCFullYear(), mesReferencia.getUTCMonth(), diaVencimento));
+      const atrasado = m.status === "PENDENTE" && vencimento < hojeUTC;
       return {
         id: m.id,
         alunoNome: m.vinculo.aluno.nome,

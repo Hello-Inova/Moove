@@ -12,6 +12,8 @@ import {
   Route as RouteIcon,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  CalendarDays,
   MessageCircle,
   X,
 } from "lucide-react";
@@ -42,14 +44,38 @@ const MESES_PT = [
   "Dezembro",
 ];
 
+/**
+ * Todo valor "mês de referência" (o `Date` que representa um mês inteiro,
+ * não um instante) é construído com `Date.UTC` e lido com os getters `UTC*`
+ * — tanto aqui quanto em `dashboard-data.ts`. Se misturasse construção/
+ * leitura local com UTC, quem estivesse num fuso negativo (Brasil, UTC-3)
+ * veria sempre o mês anterior: meia-noite UTC do dia 1 vira 21h do dia 31
+ * do mês anterior em horário local, e ler isso com `getMonth()` local
+ * devolve o mês errado. Foi exatamente esse bug que fazia o seletor mostrar
+ * um mês atrás do selecionado.
+ */
 function formatarMesAno(data: Date): string {
-  return `${MESES_PT[data.getMonth()]} de ${data.getFullYear()}`;
+  return `${MESES_PT[data.getUTCMonth()]} de ${data.getUTCFullYear()}`;
 }
 
 function formatarMesParam(data: Date): string {
-  return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}`;
+  return `${data.getUTCFullYear()}-${String(data.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
+/** Data-calendário sem componente de hora (vencimento, dia de km rodado) —
+ * sempre formatada em UTC, pelo mesmo motivo do comentário acima: esses
+ * valores chegam do servidor como "meia-noite UTC do dia X". */
+function formatarDataCalendario(data: Date): string {
+  return new Date(data).toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+/** Data de um instante de verdade (ex.: quando a mensalidade foi paga) —
+ * aqui faz sentido mostrar no horário local de quem está vendo a tela. */
 function formatarData(data: Date): string {
   return new Date(data).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
@@ -95,7 +121,8 @@ export function PainelDashboard({
   const mesAtualParam = formatarMesParam(dados.mesReferencia);
   const isMesAtual = useMemo(() => {
     const hoje = new Date();
-    return mesAtualParam === formatarMesParam(new Date(hoje.getFullYear(), hoje.getMonth(), 1));
+    const hojeParam = formatarMesParam(new Date(Date.UTC(hoje.getFullYear(), hoje.getMonth(), 1)));
+    return mesAtualParam === hojeParam;
   }, [mesAtualParam]);
 
   function irParaMes(novoMes: Date) {
@@ -103,16 +130,26 @@ export function PainelDashboard({
   }
 
   function mesAdjacente(delta: number) {
-    return new Date(dados.mesReferencia.getFullYear(), dados.mesReferencia.getMonth() + delta, 1);
+    const totalMeses = dados.mesReferencia.getUTCFullYear() * 12 + dados.mesReferencia.getUTCMonth() + delta;
+    const ano = Math.floor(totalMeses / 12);
+    const mes = totalMeses % 12;
+    return new Date(Date.UTC(ano, mes, 1));
   }
 
   // Últimos 12 meses (incluindo o atual) pro seletor — suficiente pra
-  // navegar o histórico sem virar uma lista infinita.
+  // navegar o histórico sem virar uma lista infinita. "Hoje" é lido em
+  // horário local de propósito aqui (é a única leitura do calendário real
+  // de quem está usando o app) — o resultado já nasce ancorado em UTC pros
+  // meses ficarem consistentes com o resto do componente.
   const opcoesMes = useMemo(() => {
     const hoje = new Date();
+    const totalMesesHoje = hoje.getFullYear() * 12 + hoje.getMonth();
     const lista: Date[] = [];
     for (let i = 0; i < 12; i++) {
-      lista.push(new Date(hoje.getFullYear(), hoje.getMonth() - i, 1));
+      const total = totalMesesHoje - i;
+      const ano = Math.floor(total / 12);
+      const mes = total % 12;
+      lista.push(new Date(Date.UTC(ano, mes, 1)));
     }
     return lista;
   }, []);
@@ -196,9 +233,11 @@ export function PainelDashboard({
         </div>
       </div>
 
-      {/* Filtro de mês — compacto, com setas pra navegar rápido e um select
-          pra pular direto pra qualquer um dos últimos 12 meses. */}
-      <div className="flex items-center justify-center gap-2 rounded-2xl border border-neutral-200 bg-white px-2 py-2 shadow-sm dark:border-neutral-700 dark:bg-neutral-900 sm:justify-start">
+      {/* Filtro de mês — compacto, com setas pra navegar rápido e um menu
+          próprio (não um <select> nativo, que herda a aparência crua do
+          SO/navegador e destoa do resto da tela) pra pular direto pra
+          qualquer um dos últimos 12 meses. */}
+      <div className="flex items-center justify-between gap-1 rounded-2xl border border-neutral-200 bg-white p-1.5 shadow-sm dark:border-neutral-700 dark:bg-neutral-900">
         <button
           type="button"
           onClick={() => irParaMes(mesAdjacente(-1))}
@@ -208,17 +247,9 @@ export function PainelDashboard({
           <ChevronLeft className="h-5 w-5" aria-hidden="true" />
         </button>
 
-        <select
-          value={mesAtualParam}
-          onChange={(e) => irParaMes(new Date(`${e.target.value}-01T00:00:00`))}
-          className="min-w-0 flex-1 rounded-lg border-0 bg-transparent px-1 py-1.5 text-center text-sm font-medium text-neutral-800 outline-none dark:text-neutral-100 sm:flex-none sm:text-base"
-        >
-          {opcoesMes.map((mes) => (
-            <option key={formatarMesParam(mes)} value={formatarMesParam(mes)}>
-              {formatarMesAno(mes)}
-            </option>
-          ))}
-        </select>
+        <div className="flex flex-1 justify-center">
+          <SeletorMes mesAtualParam={mesAtualParam} opcoesMes={opcoesMes} onSelecionar={irParaMes} />
+        </div>
 
         <button
           type="button"
@@ -261,6 +292,78 @@ export function PainelDashboard({
           motoristaChavePix={motoristaChavePix}
           onClose={() => setCardAberto(null)}
         />
+      )}
+    </div>
+  );
+}
+
+/** Botão + painel próprio pro seletor de mês, no lugar de um `<select>`
+ * nativo — dá pra estilizar igual ao resto do app (cores, dark mode,
+ * cantos arredondados) em vez de herdar o popover cru do SO. Fecha ao
+ * escolher um mês ou ao clicar fora (mesmo padrão de backdrop já usado no
+ * DetalheModal logo abaixo). */
+function SeletorMes({
+  mesAtualParam,
+  opcoesMes,
+  onSelecionar,
+}: {
+  mesAtualParam: string;
+  opcoesMes: Date[];
+  onSelecionar: (mes: Date) => void;
+}) {
+  const [aberto, setAberto] = useState(false);
+  const mesAtual = opcoesMes.find((mes) => formatarMesParam(mes) === mesAtualParam);
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setAberto((v) => !v)}
+        aria-haspopup="listbox"
+        aria-expanded={aberto}
+        className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-neutral-800 transition hover:bg-neutral-100 dark:text-neutral-100 dark:hover:bg-neutral-800 sm:gap-2 sm:text-base"
+      >
+        <CalendarDays className="h-4 w-4 shrink-0 text-neutral-400" aria-hidden="true" />
+        <span className="whitespace-nowrap">{mesAtual ? formatarMesAno(mesAtual) : "Selecione o mês"}</span>
+        <ChevronDown
+          className={`h-4 w-4 shrink-0 text-neutral-400 transition-transform ${aberto ? "rotate-180" : ""}`}
+          aria-hidden="true"
+        />
+      </button>
+
+      {aberto && (
+        <>
+          <div className="fixed inset-0 z-[1900]" onClick={() => setAberto(false)} />
+          <div
+            role="listbox"
+            aria-label="Selecionar mês"
+            className="absolute left-1/2 top-full z-[1950] mt-2 max-h-72 w-48 -translate-x-1/2 overflow-y-auto rounded-xl border border-neutral-200 bg-white p-1.5 shadow-lg dark:border-neutral-700 dark:bg-neutral-900"
+          >
+            {opcoesMes.map((mes) => {
+              const valor = formatarMesParam(mes);
+              const selecionado = valor === mesAtualParam;
+              return (
+                <button
+                  key={valor}
+                  type="button"
+                  role="option"
+                  aria-selected={selecionado}
+                  onClick={() => {
+                    onSelecionar(mes);
+                    setAberto(false);
+                  }}
+                  className={`block w-full rounded-lg px-3 py-2 text-left text-sm transition ${
+                    selecionado
+                      ? "bg-brand-navy font-medium text-white"
+                      : "text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                  }`}
+                >
+                  {formatarMesAno(mes)}
+                </button>
+              );
+            })}
+          </div>
+        </>
       )}
     </div>
   );
@@ -387,7 +490,7 @@ function ListaEscolas({ itens }: { itens: EscolaResumo[] }) {
 function mensagemCobranca(m: MensalidadeResumo, chavePix: string | null): string {
   const linhas = [
     `Olá, ${m.responsavelNome}! Aqui é o motorista escolar de ${m.alunoNome}.`,
-    `A mensalidade do transporte de ${formatarMesAno(m.mesReferencia)} (${formatarBRL(m.valor)}) venceu em ${formatarData(
+    `A mensalidade do transporte de ${formatarMesAno(m.mesReferencia)} (${formatarBRL(m.valor)}) venceu em ${formatarDataCalendario(
       m.vencimento
     )} e ainda está em aberto.`,
     chavePix ? `Você pode pagar via PIX: ${chavePix}` : null,
@@ -446,7 +549,7 @@ function ListaMensalidades({
             </div>
             <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-neutral-500 dark:text-neutral-400">
               {mostrarStatus && <span>{rotuloStatus[m.status]}</span>}
-              {mostrarVencimento && <span>Vence em {formatarData(m.vencimento)}</span>}
+              {mostrarVencimento && <span>Vence em {formatarDataCalendario(m.vencimento)}</span>}
               {mostrarPagoEm && m.pagoEm && <span>Pago em {formatarData(m.pagoEm)}</span>}
             </div>
             {destaqueAtraso &&
@@ -481,7 +584,7 @@ function ListaKm({ itens }: { itens: KmDia[] }) {
           key={d.data.toString()}
           className="flex items-center justify-between rounded-xl border border-neutral-200 px-3 py-2 dark:border-neutral-700"
         >
-          <span className="text-sm">{formatarData(d.data)}</span>
+          <span className="text-sm">{formatarDataCalendario(d.data)}</span>
           <span className="text-sm font-medium">{d.km.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km</span>
         </li>
       ))}
