@@ -189,6 +189,74 @@ a aba aberta e a tela ligada durante a rota. Transformar o app em PWA com
 Service Worker pode estender minimamente essa janela numa fase futura, mas
 não elimina a limitação — não foi implementado nesta fase.
 
+## Rota do dia (motorista)
+
+Tela principal do motorista (`/motorista/dashboard`, item "Rota" na navegação —
+`src/components/motorista/RotaPanel.tsx` + `src/components/map/RotaMap*.tsx`).
+Cobre tanto a ida (casa → escola) quanto a volta (escola → casa), com o mapa
+sempre mostrando só o necessário no momento: o balão azul do motorista e,
+quando um destino está em foco, a rota até ele — nada de traçado
+pré-calculado com todas as paradas de uma vez.
+
+- **Lista de alunos + "Ir"**: cada aluno vinculado aparece numa lista sempre
+  visível, com um botão "Ir" que foca o mapa nesse aluno específico (estilo
+  Uber/99 — um destino de cada vez) e os botões "Embarcou"/"Ausente" pra
+  registrar o status do dia. Os quatro botões de ação (Ir/Cancelar, Embarcou,
+  Ausente, Desfazer) têm sempre a mesma largura e ficam na mesma linha.
+- **Marcadores do mapa**: alunos aparecem como balões laranjas com as
+  **iniciais do nome** (ex.: "Levi Brune" → "LB"), não números — fica visível
+  de longe quem é quem sem precisar abrir o popup. Fica **verde** com "✓"
+  quando o aluno já embarcou/foi entregue, e **vermelho** com "✕" quando foi
+  marcado ausente (`src/components/map/RotaMapInner.tsx`).
+- **Retorno (volta pra casa)**: botão "Iniciar retorno" no topo do painel
+  alterna o `sentido` da rota entre `IDA` e `VOLTA`
+  (`EmbarqueDia.sentido`, migração `20260817220000_embarque_sentido_ida_volta`)
+  — cada sentido tem seu próprio registro de embarque por dia
+  (`@@unique([vinculoId, data, sentido])`), então marcar um aluno na volta
+  não mexe no que já foi registrado na ida.
+  - **Fase 1 — buscar na escola**: ao iniciar o retorno, o destino de cada
+    aluno é a escola em que está matriculado.
+  - **Fase 2 — levar pra casa**: assim que o aluno é marcado "Embarcou" na
+    volta, o destino muda automaticamente pro endereço residencial dele — a
+    troca é recalculada a cada request no backend
+    (`src/app/api/motorista/rota/route.ts`), nunca fica só no estado do
+    cliente.
+  - **Ausente na ida não entra na volta**: se um aluno foi marcado ausente na
+    ida, ele é automaticamente excluído da lista/mapa de retorno do mesmo
+    dia (não faz sentido buscar na escola quem não foi levado).
+
+## Painel (dashboard financeiro/operacional)
+
+`/motorista/painel` (item "Painel" na navegação,
+`src/components/motorista/PainelDashboard.tsx` +
+`src/lib/painel/dashboard-data.ts`) — visão geral do mês, com 7 cards
+coloridos e clicáveis:
+
+- **Alunos vinculados** / **Escolas vinculadas** — contagem de vínculos
+  vigentes em algum ponto do mês selecionado (considera `criadoEm`/
+  `revogadoEm` do `Vinculo`, não só o status atual, pra fazer sentido também
+  em meses passados).
+- **Entrada prevista** — soma de todas as `MensalidadeTransporte` do mês
+  (pendente + paga, exceto cancelada).
+- **Pagamentos recebidos** — soma das mensalidades com status `PAGO` no mês.
+- **Pagamentos pendentes** / **Pagamentos atrasados** — mensalidades
+  `PENDENTE` são divididas comparando o vencimento de cada vínculo
+  (`diaPagamentoMensalidade`, truncado pro último dia do mês quando
+  necessário) com a data de **hoje** — não com o mês filtrado. Isso é o que
+  permite ver corretamente, por exemplo, um mês passado inteiro como
+  "atrasado" e o mês corrente como "pendente" até o dia do vencimento
+  chegar.
+- **Km rodados** — é a única exceção ao filtro de mês: é sempre uma janela
+  móvel dos **últimos 30 dias corridos** a partir de hoje (soma de
+  `PercursoDia.distanciaMetros`), igual ao rótulo diz.
+
+Cada card abre um modal com o detalhamento (lista de alunos/escolas/
+mensalidades/dias, conforme o card). O filtro de mês (setas + seletor dos
+últimos 12 meses) atualiza a URL (`?mes=YYYY-MM`) e reprocessa tudo no
+servidor — sem estado duplicado no cliente. No mobile o grid usa 2 colunas
+mesmo na tela pequena (em vez de empilhar 7 cards), pra caber numa tela só
+sem precisar rolar demais.
+
 ## Assinaturas e pagamento (Mercado Pago)
 
 Substituiu o modelo antigo de cobrança mensal por aluno excedente. Motoristas
@@ -282,16 +350,19 @@ src/lib/
   validation/schemas.ts       schemas Zod de entrada
   convite.ts                  geração/expiração de código de convite
   location.ts                 regra de "localização desatualizada"
+  percurso.ts                 abertura/fechamento de PercursoDia (resumo da rota, km rodado)
+  mensalidade/mensalidade-transporte.ts   cron: gera MensalidadeTransporte do mês quando o dia de pagamento chega
+  painel/dashboard-data.ts    agregação dos 7 cards do Painel (mês selecionado + km últimos 30 dias)
 
 src/contexts/LocationSharingContext.tsx   compartilhamento de GPS + alerta de confirmação ao interromper
 
 src/app/
   api/auth/{motorista,responsavel}/{register,register/verificar,login,login/verificar,logout,reenviar-codigo}
-  api/motorista/{veiculos,convites,vinculos,localizacao,assinatura,assinatura/checkout,me}
+  api/motorista/{veiculos,convites,vinculos,localizacao,assinatura,assinatura/checkout,rota,embarques,mensalidades,me}
   api/responsavel/{convites/usar,vinculos,buscar-placa,me}
   api/webhooks/mercadopago
-  api/cron/fechamento-mensal   (desativado — ver Assinaturas e pagamento)
-  motorista/{login,cadastro,dashboard,veiculos,convites,vinculos,cobrancas,planos}
+  api/cron/{fechamento-mensal,mensalidades}   (fechamento-mensal desativado — ver Assinaturas e pagamento)
+  motorista/{login,cadastro,dashboard,painel,veiculos,convites,vinculos,relatorios,cobrancas,planos}
   responsavel/{login,cadastro,dashboard,vincular,buscar}
   privacidade
 
@@ -299,7 +370,9 @@ src/components/
   auth/                       formulários, verificação de código e shell de login/cadastro, reusados pelas duas roles
   motorista/ , responsavel/   componentes específicos de cada painel
   motorista/{PlanCard,PlanosClient,TrialBanner}.tsx   cards de plano, checkout e alerta de dias de teste
-  map/                        mapa Leaflet (client-only)
+  motorista/RotaPanel.tsx     rota do dia (ida/volta, lista de alunos, Ir/Embarcou/Ausente)
+  motorista/PainelDashboard.tsx   dashboard financeiro/operacional (7 cards + filtro de mês)
+  map/                        mapa Leaflet (client-only) — marcadores por iniciais, cores por estado do aluno
   layout/AppHeader.tsx        header responsivo com menu hambúrguer no mobile
 
 src/hooks/useLocationSharing.ts   watchPosition + envio throttled de localização

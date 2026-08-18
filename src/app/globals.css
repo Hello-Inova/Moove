@@ -81,3 +81,28 @@ button:disabled,
     box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.55);
   }
 }
+
+/* Entrada dos cards do Painel (dashboard financeiro/operacional do
+   motorista) — sobe + aparece, escalonado por `--delay` (inline, um card
+   depois do outro) via src/components/motorista/PainelDashboard.tsx. */
+@keyframes painel-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.painel-card-in {
+  animation: painel-card-in 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: var(--delay, 0ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .painel-card-in {
+    animation: none;
+  }
+}

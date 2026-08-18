@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { MapPin, School, Truck, Send, Users, FileBarChart, CreditCard, Sparkles } from "lucide-react";
+import { LayoutDashboard, MapPin, School, Truck, Send, Users, FileBarChart, CreditCard, Sparkles } from "lucide-react";
 
 import { AppHeader, type NavItem } from "@/components/layout/AppHeader";
 import { AccessGate } from "@/components/layout/AccessGate";
@@ -12,6 +12,7 @@ import { contaEmTeste, diasRestantesConta, getAssinaturaAtual, motoristaTemAcess
 const ICON_CLASS = "h-4 w-4 shrink-0";
 
 const NAV: NavItem[] = [
+  { href: "/motorista/painel", label: "Painel", icon: <LayoutDashboard className={ICON_CLASS} aria-hidden="true" /> },
   { href: "/motorista/dashboard", label: "Rota", icon: <MapPin className={ICON_CLASS} aria-hidden="true" /> },
   { href: "/motorista/escolas", label: "Escolas", icon: <School className={ICON_CLASS} aria-hidden="true" /> },
   { href: "/motorista/veiculos", label: "Veículo", icon: <Truck className={ICON_CLASS} aria-hidden="true" /> },
