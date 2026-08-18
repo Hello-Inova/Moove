@@ -246,9 +246,8 @@ coloridos e clicáveis:
   permite ver corretamente, por exemplo, um mês passado inteiro como
   "atrasado" e o mês corrente como "pendente" até o dia do vencimento
   chegar.
-- **Km rodados** — é a única exceção ao filtro de mês: é sempre uma janela
-  móvel dos **últimos 30 dias corridos** a partir de hoje (soma de
-  `PercursoDia.distanciaMetros`), igual ao rótulo diz.
+- **Km rodados** — soma de `PercursoDia.distanciaMetros` com `data` dentro do
+  mês selecionado, igual aos demais cards.
 
 Cada card abre um modal com o detalhamento (lista de alunos/escolas/
 mensalidades/dias, conforme o card). O filtro de mês (setas + seletor dos
@@ -352,7 +351,7 @@ src/lib/
   location.ts                 regra de "localização desatualizada"
   percurso.ts                 abertura/fechamento de PercursoDia (resumo da rota, km rodado)
   mensalidade/mensalidade-transporte.ts   cron: gera MensalidadeTransporte do mês quando o dia de pagamento chega
-  painel/dashboard-data.ts    agregação dos 7 cards do Painel (mês selecionado + km últimos 30 dias)
+  painel/dashboard-data.ts    agregação dos 7 cards do Painel, todos por mês selecionado
 
 src/contexts/LocationSharingContext.tsx   compartilhamento de GPS + alerta de confirmação ao interromper
 

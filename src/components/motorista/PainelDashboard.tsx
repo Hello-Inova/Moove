@@ -104,9 +104,8 @@ type CardConfig = {
  * Painel (dashboard financeiro/operacional do motorista) — 7 cards
  * resumindo o mês selecionado (`dados` já vem pronto do servidor,
  * recalculado a cada troca de mês via querystring `?mes=YYYY-MM`, ver
- * page.tsx). "Km rodados" é a única exceção: é sempre uma janela móvel dos
- * últimos 30 dias, independente do mês filtrado (ver comentário em
- * dashboard-data.ts).
+ * page.tsx). Todos os cards, incluindo "km rodados", respeitam o mês
+ * filtrado.
  */
 export function PainelDashboard({
   dados,
@@ -213,8 +212,7 @@ export function PainelDashboard({
     {
       id: "km",
       label: "Km rodados",
-      valor: `${dados.kmUltimos30Dias.total.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km`,
-      sublinha: "Últimos 30 dias",
+      valor: `${dados.kmRodados.total.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km`,
       icon: <RouteIcon className="h-5 w-5" aria-hidden="true" />,
       from: "from-orange-500",
       to: "to-orange-600",
@@ -406,7 +404,7 @@ function DetalheModal({
         />
       ),
     },
-    km: { titulo: "Km rodados — últimos 30 dias", corpo: <ListaKm itens={dados.kmUltimos30Dias.detalhes} /> },
+    km: { titulo: "Km rodados", corpo: <ListaKm itens={dados.kmRodados.detalhes} /> },
   };
 
   const { titulo, corpo } = config[cardId];
@@ -576,7 +574,7 @@ function ListaMensalidades({
 }
 
 function ListaKm({ itens }: { itens: KmDia[] }) {
-  if (itens.length === 0) return <EstadoVazio texto="Nenhuma rota encerrada nos últimos 30 dias." />;
+  if (itens.length === 0) return <EstadoVazio texto="Nenhuma rota encerrada nesse mês." />;
   return (
     <ul className="space-y-1.5">
       {[...itens].reverse().map((d) => (

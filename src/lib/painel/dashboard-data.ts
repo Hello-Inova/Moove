@@ -32,7 +32,7 @@ export type PainelData = {
   pagamentosRecebidos: CardResumo<MensalidadeResumo>;
   pagamentosPendentes: CardResumo<MensalidadeResumo>;
   pagamentosAtrasados: CardResumo<MensalidadeResumo>;
-  kmUltimos30Dias: CardResumo<KmDia>;
+  kmRodados: CardResumo<KmDia>;
 };
 
 // Todo `Date` que representa um MÊS/DIA de calendário (não um instante) é
@@ -69,10 +69,8 @@ export function formatarMesParam(data: Date): string {
 
 /**
  * Agrega os dados do Painel (Dashboard financeiro/operacional do motorista)
- * para um mês de referência específico — todo card respeita o mês
- * selecionado, EXCETO "km rodados", que é deliberadamente uma janela móvel
- * dos últimos 30 dias corridos a partir de hoje (é o que o rótulo diz, e não
- * faz sentido "km dos últimos 30 dias de janeiro de 2025").
+ * para um mês de referência específico — todo card, incluindo "km
+ * rodados", respeita o mês selecionado.
  *
  * "Atrasado" vs "Pendente": cada vínculo tem um dia de vencimento próprio
  * (`diaPagamentoMensalidade`, 1–31, truncado pro último dia do mês quando o
@@ -98,8 +96,6 @@ export async function getPainelData(motoristaId: string, mesReferencia: Date): P
   // src/lib/percurso.ts, src/app/api/motorista/rota/route.ts etc.), pra não
   // depender do fuso horário de onde a função roda.
   const hojeUTC = new Date(Date.UTC(hoje.getFullYear(), hoje.getMonth(), hoje.getDate()));
-  const inicioJanela30d = new Date(hojeUTC);
-  inicioJanela30d.setUTCDate(inicioJanela30d.getUTCDate() - 29);
 
   const [vinculosDoMes, escolas, mensalidades, percursos] = await Promise.all([
     // Vínculos "vigentes" em algum ponto do mês selecionado: criados até o
@@ -136,8 +132,11 @@ export async function getPainelData(motoristaId: string, mesReferencia: Date): P
         },
       },
     }),
+    // Km rodados também segue o mês selecionado, igual aos cards
+    // financeiros — soma de PercursoDia.distanciaMetros com `data` dentro
+    // do mês de referência.
     prisma.percursoDia.findMany({
-      where: { motoristaId, data: { gte: inicioJanela30d, lte: hojeUTC } },
+      where: { motoristaId, data: { gte: inicioMes, lt: fimMesExclusivo } },
       select: { data: true, distanciaMetros: true },
     }),
   ]);
@@ -194,7 +193,7 @@ export async function getPainelData(motoristaId: string, mesReferencia: Date): P
     pagamentosRecebidos: { total: somaValor(recebidos), detalhes: recebidos },
     pagamentosPendentes: { total: somaValor(pendentesNoPrazo), detalhes: pendentesNoPrazo },
     pagamentosAtrasados: { total: somaValor(atrasados), detalhes: atrasados },
-    kmUltimos30Dias: {
+    kmRodados: {
       total: kmDetalhes.reduce((acc, d) => acc + d.km, 0),
       detalhes: kmDetalhes,
     },
