@@ -364,6 +364,9 @@ export function RotaPanel() {
               concluidas={
                 new Set(Object.entries(statusPorVinculo).filter(([, s]) => s === "EMBARCOU").map(([id]) => id))
               }
+              ausentes={
+                new Set(Object.entries(statusPorVinculo).filter(([, s]) => s === "AUSENTE").map(([id]) => id))
+              }
               geometria={rota.geometria}
             />
           </div>

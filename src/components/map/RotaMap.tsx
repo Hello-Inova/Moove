@@ -17,6 +17,7 @@ export function RotaMap(props: {
   motorista: { latitude: number; longitude: number };
   paradas: ParadaRota[];
   concluidas: Set<string>;
+  ausentes: Set<string>;
   geometria: [number, number][] | null;
 }) {
   return <RotaMapInner {...props} />;

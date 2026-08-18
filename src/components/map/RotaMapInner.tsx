@@ -30,14 +30,22 @@ function iniciaisNome(nome: string): string {
   return (partes[0][0] + partes[partes.length - 1][0]).toUpperCase();
 }
 
-function paradaIcon(alunoNome: string, concluida: boolean) {
-  const rotulo = concluida ? "✓" : iniciaisNome(alunoNome);
+type EstadoParada = "pendente" | "concluida" | "ausente";
+
+const CORES_PARADA: Record<EstadoParada, string> = {
+  pendente: "#f97316",
+  concluida: "#16a34a",
+  ausente: "#dc2626",
+};
+
+function paradaIcon(alunoNome: string, estado: EstadoParada) {
+  const rotulo = estado === "concluida" ? "✓" : estado === "ausente" ? "✕" : iniciaisNome(alunoNome);
   return L.divIcon({
     className: "",
     html: `<div style="
       display:flex; align-items:center; justify-content:center;
       width:30px; height:30px; border-radius:9999px;
-      background:${concluida ? "#16a34a" : "#f97316"};
+      background:${CORES_PARADA[estado]};
       color:white; font:700 11px/1 system-ui, sans-serif;
       border:2px solid white; box-shadow:0 1px 4px rgba(0,0,0,.4);
     ">${rotulo}</div>`,
@@ -140,11 +148,13 @@ export function RotaMapInner({
   motorista,
   paradas,
   concluidas,
+  ausentes,
   geometria,
 }: {
   motorista: { latitude: number; longitude: number };
   paradas: ParadaRota[];
   concluidas: Set<string>;
+  ausentes: Set<string>;
   geometria: [number, number][] | null;
 }) {
   const pontos: [number, number][] = [
@@ -186,19 +196,23 @@ export function RotaMapInner({
           <Popup>Você está aqui</Popup>
         </Marker>
 
-        {paradas.map((p) => (
-          <Marker
-            key={p.vinculoId}
-            position={[p.latitude, p.longitude]}
-            icon={paradaIcon(p.alunoNome, concluidas.has(p.vinculoId))}
-          >
-            <Popup>
-              <strong>{p.alunoNome}</strong>
-              <br />
-              {p.enderecoResumo}
-            </Popup>
-          </Marker>
-        ))}
+        {paradas.map((p) => {
+          const estado: EstadoParada = concluidas.has(p.vinculoId)
+            ? "concluida"
+            : ausentes.has(p.vinculoId)
+              ? "ausente"
+              : "pendente";
+          return (
+            <Marker key={p.vinculoId} position={[p.latitude, p.longitude]} icon={paradaIcon(p.alunoNome, estado)}>
+              <Popup>
+                <strong>{p.alunoNome}</strong>
+                {estado === "ausente" && " (ausente)"}
+                <br />
+                {p.enderecoResumo}
+              </Popup>
+            </Marker>
+          );
+        })}
 
         {geometria && geometria.length > 1 && (
           <Polyline positions={geometria} pathOptions={{ color: "#1e293b", weight: 4, opacity: 0.8 }} />
