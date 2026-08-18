@@ -147,6 +147,9 @@ async function listaIda(motoristaId: string, localizacao: { latitude: number; lo
 /**
  * Igual `listaIda`, mas o destino de cada aluno depende da fase da volta:
  *
+ * 0. Foi marcado "Ausente" hoje na IDA — não subiu no transporte de manhã,
+ *    então não tem o que buscar na escola à tarde. Fica de fora do
+ *    retorno inteiro (não aparece no mapa nem na lista).
  * 1. Ainda não foi buscado — destino é a escola cadastrada no vínculo
  *    (`Vinculo.escolaId`).
  * 2. Já foi marcado "Embarcou" hoje na volta (buscado na escola) — destino
@@ -186,9 +189,11 @@ async function listaVolta(motoristaId: string, localizacao: { latitude: number; 
           enderecoLongitude: true,
         },
       },
-      // No máximo 1 registro (chave única vinculoId+data+sentido) — diz se
-      // esse aluno já foi buscado na escola hoje, na volta.
-      embarquesDia: { where: { data: hojeData(), sentido: "VOLTA" }, select: { status: true } },
+      // No máximo 2 registros hoje (um por sentido, chave única
+      // vinculoId+data+sentido) — a IDA diz se o aluno foi buscado em casa
+      // de manhã (se "Ausente", não entra no retorno — ver abaixo), a
+      // VOLTA diz se já foi buscado na escola à tarde.
+      embarquesDia: { where: { data: hojeData() }, select: { sentido: true, status: true } },
     },
   });
 
@@ -196,7 +201,10 @@ async function listaVolta(motoristaId: string, localizacao: { latitude: number; 
   let vinculosSemEndereco = 0;
 
   for (const vinculo of vinculos) {
-    const jaBuscado = vinculo.embarquesDia[0]?.status === "EMBARCOU";
+    const ausenteNaIda = vinculo.embarquesDia.some((e) => e.sentido === "IDA" && e.status === "AUSENTE");
+    if (ausenteNaIda) continue;
+
+    const jaBuscado = vinculo.embarquesDia.some((e) => e.sentido === "VOLTA" && e.status === "EMBARCOU");
 
     if (jaBuscado) {
       if (vinculo.aluno.enderecoLatitude === null || vinculo.aluno.enderecoLongitude === null) {
@@ -331,7 +339,7 @@ async function rotaAteVinculo(
         },
       },
       responsavel: { select: { nome: true } },
-      embarquesDia: { where: { data: hojeData(), sentido: "VOLTA" }, select: { status: true } },
+      embarquesDia: { where: { data: hojeData() }, select: { sentido: true, status: true } },
     },
   });
   if (!vinculo || vinculo.motoristaId !== motoristaId || vinculo.status !== "ATIVO") {
@@ -343,7 +351,12 @@ async function rotaAteVinculo(
   let modoNome: string;
 
   if (sentido === "VOLTA") {
-    const jaBuscado = vinculo.embarquesDia[0]?.status === "EMBARCOU";
+    const ausenteNaIda = vinculo.embarquesDia.some((e) => e.sentido === "IDA" && e.status === "AUSENTE");
+    if (ausenteNaIda) {
+      return jsonError(409, "Este aluno foi marcado como ausente na ida — não faz parte do retorno de hoje.");
+    }
+
+    const jaBuscado = vinculo.embarquesDia.some((e) => e.sentido === "VOLTA" && e.status === "EMBARCOU");
 
     if (jaBuscado) {
       if (vinculo.aluno.enderecoLatitude === null || vinculo.aluno.enderecoLongitude === null) {
