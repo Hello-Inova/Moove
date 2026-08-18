@@ -11,6 +11,11 @@ import type { ParadaRota, RotaResponse } from "@/app/api/motorista/rota/route";
 
 type StatusEmbarque = "EMBARCOU" | "AUSENTE";
 type EmbarqueRegistro = { vinculoId: string; status: StatusEmbarque };
+type Sentido = "IDA" | "VOLTA";
+
+function embarquesUrl(sentido: Sentido): string {
+  return `/api/motorista/embarques?sentido=${sentido === "VOLTA" ? "volta" : "ida"}`;
+}
 
 // Não há mais rota multi-parada pré-calculada (ver route.ts) — o mapa, no
 // modo normal, só mostra os balões (motorista + alunos), sem custo de
@@ -63,23 +68,33 @@ export function RotaPanel() {
   // visível mesmo com um destino único em foco (o motorista pode trocar de
   // aluno sem perder a lista completa).
   const [listaAlunos, setListaAlunos] = useState<ParadaRota[]>([]);
+  // IDA = buscar os alunos em casa (padrão); VOLTA = buscar nas escolas
+  // cadastradas em cada vínculo — botão "Retorno" abaixo. Cada sentido tem
+  // sua própria marcação de Embarcou/Ausente (ver embarquesUrl acima).
+  const [sentido, setSentido] = useState<Sentido>("IDA");
 
   // Horário da última busca bem-sucedida — usado só pelo teto de segurança
   // abaixo (mantém a LISTA de alunos atualizada, não recalcula rota).
   const ultimoCalculoEmRef = useRef<number>(0);
-  // Lido dentro do interval de segurança (ver efeito abaixo) — precisa ser
-  // ref pra não ficar "preso" no valor de quando o interval foi criado.
+  // Lidos dentro do interval de segurança (ver efeito abaixo) — precisam
+  // ser refs pra não ficar "presos" no valor de quando o interval foi
+  // criado.
   const destinoManualRef = useRef(destinoManual);
   useEffect(() => {
     destinoManualRef.current = destinoManual;
   }, [destinoManual]);
+  const sentidoRef = useRef(sentido);
+  useEffect(() => {
+    sentidoRef.current = sentido;
+  }, [sentido]);
 
-  const carregar = useCallback(async (destino?: { tipo: "escola" | "aluno"; id: string }) => {
+  const carregar = useCallback(async (destino?: { tipo: "escola" | "aluno"; id: string }, sentidoParam: Sentido = "IDA") => {
     setLoading(true);
-    const url = destino
-      ? `/api/motorista/rota?${destino.tipo === "escola" ? "escolaId" : "vinculoId"}=${encodeURIComponent(destino.id)}`
-      : "/api/motorista/rota";
-    const result = await apiGet<RotaResponse>(url);
+    const params = new URLSearchParams();
+    if (destino) params.set(destino.tipo === "escola" ? "escolaId" : "vinculoId", destino.id);
+    if (sentidoParam === "VOLTA") params.set("sentido", "volta");
+    const qs = params.toString();
+    const result = await apiGet<RotaResponse>(`/api/motorista/rota${qs ? `?${qs}` : ""}`);
     setLoading(false);
 
     if (!result.ok) {
@@ -97,7 +112,7 @@ export function RotaPanel() {
 
   useEffect(() => {
     if (!isSharing) return;
-    void carregar();
+    void carregar(undefined, sentidoRef.current);
 
     apiGet<Escola[]>("/api/motorista/escolas").then((result) => {
       if (result.ok) {
@@ -106,7 +121,7 @@ export function RotaPanel() {
       }
     });
 
-    apiGet<EmbarqueRegistro[]>("/api/motorista/embarques").then((result) => {
+    apiGet<EmbarqueRegistro[]>(embarquesUrl(sentidoRef.current)).then((result) => {
       if (result.ok) {
         setStatusPorVinculo(Object.fromEntries(result.data.map((r) => [r.vinculoId, r.status])));
       }
@@ -119,7 +134,7 @@ export function RotaPanel() {
     // antes do recálculo por distância.
     const tetoInterval = setInterval(() => {
       if (!destinoManualRef.current && Date.now() - ultimoCalculoEmRef.current >= RECALCULO_TETO_MS) {
-        void carregar();
+        void carregar(undefined, sentidoRef.current);
       }
     }, 30_000);
     return () => clearInterval(tetoInterval);
@@ -128,22 +143,38 @@ export function RotaPanel() {
   function irParaEscola() {
     if (!escolaSelecionada) return;
     setDestinoManual({ tipo: "escola", id: escolaSelecionada });
-    void carregar({ tipo: "escola", id: escolaSelecionada });
+    void carregar({ tipo: "escola", id: escolaSelecionada }, sentido);
   }
 
   // Botão "Ir" de cada item da lista de alunos — traça a rota direto até
-  // esse aluno (ignora a ordem otimizada dos demais), igual ao Uber/99.
-  // O alerta de proximidade continua avaliando todos os vínculos ativos
-  // pela config do motorista (ver /api/motorista/localizacao), não só o
-  // que está em foco aqui — escolher "Ir" não muda quem recebe alerta.
+  // esse aluno (ignora a ordem otimizada dos demais), igual ao Uber/99. No
+  // sentido VOLTA, "esse aluno" vira a escola cadastrada no vínculo dele
+  // (ver rotaAteVinculo no backend). O alerta de proximidade continua
+  // avaliando todos os vínculos ativos pela config do motorista (ver
+  // /api/motorista/localizacao), não só o que está em foco aqui —
+  // escolher "Ir" não muda quem recebe alerta.
   function irParaAluno(vinculoId: string) {
     setDestinoManual({ tipo: "aluno", id: vinculoId });
-    void carregar({ tipo: "aluno", id: vinculoId });
+    void carregar({ tipo: "aluno", id: vinculoId }, sentido);
   }
 
   function voltarRotaNormal() {
     setDestinoManual(null);
-    void carregar();
+    void carregar(undefined, sentido);
+  }
+
+  // Botão "Retorno" — troca entre buscar os alunos em casa (ida, padrão) e
+  // buscar nas escolas cadastradas (volta). Reseta qualquer destino manual
+  // em foco (ele valia pro sentido anterior) e recarrega tanto a lista de
+  // alunos quanto a marcação de Embarcou/Ausente do novo sentido.
+  function alternarSentido() {
+    const novo: Sentido = sentido === "IDA" ? "VOLTA" : "IDA";
+    setSentido(novo);
+    setDestinoManual(null);
+    void carregar(undefined, novo);
+    apiGet<EmbarqueRegistro[]>(embarquesUrl(novo)).then((result) => {
+      if (result.ok) setStatusPorVinculo(Object.fromEntries(result.data.map((r) => [r.vinculoId, r.status])));
+    });
   }
 
   function encerrarRota() {
@@ -169,11 +200,11 @@ export function RotaPanel() {
       return next;
     });
 
-    const result = await apiPatchJson<{ ok: true }>("/api/motorista/embarques", { vinculoId, status });
+    const result = await apiPatchJson<{ ok: true }>("/api/motorista/embarques", { vinculoId, status, sentido });
     if (!result.ok) {
       // Reverte se a chamada falhar (ex: sem internet) — recarrega o estado
       // real do servidor em vez de tentar adivinhar o valor anterior.
-      const retry = await apiGet<EmbarqueRegistro[]>("/api/motorista/embarques");
+      const retry = await apiGet<EmbarqueRegistro[]>(embarquesUrl(sentido));
       if (retry.ok) setStatusPorVinculo(Object.fromEntries(retry.data.map((r) => [r.vinculoId, r.status])));
     }
   }
@@ -193,7 +224,11 @@ export function RotaPanel() {
     <section className="rounded-2xl border border-neutral-200 bg-white shadow-sm p-5 dark:bg-neutral-900 dark:border-neutral-700">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="font-medium">
-          {destinoManual ? `Indo para: ${rota?.modoDestino?.nome ?? "..."}` : "Rota do dia"}
+          {destinoManual
+            ? `Indo para: ${rota?.modoDestino?.nome ?? "..."}`
+            : sentido === "VOLTA"
+              ? "Retorno — buscando nas escolas"
+              : "Rota do dia"}
         </h2>
         <div className="flex flex-wrap gap-2">
           {destinoManual && (
@@ -205,7 +240,19 @@ export function RotaPanel() {
             </button>
           )}
           <button
-            onClick={() => void carregar(destinoManual ?? undefined)}
+            onClick={alternarSentido}
+            disabled={loading}
+            className={
+              (sentido === "VOLTA"
+                ? "border-brand-orange bg-orange-50 text-orange-900 hover:bg-orange-100 dark:border-brand-orange dark:bg-orange-950/30 dark:text-orange-300"
+                : "border-neutral-300 bg-white text-neutral-800 hover:bg-neutral-50 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100 dark:hover:bg-neutral-700") +
+              " w-auto rounded-xl border px-4 py-1.5 text-sm font-medium shadow-sm transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
+            }
+          >
+            {sentido === "VOLTA" ? "Cancelar retorno" : "Iniciar retorno"}
+          </button>
+          <button
+            onClick={() => void carregar(destinoManual ?? undefined, sentido)}
             disabled={loading}
             className={secondaryButtonClass + " w-auto px-4 py-1.5 text-sm"}
           >
@@ -240,7 +287,10 @@ export function RotaPanel() {
         </div>
       )}
 
-      {escolas.length > 0 && (
+      {/* Redundante no modo Retorno: lá cada "Ir" já leva pra escola do
+          próprio aluno — esse seletor é só pra "ir direto pra uma escola"
+          fora do fluxo normal, faz sentido só na ida. */}
+      {sentido === "IDA" && escolas.length > 0 && (
         <div className="mt-3 flex flex-wrap items-end gap-2 rounded-xl bg-neutral-50 p-3 dark:bg-neutral-800">
           <div className="flex-1 min-w-[160px]">
             <label className="mb-1 block text-xs font-medium text-neutral-600 dark:text-neutral-300" htmlFor="escolaDestino">
@@ -271,13 +321,17 @@ export function RotaPanel() {
 
       {rota && rota.vinculosSemEndereco > 0 && (
         <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
-          {rota.vinculosSemEndereco} aluno(s) vinculado(s) ainda não {rota.vinculosSemEndereco === 1 ? "tem" : "têm"} endereço cadastrado — não {rota.vinculosSemEndereco === 1 ? "entra" : "entram"} na rota.
+          {sentido === "VOLTA"
+            ? <>{rota.vinculosSemEndereco} aluno(s) ainda sem escola cadastrada (com endereço) no vínculo — não {rota.vinculosSemEndereco === 1 ? "entra" : "entram"} no retorno.</>
+            : <>{rota.vinculosSemEndereco} aluno(s) vinculado(s) ainda não {rota.vinculosSemEndereco === 1 ? "tem" : "têm"} endereço cadastrado — não {rota.vinculosSemEndereco === 1 ? "entra" : "entram"} na rota.</>}
         </p>
       )}
 
       {rota && rota.paradas.length === 0 && !error && (
         <p className="mt-3 text-sm text-neutral-500 dark:text-neutral-400">
-          Nenhuma parada com endereço cadastrado ainda.
+          {sentido === "VOLTA"
+            ? "Nenhum aluno com escola cadastrada (com endereço) ainda."
+            : "Nenhuma parada com endereço cadastrado ainda."}
         </p>
       )}
 

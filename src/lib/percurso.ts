@@ -36,13 +36,18 @@ export async function fecharPercurso(percursoId: string, encerradoEm: Date = new
     distanciaMetros += haversineMetros(pontos[i - 1], pontos[i]);
   }
 
+  // `sentido: "IDA"` — o resumo do percurso sempre refletiu só a rota de
+  // buscar em casa (a única que existia). Agora que a rota de volta
+  // (buscar na escola, ver RotaPanel.tsx) tem sua própria marcação de
+  // embarque, fixar "IDA" aqui mantém esse resumo com o mesmo significado
+  // de sempre em vez de somar as duas pernas do dia.
   const [totalAlunos, totalEmbarcaram, totalAusentes] = await Promise.all([
     prisma.vinculo.count({ where: { motoristaId: percurso.motoristaId, status: "ATIVO" } }),
     prisma.embarqueDia.count({
-      where: { data: percurso.data, status: "EMBARCOU", vinculo: { motoristaId: percurso.motoristaId } },
+      where: { data: percurso.data, sentido: "IDA", status: "EMBARCOU", vinculo: { motoristaId: percurso.motoristaId } },
     }),
     prisma.embarqueDia.count({
-      where: { data: percurso.data, status: "AUSENTE", vinculo: { motoristaId: percurso.motoristaId } },
+      where: { data: percurso.data, sentido: "IDA", status: "AUSENTE", vinculo: { motoristaId: percurso.motoristaId } },
     }),
   ]);
 

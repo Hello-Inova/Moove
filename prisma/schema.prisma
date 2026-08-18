@@ -82,6 +82,17 @@ enum StatusEmbarqueDia {
   @@map("status_embarque_dia")
 }
 
+// Perna da rota do dia: IDA (buscar o aluno em casa e levar pra escola) ou
+// VOLTA (buscar o aluno na escola e levar pra casa) — ver botão "Retorno"
+// em RotaPanel.tsx. Cada vínculo pode ter uma marcação de embarque
+// independente por perna (ver EmbarqueDia.@@unique abaixo).
+enum SentidoViagem {
+  IDA
+  VOLTA
+
+  @@map("sentido_viagem")
+}
+
 enum StatusCobrancaAluno {
   PENDENTE
   PAGO
@@ -546,6 +557,9 @@ model EmbarqueDia {
   id        String            @id @default(cuid())
   vinculoId String            @map("vinculo_id")
   data      DateTime          @db.Date
+  // Padrão IDA por retrocompatibilidade — todo registro criado antes da
+  // rota de volta existir era, por definição, da ida (a única que existia).
+  sentido   SentidoViagem     @default(IDA) @map("sentido")
   status    StatusEmbarqueDia
 
   criadoEm     DateTime @default(now()) @map("criado_em")
@@ -553,7 +567,7 @@ model EmbarqueDia {
 
   vinculo Vinculo @relation(fields: [vinculoId], references: [id], onDelete: Cascade)
 
-  @@unique([vinculoId, data])
+  @@unique([vinculoId, data, sentido])
   @@map("embarques_dia")
 }
 

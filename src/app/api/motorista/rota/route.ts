@@ -24,8 +24,9 @@ export type RotaResponse = {
   duracaoSegundos: number | null;
   /** [lat, lon][], pronto para o Leaflet <Polyline positions={...} />. */
   geometria: [number, number][] | null;
-  /** Vínculos ativos cujo aluno ainda não tem endereço geocodificado — não
-   * entram na rota, mas o motorista precisa saber que existem. */
+  /** Vínculos ativos cujo destino (endereço do aluno na ida, escola do
+   * aluno na volta) ainda não está geocodificado — não entram na rota, mas
+   * o motorista precisa saber que existem. */
   vinculosSemEndereco: number;
   /** Preenchido só quando a rota é "ir direto" pra um destino único —
    * `?escolaId=` (uma escola) ou `?vinculoId=` (um aluno específico,
@@ -34,19 +35,29 @@ export type RotaResponse = {
   modoDestino: { tipo: "escola" | "aluno"; id: string; nome: string } | null;
 };
 
+type Sentido = "IDA" | "VOLTA";
+
+function sentidoDaQuery(request: NextRequest): Sentido {
+  return request.nextUrl.searchParams.get("sentido") === "volta" ? "VOLTA" : "IDA";
+}
+
 /**
- * Lista os alunos (vínculos ATIVOS) do motorista, com a posição do aluno
- * geocodificada, pra desenhar os balões no mapa e a lista com o botão
- * "Ir" (ver RotaPanel.tsx). NÃO pré-calcula mais um trajeto multi-parada
+ * Lista os alunos (vínculos ATIVOS) do motorista, com a posição de destino
+ * geocodificada, pra desenhar os balões no mapa e a lista com o botão "Ir"
+ * (ver RotaPanel.tsx). NÃO pré-calcula mais um trajeto multi-parada
  * otimizado via OSRM — só marca no mapa onde o motorista está (balão azul,
  * posição ao vivo do GPS) e onde cada aluno está (balão laranja, com as
  * iniciais do nome). O motorista escolhe manualmente pra qual aluno ir
  * (botão "Ir" de cada item), e só nesse momento uma rota de verdade é
  * calculada — ver `rotaAteVinculo` abaixo.
  *
- * Com `?escolaId=`, traça direto até uma escola. Com `?vinculoId=`, traça
- * direto até UM aluno específico — usado quando o motorista escolhe, na
- * lista, pra qual quer ir (botão "Ir"). Em ambos os casos o alerta de
+ * `?sentido=volta` troca o destino de cada aluno: em vez do endereço de
+ * casa (ida — padrão), usa o endereço da escola cadastrada no vínculo —
+ * botão "Retorno" no painel, pra buscar os alunos nas escolas no fim do
+ * dia. Com `?escolaId=`, traça direto até uma escola (independe do
+ * sentido). Com `?vinculoId=`, traça direto até UM aluno específico —
+ * usado quando o motorista escolhe, na lista, pra qual quer ir (botão
+ * "Ir"), respeitando o sentido atual. Em todos os casos o alerta de
  * proximidade automático (`/api/motorista/localizacao`) não muda —
  * continua avaliando todos os vínculos ativos pela config do motorista,
  * independente de qual destino está em foco no mapa.
@@ -60,6 +71,8 @@ export async function GET(request: NextRequest) {
     return jsonError(409, "Ative o compartilhamento de localização primeiro — a rota parte da sua posição atual.");
   }
 
+  const sentido = sentidoDaQuery(request);
+
   const escolaId = request.nextUrl.searchParams.get("escolaId");
   if (escolaId) {
     return rotaAteEscola(motorista.id, escolaId, localizacao);
@@ -67,11 +80,18 @@ export async function GET(request: NextRequest) {
 
   const vinculoId = request.nextUrl.searchParams.get("vinculoId");
   if (vinculoId) {
-    return rotaAteVinculo(motorista.id, vinculoId, localizacao);
+    return rotaAteVinculo(motorista.id, vinculoId, localizacao, sentido);
   }
 
+  if (sentido === "VOLTA") {
+    return listaVolta(motorista.id, localizacao);
+  }
+  return listaIda(motorista.id, localizacao);
+}
+
+async function listaIda(motoristaId: string, localizacao: { latitude: number; longitude: number }) {
   const vinculos = await prisma.vinculo.findMany({
-    where: { motoristaId: motorista.id, status: "ATIVO" },
+    where: { motoristaId, status: "ATIVO" },
     include: {
       aluno: {
         select: {
@@ -105,6 +125,59 @@ export async function GET(request: NextRequest) {
     latitude: vinculo.aluno.enderecoLatitude as number,
     longitude: vinculo.aluno.enderecoLongitude as number,
   }));
+
+  return NextResponse.json({
+    motorista: { latitude: localizacao.latitude, longitude: localizacao.longitude },
+    paradas,
+    distanciaMetros: null,
+    duracaoSegundos: null,
+    geometria: null,
+    vinculosSemEndereco,
+    modoDestino: null,
+  } satisfies RotaResponse);
+}
+
+/** Mesma lógica de `listaIda`, mas o destino de cada aluno é a escola
+ * cadastrada no vínculo (`Vinculo.escolaId`) em vez do endereço de casa —
+ * usada pelo botão "Retorno" (buscar os alunos nas escolas). */
+async function listaVolta(motoristaId: string, localizacao: { latitude: number; longitude: number }) {
+  const vinculos = await prisma.vinculo.findMany({
+    where: { motoristaId, status: "ATIVO" },
+    include: {
+      aluno: { select: { nome: true } },
+      responsavel: { select: { nome: true } },
+      escola: {
+        select: {
+          nome: true,
+          logradouro: true,
+          numero: true,
+          bairro: true,
+          cidade: true,
+          estado: true,
+          enderecoLatitude: true,
+          enderecoLongitude: true,
+        },
+      },
+    },
+  });
+
+  const comEscola = vinculos
+    .filter((v) => v.escola !== null && v.escola.enderecoLatitude !== null && v.escola.enderecoLongitude !== null)
+    .sort((a, b) => a.aluno.nome.localeCompare(b.aluno.nome, "pt-BR"));
+  const vinculosSemEndereco = vinculos.length - comEscola.length;
+
+  const paradas: ParadaRota[] = comEscola.map((vinculo, posicao) => {
+    const escola = vinculo.escola as NonNullable<typeof vinculo.escola>;
+    return {
+      vinculoId: vinculo.id,
+      sequencia: posicao + 1,
+      alunoNome: vinculo.aluno.nome,
+      responsavelNome: vinculo.responsavel.nome,
+      enderecoResumo: `${escola.nome} — ${montarEnderecoTexto(escola)}`,
+      latitude: escola.enderecoLatitude as number,
+      longitude: escola.enderecoLongitude as number,
+    };
+  });
 
   return NextResponse.json({
     motorista: { latitude: localizacao.latitude, longitude: localizacao.longitude },
@@ -169,17 +242,31 @@ async function rotaAteEscola(
  * Rota direta até UM aluno específico (destino escolhido manualmente pelo
  * motorista via botão "Ir" — ver RotaPanel.tsx), ignorando a ordem
  * otimizada dos demais. Mesma lógica de `rotaAteEscola`, só que o destino é
- * o endereço geocodificado do aluno em vez do endereço da escola.
+ * geocodificado por vínculo: o endereço do aluno na ida, ou a escola
+ * cadastrada no vínculo na volta (ver `sentido`).
  */
 async function rotaAteVinculo(
   motoristaId: string,
   vinculoId: string,
-  localizacao: { latitude: number; longitude: number }
+  localizacao: { latitude: number; longitude: number },
+  sentido: Sentido
 ) {
   const vinculo = await prisma.vinculo.findUnique({
     where: { id: vinculoId },
     include: {
       aluno: {
+        select: {
+          nome: true,
+          logradouro: true,
+          numero: true,
+          bairro: true,
+          cidade: true,
+          estado: true,
+          enderecoLatitude: true,
+          enderecoLongitude: true,
+        },
+      },
+      escola: {
         select: {
           nome: true,
           logradouro: true,
@@ -197,11 +284,30 @@ async function rotaAteVinculo(
   if (!vinculo || vinculo.motoristaId !== motoristaId || vinculo.status !== "ATIVO") {
     return jsonError(404, "Vínculo não encontrado.");
   }
-  if (vinculo.aluno.enderecoLatitude === null || vinculo.aluno.enderecoLongitude === null) {
-    return jsonError(409, "Este aluno ainda não tem endereço localizado no mapa.");
+
+  let destino: { latitude: number; longitude: number };
+  let enderecoResumo: string;
+  let modoNome: string;
+
+  if (sentido === "VOLTA") {
+    if (!vinculo.escola) {
+      return jsonError(409, "Este aluno ainda não tem uma escola cadastrada no vínculo — defina em \"Minhas escolas\".");
+    }
+    if (vinculo.escola.enderecoLatitude === null || vinculo.escola.enderecoLongitude === null) {
+      return jsonError(409, "A escola deste aluno ainda não tem endereço localizado no mapa.");
+    }
+    destino = { latitude: vinculo.escola.enderecoLatitude, longitude: vinculo.escola.enderecoLongitude };
+    enderecoResumo = `${vinculo.escola.nome} — ${montarEnderecoTexto(vinculo.escola)}`;
+    modoNome = `${vinculo.aluno.nome} (na ${vinculo.escola.nome})`;
+  } else {
+    if (vinculo.aluno.enderecoLatitude === null || vinculo.aluno.enderecoLongitude === null) {
+      return jsonError(409, "Este aluno ainda não tem endereço localizado no mapa.");
+    }
+    destino = { latitude: vinculo.aluno.enderecoLatitude, longitude: vinculo.aluno.enderecoLongitude };
+    enderecoResumo = montarEnderecoTexto(vinculo.aluno);
+    modoNome = vinculo.aluno.nome;
   }
 
-  const destino = { latitude: vinculo.aluno.enderecoLatitude, longitude: vinculo.aluno.enderecoLongitude };
   const origem = { latitude: localizacao.latitude, longitude: localizacao.longitude };
   let resultado = await calcularRotaSimples(origem, destino);
   if (!resultado) {
@@ -223,7 +329,7 @@ async function rotaAteVinculo(
         sequencia: 1,
         alunoNome: vinculo.aluno.nome,
         responsavelNome: vinculo.responsavel.nome,
-        enderecoResumo: montarEnderecoTexto(vinculo.aluno),
+        enderecoResumo,
         latitude: destino.latitude,
         longitude: destino.longitude,
       },
@@ -232,6 +338,6 @@ async function rotaAteVinculo(
     duracaoSegundos: resultado.duracaoSegundos,
     geometria,
     vinculosSemEndereco: 0,
-    modoDestino: { tipo: "aluno", id: vinculo.id, nome: vinculo.aluno.nome },
+    modoDestino: { tipo: "aluno", id: vinculo.id, nome: modoNome },
   } satisfies RotaResponse);
 }

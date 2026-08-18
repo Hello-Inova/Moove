@@ -51,8 +51,12 @@ export default async function MotoristaRelatorioDetalhePage({ params }: { params
         escola: { select: { nome: true } },
       },
     }),
+    // `sentido: "IDA"` — mesmo motivo do resumo em percurso.ts: mantém este
+    // relatório mostrando só a marcação da ida (buscar em casa), como
+    // sempre mostrou, mesmo agora que a volta (buscar na escola) tem sua
+    // própria marcação independente.
     prisma.embarqueDia.findMany({
-      where: { data: percurso.data, vinculo: { motoristaId: motorista.id } },
+      where: { data: percurso.data, sentido: "IDA", vinculo: { motoristaId: motorista.id } },
       select: { vinculoId: true, status: true },
     }),
   ]);
