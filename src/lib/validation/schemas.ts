@@ -52,8 +52,12 @@ export const motoristaRegisterSchema = z
     // atender mais de uma).
     nomeEscola: z.string().trim().min(2, "Informe o nome da escola."),
     ...enderecoCampos,
-    aceitaLgpd: z.literal(true, {
-      message: "É necessário aceitar o tratamento de dados (LGPD) para criar a conta.",
+    // `z.literal(true, { message })` não aplica a mensagem customizada
+    // pro código `invalid_literal` nesta versão do zod (fica com o texto
+    // padrão em inglês, "Invalid literal value, expected true") — por
+    // isso usa `.boolean().refine(...)`, que sempre respeita `message`.
+    aceitaLgpd: z.boolean().refine((v) => v === true, {
+      message: "Você deve ler e concordar com o tratamento de dados no Moove.",
     }),
   })
   .refine((data) => data.senha === data.confirmarSenha, {
@@ -73,7 +77,9 @@ export const responsavelRegisterSchema = z
     cpf: cpfSchema,
     senha,
     confirmarSenha: z.string().min(1, "Repita a senha."),
-    aceitaLgpd: z.literal(true, {
+    // Ver comentário equivalente em motoristaRegisterSchema — z.literal com
+    // `message` não pega pro código invalid_literal nesta versão do zod.
+    aceitaLgpd: z.boolean().refine((v) => v === true, {
       message: "É necessário aceitar o tratamento de dados (LGPD) para criar a conta.",
     }),
   })
