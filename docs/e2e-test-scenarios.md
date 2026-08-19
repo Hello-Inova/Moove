@@ -229,6 +229,150 @@ de deploy), **P1** = importante, **P2** = edge case / nice-to-have.
 
 ---
 
+## 9. Lote de ajustes — login, cadastro, painel e vigência
+
+Cobre os 13 itens do pedido mais recente (login do motorista, mensagens de
+cadastro, verificação por código, recuperação de senha, assinatura,
+cadastro de aluno, período do vínculo, previsão anual do Painel e
+sincronização de vigência). Vários cenários aqui são regressão direta de
+bugs relatados — marcados como tal.
+
+### 9.1 — Login do motorista abre no Painel, não na Rota (P1)
+- **Dado** um motorista com conta ativa e senha correta
+- **Quando** ele faz login em `/motorista/login` e confirma o código de
+  verificação
+- **Então** é redirecionado para `/motorista/painel` (não mais para
+  `/motorista/dashboard`, que é a tela de Rota)
+- **E** o mesmo vale pros redirecionamentos de "já autenticado" ao abrir
+  `/motorista/login`, `/motorista/cadastro` e `/motorista/recuperar-senha`
+  diretamente, e ao clicar no logo do app (`homeHref`)
+
+### 9.2 — Mensagem de CPF duplicado no cadastro do motorista (P2)
+- **Dado** um CPF já cadastrado por outro motorista
+- **Quando** um novo cadastro é enviado em `/motorista/cadastro` com esse
+  mesmo CPF
+- **Então** a API retorna 409 com a mensagem exata "Digite outro CPF." e o
+  formulário exibe esse erro pro usuário
+
+### 9.3 — Contagem regressiva do código de verificação (P2)
+- **Dado** um cadastro ou login que acabou de disparar o código por e-mail
+- **Quando** a tela de verificação (`VerifyCodeForm`) é exibida
+- **Então** um cronômetro regressivo de 10:00 é exibido e decresce a cada
+  segundo
+- **E** ao chegar em 0:00, a mensagem muda para "Código expirado — peça um
+  novo." e o botão "Confirmar código" fica desabilitado
+- **E** ao clicar em "Reenviar código" com sucesso, o cronômetro volta pra
+  10:00
+
+### 9.4 — Data de expiração do plano em Planos e no Painel (P1)
+- **Dado** um motorista em período de teste grátis
+- **Quando** ele abre `/motorista/planos` ou `/motorista/painel`
+- **Então** vê um aviso "Você está no período de teste grátis — expira em
+  DD/MM/AAAA" (Planos) / "Período de teste grátis até DD/MM/AAAA" (Painel)
+- **Dado** (variação) um motorista com assinatura `ATIVA`
+- **Então** o aviso mostra "Plano atual: <nome> — expira em DD/MM/AAAA" e,
+  no Painel, o mesmo card é clicável e leva pra `/motorista/planos`
+- **Dado** (variação) um motorista com assinatura `EXPIRADA` e teste já
+  vencido
+- **Então** o aviso é de alerta (vermelho) convidando a escolher um plano
+
+### 9.5 — Recuperação de senha em 3 etapas, sem login automático (P0)
+- **Dado** um usuário (motorista ou responsável) que esqueceu a senha
+- **Quando** ele informa o e-mail em `/<role>/recuperar-senha`
+- **Então** recebe o código por e-mail e vê **só** o campo de código (sem
+  campos de senha ainda)
+- **Quando** digita o código correto e confirma
+- **Então** só então os campos de "Nova senha" e "Confirmar nova senha"
+  aparecem
+- **Quando** confirma a nova senha
+- **Então** vê um alerta de sucesso ("Senha redefinida com sucesso!...") e é
+  redirecionado para `/<role>/login` — **não** fica logado automaticamente
+- **E** com a senha antiga, o login deve falhar; com a nova, deve funcionar
+- **Edge case**: código incorreto na etapa 2 não avança pra etapa de senha;
+  código expirado (10 min) exibe erro e permite reenvio
+
+### 9.6 — Regressão: campo de código não vem preenchido com o e-mail (P1)
+- **Dado** o usuário acabou de submeter o e-mail na tela de recuperação de
+  senha
+- **Quando** a etapa de código é exibida
+- **Então** o campo "Código de verificação" começa **vazio** (nunca com o
+  valor do e-mail digitado na etapa anterior)
+- **E** ao clicar em "Usar outro e-mail" e voltar pra etapa de código depois,
+  o campo continua vazio (sem resíduo de preenchimento anterior)
+
+### 9.7 — Alertas de sucesso após cadastros (P2)
+- **Dado** um motorista cadastrando veículo, escola ou gerando convite
+- **Quando** cada uma dessas ações é concluída com sucesso
+- **Então** aparece um toast de sucesso ("Veículo cadastrado.", "Escola
+  cadastrada."/"Escola atualizada.", "Convite gerado.") e a lista
+  correspondente recarrega sozinha, sem precisar dar F5
+- **Dado** um responsável usando um código de convite pra vincular um aluno
+- **Quando** confirma o vínculo
+- **Então** aparece o toast "Aluno vinculado com sucesso." além da mensagem
+  inline já existente
+
+### 9.8 — "Usar outro e-mail" preserva os campos preenchidos (P1)
+- **Dado** um cadastro (motorista ou responsável) já preenchido, que caiu
+  num erro de e-mail duplicado (ou o usuário quer trocar o e-mail)
+- **Quando** clica em "Usar outro e-mail" na tela de verificação de código
+- **Então** o formulário de cadastro reabre com nome, e-mail, telefone, CPF
+  e (motorista) nome da escola/endereço **preenchidos como antes**
+- **E** os campos de senha e confirmar senha voltam **vazios** (nunca
+  preenchidos de novo, por segurança)
+
+### 9.9 — Alerta de confirmação de endereço após cadastro de aluno (P1)
+- **Dado** um responsável cadastrando um novo aluno em "Meus alunos"
+- **Quando** o cadastro é concluído com sucesso
+- **Então** aparece o toast "Aluno adicionado." seguido de um aviso pra
+  confirmar o endereço, e o modal de confirmação do pino no mapa abre
+  automaticamente pro aluno recém-criado
+
+### 9.10 — Sinalizador de período (turno) na lista de alunos do motorista (P2)
+- **Dado** um vínculo ativo sem `periodo` definido ainda
+- **Quando** o motorista abre `/motorista/vinculos`
+- **Então** o card desse aluno mostra o selo "Período pendente" (âmbar)
+- **Quando** o motorista define o período (Manhã/Tarde/Integral/Noite) no
+  perfil do aluno
+- **Então** o selo passa a mostrar o período escolhido
+
+### 9.11 — Painel: previsão anual "Todos os meses" (P1)
+- **Dado** um motorista com alunos vinculados com `vigenciaInicio`/
+  `vigenciaFim` cadastrados
+- **Quando** ele clica em "Ano todo" no Painel
+- **Então** vê a soma prevista/recebida/pendente/atrasada dos 12 meses do
+  ano, mês a mês, com os meses ainda não gerados marcados como "previsto"
+- **E** um aluno cujo `vigenciaFim` já passou não entra na projeção dos
+  meses seguintes ao fim da vigência
+- **E** é possível navegar entre anos e voltar pra visão mensal
+
+### 9.12 — Regressão: data de nascimento do aluno não sumia mais (P0)
+- **Dado** um responsável cadastrando um aluno com data de nascimento
+  preenchida
+- **Quando** o cadastro é concluído
+- **Então** a data de nascimento aparece na lista "Meus alunos" logo em
+  seguida (não fica em branco)
+- **E** ao abrir o perfil do aluno pelo lado do motorista
+  (`/motorista/vinculos/[id]`), a mesma data aparece corretamente, sem
+  deslocar um dia (ex.: nascido em 01/01 não pode aparecer como 31/12)
+
+### 9.13 — Edição de vigência atualiza o Painel retroativamente (P1)
+- **Dado** um vínculo ativo com mensalidade configurada
+  (`valorMensalidade`/`diaPagamentoMensalidade`) mas sem nenhuma
+  `MensalidadeTransporte` gerada ainda pra alguns meses passados
+- **Quando** o motorista edita o perfil do aluno e define `vigenciaInicio`
+  para um mês já passado
+- **Então**, ao abrir o Painel nesse mês passado, os valores de entrada
+  prevista/atrasada já aparecem — sem esperar o próximo corte do cron
+- **Dado** (variação) um vínculo com mensalidades `PENDENTE` geradas pra
+  meses futuros
+- **Quando** o motorista edita `vigenciaFim` pra um mês anterior a esses
+  meses futuros
+- **Então** as mensalidades `PENDENTE` fora da nova janela de vigência são
+  canceladas e somem da previsão do Painel (mensalidades já `PAGO` não são
+  mexidas)
+
+---
+
 ## Como usar isso
 
 - **Curto prazo**: usar como checklist manual antes de cada deploy grande,
