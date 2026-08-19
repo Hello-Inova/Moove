@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { Logo } from "@/components/ui/Logo";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { ComoFuncionaFluxo } from "@/components/home/ComoFuncionaFluxo";
 
 export default function HomePage() {
   return (
@@ -41,6 +42,8 @@ export default function HomePage() {
           </p>
         </Link>
       </div>
+
+      <ComoFuncionaFluxo />
 
       <Link href="/privacidade" className="text-sm text-neutral-500 underline underline-offset-2 dark:text-neutral-400">
         Política de privacidade
