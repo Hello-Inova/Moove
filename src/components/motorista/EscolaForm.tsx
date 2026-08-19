@@ -2,6 +2,7 @@
 
 import { useCallback, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 import { apiPatchJson, apiPostJson } from "@/lib/api-client";
 import { FieldError, inputClass, primaryButtonClass, secondaryButtonClass } from "@/components/ui/form-elements";
@@ -132,6 +133,8 @@ export function EscolaForm({ escola, onSaved, onCancel }: { escola?: EscolaEdita
         "Escola salva, mas não conseguimos localizá-la no mapa automaticamente. Confira o endereço — sem isso, a rota até essa escola não funciona."
       );
     }
+
+    toast.success(editando ? "Escola atualizada." : "Escola cadastrada.");
 
     if (!editando) event.currentTarget.reset();
     router.refresh();

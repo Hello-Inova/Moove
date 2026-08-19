@@ -10,6 +10,8 @@ import { EnderecoFields } from "@/components/ui/EnderecoFields";
 export type AlunoCriado = {
   id: string;
   nome: string;
+  dataNascimento: string | null;
+  genero: "MASCULINO" | "FEMININO" | "OUTRO" | null;
   vinculado: boolean;
   motoristaNome: string | null;
   escolaNome: string | null;

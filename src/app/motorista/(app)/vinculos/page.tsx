@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { CheckCircle2, XCircle, Gift, CircleDollarSign, Clock } from "lucide-react";
+import { CheckCircle2, XCircle, Gift, CircleDollarSign, Clock, Sun, AlertCircle } from "lucide-react";
 
 import { getAuthenticatedMotorista } from "@/lib/auth/guards";
 import { getAssinaturaAtual } from "@/lib/subscription/service";
@@ -20,6 +20,8 @@ import { GuideTour, type GuideStep } from "@/components/ui/GuideTour";
 function formatarData(data: Date): string {
   return data.toLocaleDateString("pt-BR");
 }
+
+const PERIODO_LABEL: Record<string, string> = { MANHA: "Manhã", TARDE: "Tarde", INTEGRAL: "Integral", NOITE: "Noite" };
 
 function formatarValor(valor: number): string {
   return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -163,6 +165,11 @@ export default async function MotoristaVinculosPage() {
                     ) : (
                       <Badge variant="amber" icon={CircleDollarSign}>Cobrado</Badge>
                     ))}
+                  {v.periodo ? (
+                    <Badge variant="neutral" icon={Sun}>{PERIODO_LABEL[v.periodo] ?? v.periodo}</Badge>
+                  ) : (
+                    <Badge variant="amber" icon={AlertCircle}>Período pendente</Badge>
+                  )}
                 </div>
               </div>
 

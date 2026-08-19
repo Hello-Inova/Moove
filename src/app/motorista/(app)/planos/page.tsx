@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 
 import { getAuthenticatedMotorista } from "@/lib/auth/guards";
-import { getAssinaturaAtual } from "@/lib/subscription/service";
+import { getAssinaturaAtual, contaEmTeste } from "@/lib/subscription/service";
 import { PlanosClient } from "@/components/motorista/PlanosClient";
 import { GuideTour, type GuideStep } from "@/components/ui/GuideTour";
 
@@ -26,6 +26,12 @@ export default async function MotoristaPlanosPage() {
   const assinatura = await getAssinaturaAtual(motorista.id);
   const tipoPlanoAtual: string | null = assinatura?.status === "ATIVA" ? assinatura.tipoPlano : null;
 
+  const assinaturaInfo = contaEmTeste(motorista.testeExpiraEm)
+    ? { situacao: "TESTE" as const, planoLabel: null, expiraEm: motorista.testeExpiraEm }
+    : assinatura?.status === "ATIVA"
+      ? { situacao: "ATIVA" as const, planoLabel: assinatura.planoLabel, expiraEm: assinatura.expiraEm }
+      : { situacao: "EXPIRADA" as const, planoLabel: assinatura?.planoLabel ?? null, expiraEm: null };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -40,7 +46,7 @@ export default async function MotoristaPlanosPage() {
       </div>
 
       <Suspense fallback={null}>
-        <PlanosClient tipoPlanoAtual={tipoPlanoAtual} />
+        <PlanosClient tipoPlanoAtual={tipoPlanoAtual} assinaturaInfo={assinaturaInfo} />
       </Suspense>
     </div>
   );

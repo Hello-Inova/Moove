@@ -1,12 +1,21 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 
 import { apiPostJson } from "@/lib/api-client";
 import { inputClass, primaryButtonClass } from "@/components/ui/form-elements";
 
 type Role = "motorista" | "responsavel";
 type Proposito = "CADASTRO" | "LOGIN";
+
+// Precisa bater com CODE_TTL_MINUTES em src/lib/email/verification.ts.
+const CODE_TTL_SECONDS = 10 * 60;
+
+function formatarTempo(segundos: number): string {
+  const m = Math.floor(segundos / 60);
+  const s = segundos % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
 
 export function VerifyCodeForm<T>({
   role,
@@ -26,6 +35,16 @@ export function VerifyCodeForm<T>({
   const [error, setError] = useState<string | null>(null);
   const [resending, setResending] = useState(false);
   const [resendMessage, setResendMessage] = useState<string | null>(null);
+  const [segundosRestantes, setSegundosRestantes] = useState(CODE_TTL_SECONDS);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setSegundosRestantes((s) => Math.max(0, s - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const expirado = segundosRestantes <= 0;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -56,12 +75,24 @@ export function VerifyCodeForm<T>({
       return;
     }
     setResendMessage("Novo código enviado — confira seu e-mail.");
+    setSegundosRestantes(CODE_TTL_SECONDS);
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4" noValidate>
       <p className="text-sm text-neutral-600 dark:text-neutral-300">
-        Enviamos um código de 6 dígitos para <strong>{email}</strong>. Ele expira em 10 minutos.
+        Enviamos um código de 6 dígitos para <strong>{email}</strong>.{" "}
+        {expirado ? (
+          <span className="font-medium text-red-600 dark:text-red-400">Código expirado — peça um novo.</span>
+        ) : (
+          <>
+            Ele expira em{" "}
+            <span className="font-medium tabular-nums text-neutral-800 dark:text-neutral-100">
+              {formatarTempo(segundosRestantes)}
+            </span>
+            .
+          </>
+        )}
       </p>
 
       <div>
@@ -84,7 +115,7 @@ export function VerifyCodeForm<T>({
       {error && <p className="text-sm text-red-600">{error}</p>}
       {resendMessage && <p className="text-sm text-green-700">{resendMessage}</p>}
 
-      <button type="submit" disabled={loading || codigo.length !== 6} className={primaryButtonClass}>
+      <button type="submit" disabled={loading || codigo.length !== 6 || expirado} className={primaryButtonClass}>
         {loading ? "Confirmando…" : "Confirmar código"}
       </button>
 

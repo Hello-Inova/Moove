@@ -106,3 +106,82 @@ export async function processarMensalidadesTransporteVencidas(
 
   return { vinculosAvaliados: vinculos.length, mensalidadesGeradas };
 }
+
+/**
+ * Ressincroniza as `MensalidadeTransporte` de um vínculo depois que o
+ * motorista edita a vigência (início/fim) ou os termos de pagamento na tela
+ * de perfil do aluno (ver PATCH /api/motorista/vinculos/[id]/perfil) — sem
+ * isso, o Painel só refletiria a mudança pra frente (próximo corte do cron),
+ * nunca pros meses já passados que passaram a entrar na vigência (item 13
+ * do pedido do motorista).
+ *
+ * - Gera (upsert, idempotente) a mensalidade de cada mês entre o início da
+ *   vigência (ou a criação do vínculo, se não houver início definido) e o
+ *   mês corrente — incluindo meses passados, que naturalmente aparecem
+ *   "atrasados" no Painel pela comparação de vencimento normal.
+ * - Cancela (`CANCELADO`) mensalidades `PENDENTE` que ficaram fora da nova
+ *   janela de vigência (antes do novo início ou depois do novo fim) — não
+ *   mexe em nada que já foi pago.
+ */
+export async function sincronizarMensalidadesVigencia(vinculoId: string, agora: Date = new Date()): Promise<void> {
+  const vinculo = await prisma.vinculo.findUnique({
+    where: { id: vinculoId },
+    select: {
+      id: true,
+      motoristaId: true,
+      status: true,
+      criadoEm: true,
+      valorMensalidade: true,
+      diaPagamentoMensalidade: true,
+      vigenciaInicio: true,
+      vigenciaFim: true,
+    },
+  });
+  if (!vinculo || vinculo.status !== "ATIVO") return;
+  if (!vinculo.valorMensalidade || !vinculo.diaPagamentoMensalidade) return;
+
+  const mesReferenciaAtual = primeiroDiaDoMes(agora);
+  const diaHoje = agora.getDate();
+  const ultimoDiaDoMesAtual = diasNoMes(agora.getFullYear(), agora.getMonth());
+  const diaDeCorteAtual = Math.min(vinculo.diaPagamentoMensalidade, ultimoDiaDoMesAtual);
+  const geraMesAtual = diaHoje >= diaDeCorteAtual;
+
+  const inicioJanela = vinculo.vigenciaInicio ?? primeiroDiaDoMes(vinculo.criadoEm);
+  const fimJanela = vinculo.vigenciaFim && vinculo.vigenciaFim < mesReferenciaAtual ? vinculo.vigenciaFim : mesReferenciaAtual;
+
+  // Gera (upsert) cada mês da janela até o mês corrente (ou o fim da
+  // vigência, se já passou) — meses passados entram direto como
+  // "atrasados" no Painel pela regra normal de vencimento.
+  let cursor = new Date(inicioJanela);
+  while (cursor <= fimJanela) {
+    const éMesAtual = cursor.getTime() === mesReferenciaAtual.getTime();
+    if (!éMesAtual || geraMesAtual) {
+      await prisma.mensalidadeTransporte.upsert({
+        where: { vinculoId_mesReferencia: { vinculoId: vinculo.id, mesReferencia: cursor } },
+        update: {},
+        create: {
+          vinculoId: vinculo.id,
+          motoristaId: vinculo.motoristaId,
+          mesReferencia: cursor,
+          valor: vinculo.valorMensalidade,
+          status: "PENDENTE",
+        },
+      });
+    }
+    cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+  }
+
+  // Cancela mensalidades pendentes que ficaram fora da vigência atual —
+  // antes do novo início ou depois do novo fim (quando definido).
+  await prisma.mensalidadeTransporte.updateMany({
+    where: {
+      vinculoId: vinculo.id,
+      status: "PENDENTE",
+      OR: [
+        { mesReferencia: { lt: inicioJanela } },
+        ...(vinculo.vigenciaFim ? [{ mesReferencia: { gt: vinculo.vigenciaFim } }] : []),
+      ],
+    },
+    data: { status: "CANCELADO" },
+  });
+}

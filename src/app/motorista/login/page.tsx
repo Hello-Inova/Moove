@@ -6,7 +6,7 @@ import { LoginForm } from "@/components/auth/LoginForm";
 
 export default async function MotoristaLoginPage() {
   const motorista = await getAuthenticatedMotorista();
-  if (motorista) redirect("/motorista/dashboard");
+  if (motorista) redirect("/motorista/painel");
 
   return (
     <AuthCard

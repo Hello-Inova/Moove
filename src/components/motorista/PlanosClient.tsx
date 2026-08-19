@@ -24,7 +24,23 @@ const STATUS_MSG: Record<string, { text: string; className: string }> = {
   },
 };
 
-export function PlanosClient({ tipoPlanoAtual }: { tipoPlanoAtual: string | null }) {
+type AssinaturaInfo = {
+  situacao: "TESTE" | "ATIVA" | "EXPIRADA";
+  planoLabel: string | null;
+  expiraEm: Date | null;
+};
+
+function formatarData(data: Date): string {
+  return new Date(data).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
+export function PlanosClient({
+  tipoPlanoAtual,
+  assinaturaInfo,
+}: {
+  tipoPlanoAtual: string | null;
+  assinaturaInfo: AssinaturaInfo;
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const statusPagamento = searchParams.get("pagamento");
@@ -119,8 +135,24 @@ export function PlanosClient({ tipoPlanoAtual }: { tipoPlanoAtual: string | null
     );
   }
 
+  const bannerEstilos =
+    assinaturaInfo.situacao === "EXPIRADA"
+      ? "border-red-200 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300"
+      : assinaturaInfo.situacao === "TESTE"
+        ? "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300"
+        : "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300";
+
+  const bannerTexto =
+    assinaturaInfo.situacao === "EXPIRADA"
+      ? "Sua assinatura expirou. Escolha um plano abaixo para continuar."
+      : assinaturaInfo.situacao === "TESTE"
+        ? `Você está no período de teste grátis${assinaturaInfo.expiraEm ? ` — expira em ${formatarData(assinaturaInfo.expiraEm)}` : ""}.`
+        : `Plano atual: ${assinaturaInfo.planoLabel ?? ""}${assinaturaInfo.expiraEm ? ` — expira em ${formatarData(assinaturaInfo.expiraEm)}` : ""}.`;
+
   return (
     <div className="space-y-6">
+      <p className={`rounded-lg border px-4 py-3 text-sm font-medium ${bannerEstilos}`}>{bannerTexto}</p>
+
       {statusPagamento && STATUS_MSG[statusPagamento] && (
         <p className={`rounded-lg border px-4 py-3 text-sm ${STATUS_MSG[statusPagamento].className}`}>
           {STATUS_MSG[statusPagamento].text}

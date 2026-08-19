@@ -2,6 +2,7 @@
 
 import { useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   Users,
   School,
@@ -15,6 +16,7 @@ import {
   ChevronDown,
   CalendarDays,
   MessageCircle,
+  Sparkles,
   X,
 } from "lucide-react";
 
@@ -101,18 +103,59 @@ type CardConfig = {
 };
 
 /**
+ * Faixa de status da assinatura no topo do Painel — mesma informação de
+ * data de expiração que aparece na aba "Planos" (ver PlanosClient.tsx),
+ * repetida aqui pra dar controle rápido sem precisar trocar de aba (item 4
+ * do pedido do motorista).
+ */
+function AssinaturaResumo({ info }: { info: { situacao: "TESTE" | "ATIVA" | "EXPIRADA"; planoLabel: string | null; expiraEm: Date | null } }) {
+  const estilos =
+    info.situacao === "EXPIRADA"
+      ? "border-red-200 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300"
+      : info.situacao === "TESTE"
+        ? "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300"
+        : "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300";
+
+  const texto =
+    info.situacao === "EXPIRADA"
+      ? "Sua assinatura expirou. Escolha um plano para continuar usando o Moove."
+      : info.situacao === "TESTE"
+        ? `Período de teste grátis${info.expiraEm ? ` até ${formatarData(info.expiraEm)}` : ""}.`
+        : `Plano ${info.planoLabel ?? ""}${info.expiraEm ? ` — expira em ${formatarData(info.expiraEm)}` : ""}.`;
+
+  return (
+    <Link
+      href="/motorista/planos"
+      className={`flex flex-wrap items-center gap-2 rounded-xl border px-3.5 py-2.5 text-sm transition hover:brightness-95 ${estilos}`}
+    >
+      <Sparkles className="h-4 w-4 shrink-0" aria-hidden="true" />
+      <span className="flex-1">{texto}</span>
+      <span className="text-xs font-medium underline underline-offset-2">Ver planos</span>
+    </Link>
+  );
+}
+
+/**
  * Painel (dashboard financeiro/operacional do motorista) — 7 cards
  * resumindo o mês selecionado (`dados` já vem pronto do servidor,
  * recalculado a cada troca de mês via querystring `?mes=YYYY-MM`, ver
  * page.tsx). Todos os cards, incluindo "km rodados", respeitam o mês
  * filtrado.
  */
+export type AssinaturaInfo = {
+  situacao: "TESTE" | "ATIVA" | "EXPIRADA";
+  planoLabel: string | null;
+  expiraEm: Date | null;
+};
+
 export function PainelDashboard({
   dados,
   motoristaChavePix,
+  assinaturaInfo,
 }: {
   dados: PainelData;
   motoristaChavePix: string | null;
+  assinaturaInfo: AssinaturaInfo;
 }) {
   const router = useRouter();
   const [cardAberto, setCardAberto] = useState<CardId | null>(null);
@@ -231,6 +274,8 @@ export function PainelDashboard({
         </div>
       </div>
 
+      <AssinaturaResumo info={assinaturaInfo} />
+
       {/* Filtro de mês — compacto, com setas pra navegar rápido e um menu
           próprio (não um <select> nativo, que herda a aparência crua do
           SO/navegador e destoa do resto da tela) pra pular direto pra
@@ -258,6 +303,13 @@ export function PainelDashboard({
         >
           <ChevronRight className="h-5 w-5" aria-hidden="true" />
         </button>
+
+        <Link
+          href="/motorista/painel?mes=todos"
+          className="ml-1 shrink-0 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-xs font-medium text-brand-orange-dark underline underline-offset-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 sm:text-sm"
+        >
+          Ano todo
+        </Link>
       </div>
 
       {/* Grid compacto mesmo no celular (2 colunas) — pedido explícito pra

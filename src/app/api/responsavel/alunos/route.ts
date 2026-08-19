@@ -28,6 +28,8 @@ export async function GET() {
       return {
         id: a.id,
         nome: a.nome,
+        dataNascimento: a.dataNascimento ? a.dataNascimento.toISOString().slice(0, 10) : null,
+        genero: a.genero,
         vinculado: vinculoAtivo !== null,
         motoristaNome: vinculoAtivo?.motorista.nome ?? null,
         escolaNome: vinculoAtivo?.escola?.nome ?? null,
@@ -96,6 +98,8 @@ export async function POST(request: NextRequest) {
     {
       id: aluno.id,
       nome: aluno.nome,
+      dataNascimento: aluno.dataNascimento ? aluno.dataNascimento.toISOString().slice(0, 10) : null,
+      genero: aluno.genero,
       vinculado: false,
       endereco: {
         cep: aluno.cep,

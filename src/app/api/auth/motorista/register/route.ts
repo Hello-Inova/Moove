@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
 
   const cpfExistente = await prisma.motorista.findUnique({ where: { cpf } });
   if (cpfExistente) {
-    return jsonError(409, "Já existe uma conta de motorista cadastrada com este CPF.");
+    return jsonError(409, "Digite outro CPF.");
   }
 
   const senhaHash = await hashPassword(senha);

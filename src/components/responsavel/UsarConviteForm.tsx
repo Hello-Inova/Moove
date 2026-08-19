@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 import { apiPostJson } from "@/lib/api-client";
 import { inputClass, primaryButtonClass } from "@/components/ui/form-elements";
@@ -64,6 +65,7 @@ export function UsarConviteForm() {
     }
 
     setSuccess(`Vínculo criado com ${result.data.motoristaNome}!`);
+    toast.success("Aluno vinculado com sucesso.");
     setValidacao(null);
     setCodigo("");
     router.refresh();

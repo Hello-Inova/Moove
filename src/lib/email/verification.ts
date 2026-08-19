@@ -114,6 +114,48 @@ export async function verifyCode(params: {
   return { ok: true, payload: (registro.payload as Record<string, unknown> | null) ?? null };
 }
 
+/**
+ * Confere o código mais recente ainda não usado, IGUAL a `verifyCode`, mas
+ * sem marcar `usadoEm` quando ele bate — usado no passo intermediário do
+ * fluxo de recuperação de senha (validar o código sozinho, antes de
+ * mostrar os campos de nova senha), já que o código só é efetivamente
+ * consumido depois, junto com a troca de senha de verdade (mesmo código
+ * reaproveitado). Erros de tentativa incorreta continuam contando pro
+ * limite de `MAX_ATTEMPTS`, igual a `verifyCode`.
+ */
+export async function peekCode(params: {
+  email: string;
+  role: VerificationRole;
+  proposito: VerificationPurpose;
+  codigo: string;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  const { email, role, proposito, codigo } = params;
+
+  const registro = await prisma.codigoVerificacao.findFirst({
+    where: { email, role, proposito, usadoEm: null },
+    orderBy: { criadoEm: "desc" },
+  });
+
+  if (!registro) {
+    return { ok: false, error: "Nenhum código pendente para esse e-mail. Solicite um novo." };
+  }
+  if (registro.expiraEm.getTime() < Date.now()) {
+    return { ok: false, error: "Código expirado. Solicite um novo." };
+  }
+  if (registro.tentativas >= MAX_ATTEMPTS) {
+    return { ok: false, error: "Muitas tentativas com esse código. Solicite um novo." };
+  }
+  if (hashCode(codigo) !== registro.codigoHash) {
+    await prisma.codigoVerificacao.update({
+      where: { id: registro.id },
+      data: { tentativas: { increment: 1 } },
+    });
+    return { ok: false, error: "Código incorreto." };
+  }
+
+  return { ok: true };
+}
+
 /** Payload de cadastro pendente mais recente para esse e-mail (usado no reenvio). */
 export async function findPendingRegistration(
   email: string,

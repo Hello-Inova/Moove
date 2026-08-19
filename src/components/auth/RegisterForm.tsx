@@ -27,6 +27,13 @@ export function RegisterForm({ role }: { role: Role }) {
   const [pendingEmail, setPendingEmail] = useState<string | null>(null);
   const [cpf, setCpf] = useState("");
 
+  // Guarda os valores digitados (exceto senha) pra reaparecerem já
+  // preenchidos se o cadastrante clicar em "Usar outro e-mail" e o
+  // formulário for reaberto — hoje ele reabria zerado porque esses campos
+  // são inputs não controlados, e trocar `pendingEmail` de volta pra `null`
+  // remonta o <form> do zero (ver item 8 do pedido).
+  const [savedValues, setSavedValues] = useState<Record<string, string>>({});
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setFormError(null);
@@ -35,6 +42,11 @@ export function RegisterForm({ role }: { role: Role }) {
     const form = new FormData(event.currentTarget);
     const senha = String(form.get("senha") ?? "");
     const confirmarSenha = String(form.get("confirmarSenha") ?? "");
+
+    const camposPlanos = ["nome", "email", "telefone", "nomeEscola", "cep", "logradouro", "numero", "complemento", "bairro", "cidade", "estado"];
+    setSavedValues(
+      Object.fromEntries(camposPlanos.map((campo) => [campo, String(form.get(campo) ?? "")]))
+    );
 
     if (senha !== confirmarSenha) {
       setIssues({ confirmarSenha: ["As senhas não coincidem."] });
@@ -112,7 +124,7 @@ export function RegisterForm({ role }: { role: Role }) {
         <label className="mb-1 block text-sm font-medium" htmlFor="nome">
           Nome completo
         </label>
-        <input id="nome" name="nome" required className={inputClass} autoComplete="name" />
+        <input id="nome" name="nome" required defaultValue={savedValues.nome ?? ""} className={inputClass} autoComplete="name" />
         <FieldError message={issues.nome?.[0]} />
       </div>
 
@@ -120,7 +132,7 @@ export function RegisterForm({ role }: { role: Role }) {
         <label className="mb-1 block text-sm font-medium" htmlFor="email">
           E-mail
         </label>
-        <input id="email" name="email" type="email" required className={inputClass} autoComplete="email" />
+        <input id="email" name="email" type="email" required defaultValue={savedValues.email ?? ""} className={inputClass} autoComplete="email" />
         <FieldError message={issues.email?.[0]} />
       </div>
 
@@ -128,7 +140,7 @@ export function RegisterForm({ role }: { role: Role }) {
         <label className="mb-1 block text-sm font-medium" htmlFor="telefone">
           Telefone (com DDD)
         </label>
-        <input id="telefone" name="telefone" required className={inputClass} autoComplete="tel" />
+        <input id="telefone" name="telefone" required defaultValue={savedValues.telefone ?? ""} className={inputClass} autoComplete="tel" />
         <FieldError message={issues.telefone?.[0]} />
       </div>
 
@@ -187,10 +199,21 @@ export function RegisterForm({ role }: { role: Role }) {
             <label className="mb-1 block text-sm font-medium" htmlFor="nomeEscola">
               Nome da escola
             </label>
-            <input id="nomeEscola" name="nomeEscola" required className={inputClass} />
+            <input id="nomeEscola" name="nomeEscola" required defaultValue={savedValues.nomeEscola ?? ""} className={inputClass} />
             <FieldError message={issues.nomeEscola?.[0]} />
           </div>
-          <EnderecoFields issues={issues} />
+          <EnderecoFields
+            issues={issues}
+            defaultValues={{
+              cep: savedValues.cep ?? "",
+              logradouro: savedValues.logradouro ?? "",
+              numero: savedValues.numero ?? "",
+              complemento: savedValues.complemento ?? "",
+              bairro: savedValues.bairro ?? "",
+              cidade: savedValues.cidade ?? "",
+              estado: savedValues.estado ?? "",
+            }}
+          />
         </div>
       )}
 

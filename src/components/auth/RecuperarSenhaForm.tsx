@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 import { apiPostJson } from "@/lib/api-client";
 import { inputClass, primaryButtonClass } from "@/components/ui/form-elements";
@@ -10,25 +11,28 @@ import { PasswordInput } from "@/components/ui/PasswordInput";
 type Role = "motorista" | "responsavel";
 
 /**
- * Fluxo de recuperação de senha em 2 etapas:
+ * Fluxo de recuperação de senha em 3 etapas:
  * 1) informa o e-mail — dispara o código de verificação.
- * 2) informa o código recebido + a nova senha — troca a senha e já loga.
- * O mesmo endpoint de solicitação serve para reenviar o código.
+ * 2) informa só o código recebido — valida sem consumir (peekCode).
+ * 3) só depois do código confirmado, mostra os campos de nova senha —
+ *    confirma de novo (agora consumindo o código) e troca a senha.
+ * Ao final, mostra um alerta de sucesso e manda pro login (sem logar
+ * automático) — o usuário entra com a senha nova por conta própria.
+ * Cada etapa usa um <form key=...> diferente pra garantir remount limpo dos
+ * inputs (evita autofill do navegador vazando valor de uma etapa pra outra).
  */
 export function RecuperarSenhaForm({ role }: { role: Role }) {
   const router = useRouter();
-  const [etapa, setEtapa] = useState<"email" | "codigo">("email");
+  const [etapa, setEtapa] = useState<"email" | "codigo" | "senha">("email");
   const [email, setEmail] = useState("");
+  const [codigo, setCodigo] = useState("");
   const [loading, setLoading] = useState(false);
   const [reenviando, setReenviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
 
   async function solicitarCodigo(emailAlvo: string) {
-    const result = await apiPostJson<{ email: string }>(`/api/auth/${role}/recuperar-senha`, {
-      email: emailAlvo,
-    });
-    return result;
+    return apiPostJson<{ email: string }>(`/api/auth/${role}/recuperar-senha`, { email: emailAlvo });
   }
 
   async function handleSolicitar(event: FormEvent<HTMLFormElement>) {
@@ -48,6 +52,7 @@ export function RecuperarSenhaForm({ role }: { role: Role }) {
     }
 
     setEmail(result.data.email);
+    setCodigo("");
     setEtapa("codigo");
   }
 
@@ -66,7 +71,25 @@ export function RecuperarSenhaForm({ role }: { role: Role }) {
     setAviso("Novo código enviado — confira seu e-mail.");
   }
 
-  async function handleConfirmar(event: FormEvent<HTMLFormElement>) {
+  async function handleValidarCodigo(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    const result = await apiPostJson(`/api/auth/${role}/recuperar-senha/validar-codigo`, { email, codigo });
+    setLoading(false);
+
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+
+    setError(null);
+    setAviso(null);
+    setEtapa("senha");
+  }
+
+  async function handleConfirmarSenha(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setLoading(true);
     setError(null);
@@ -74,7 +97,7 @@ export function RecuperarSenhaForm({ role }: { role: Role }) {
     const form = new FormData(event.currentTarget);
     const payload = {
       email,
-      codigo: form.get("codigo"),
+      codigo,
       novaSenha: form.get("novaSenha"),
       confirmarNovaSenha: form.get("confirmarNovaSenha"),
     };
@@ -87,40 +110,23 @@ export function RecuperarSenhaForm({ role }: { role: Role }) {
       return;
     }
 
-    router.push(`/${role}/dashboard`);
+    toast.success("Senha redefinida com sucesso! Entre com a sua nova senha.");
+    router.push(`/${role}/login`);
     router.refresh();
   }
 
-  if (etapa === "codigo") {
+  if (etapa === "senha") {
     return (
-      <form onSubmit={handleConfirmar} className="space-y-4" noValidate>
+      <form key="senha" onSubmit={handleConfirmarSenha} className="space-y-4" noValidate>
         <p className="text-sm text-neutral-600 dark:text-neutral-300">
-          Enviamos um código de 6 dígitos para <strong>{email}</strong>. Digite-o abaixo junto com a sua
-          nova senha.
+          Código confirmado. Escolha a sua nova senha.
         </p>
-
-        <div>
-          <label className="mb-1 block text-sm font-medium" htmlFor="codigo">
-            Código de verificação
-          </label>
-          <input
-            id="codigo"
-            name="codigo"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            maxLength={6}
-            required
-            placeholder="000000"
-            className={inputClass + " text-center text-2xl tracking-[0.5em]"}
-            autoFocus
-          />
-        </div>
 
         <div>
           <label className="mb-1 block text-sm font-medium" htmlFor="novaSenha">
             Nova senha
           </label>
-          <PasswordInput id="novaSenha" name="novaSenha" required className={inputClass} autoComplete="new-password" />
+          <PasswordInput id="novaSenha" name="novaSenha" required className={inputClass} autoComplete="new-password" autoFocus />
         </div>
 
         <div>
@@ -137,10 +143,43 @@ export function RecuperarSenhaForm({ role }: { role: Role }) {
         </div>
 
         {error && <p className="text-sm text-red-600">{error}</p>}
-        {aviso && <p className="text-sm text-green-700">{aviso}</p>}
 
         <button type="submit" disabled={loading} className={primaryButtonClass}>
-          {loading ? "Salvando…" : "Redefinir senha e entrar"}
+          {loading ? "Salvando…" : "Redefinir senha"}
+        </button>
+      </form>
+    );
+  }
+
+  if (etapa === "codigo") {
+    return (
+      <form key="codigo" onSubmit={handleValidarCodigo} className="space-y-4" noValidate>
+        <p className="text-sm text-neutral-600 dark:text-neutral-300">
+          Enviamos um código de 6 dígitos para <strong>{email}</strong>. Digite-o abaixo para continuar.
+        </p>
+
+        <div>
+          <label className="mb-1 block text-sm font-medium" htmlFor="codigo">
+            Código de verificação
+          </label>
+          <input
+            id="codigo"
+            inputMode="numeric"
+            autoComplete="off"
+            maxLength={6}
+            value={codigo}
+            onChange={(e) => setCodigo(e.target.value.replace(/\D/g, "").slice(0, 6))}
+            placeholder="000000"
+            className={inputClass + " text-center text-2xl tracking-[0.5em]"}
+            autoFocus
+          />
+        </div>
+
+        {error && <p className="text-sm text-red-600">{error}</p>}
+        {aviso && <p className="text-sm text-green-700">{aviso}</p>}
+
+        <button type="submit" disabled={loading || codigo.length !== 6} className={primaryButtonClass}>
+          {loading ? "Confirmando…" : "Confirmar código"}
         </button>
 
         <button
@@ -156,6 +195,7 @@ export function RecuperarSenhaForm({ role }: { role: Role }) {
           type="button"
           onClick={() => {
             setEtapa("email");
+            setCodigo("");
             setError(null);
             setAviso(null);
           }}
@@ -168,7 +208,7 @@ export function RecuperarSenhaForm({ role }: { role: Role }) {
   }
 
   return (
-    <form onSubmit={handleSolicitar} className="space-y-4" noValidate>
+    <form key="email" onSubmit={handleSolicitar} className="space-y-4" noValidate>
       <p className="text-sm text-neutral-600 dark:text-neutral-300">
         Informe o e-mail da sua conta. Vamos enviar um código de verificação para você escolher uma nova
         senha.

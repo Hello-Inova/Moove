@@ -6,7 +6,7 @@ import { RegisterForm } from "@/components/auth/RegisterForm";
 
 export default async function MotoristaCadastroPage() {
   const motorista = await getAuthenticatedMotorista();
-  if (motorista) redirect("/motorista/dashboard");
+  if (motorista) redirect("/motorista/painel");
 
   return (
     <AuthCard

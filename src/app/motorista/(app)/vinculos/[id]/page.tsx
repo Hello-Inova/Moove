@@ -32,8 +32,13 @@ const MENSALIDADE_STATUS_VARIANT = {
 } as const;
 const MENSALIDADE_STATUS_LABEL: Record<string, string> = { PENDENTE: "Pendente", PAGO: "Paga", CANCELADO: "Cancelada" };
 
+// `data` aqui é sempre uma data-calendário (nascimento), não um instante —
+// formata em UTC pra não correr risco de fuso deslocar o dia (mesmo cuidado
+// documentado em dashboard-data.ts/PainelDashboard.tsx: meia-noite UTC vira
+// o dia anterior em fusos negativos como o do Brasil se formatada no fuso
+// local do processo).
 function formatarData(data: Date): string {
-  return data.toLocaleDateString("pt-BR");
+  return data.toLocaleDateString("pt-BR", { timeZone: "UTC" });
 }
 
 function formatarValor(valor: number): string {

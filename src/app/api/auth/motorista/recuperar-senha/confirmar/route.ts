@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
-import { createSession } from "@/lib/auth/session";
 import { hashPassword } from "@/lib/auth/password";
 import { redefinirSenhaSchema } from "@/lib/validation/schemas";
 import { jsonError, jsonValidationError, jsonRateLimited } from "@/lib/http";
@@ -10,9 +9,10 @@ import { aplicarRateLimitLogin, clientIp } from "@/lib/rate-limit";
 
 /**
  * Segunda etapa da recuperação de senha: confirma o código enviado por
- * e-mail e, se válido, já troca a senha da conta. Faz login automático em
- * seguida (mesmo padrão do cadastro), já que o e-mail acabou de ser
- * reconfirmado por posse da caixa de entrada.
+ * e-mail e, se válido, já troca a senha da conta. NÃO faz login automático —
+ * o usuário é redirecionado para a tela de login para entrar com a senha
+ * nova (ver RecuperarSenhaForm.tsx), já que o código nesse ponto já foi
+ * validado antes na etapa intermediária (ver validar-codigo/route.ts).
  */
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null);
@@ -41,7 +41,5 @@ export async function POST(request: NextRequest) {
   const senhaHash = await hashPassword(novaSenha);
   await prisma.motorista.update({ where: { id: motorista.id }, data: { senhaHash } });
 
-  await createSession("motorista", motorista.id);
-
-  return NextResponse.json({ id: motorista.id, nome: motorista.nome, email: motorista.email });
+  return NextResponse.json({ email: motorista.email });
 }

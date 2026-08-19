@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getAuthenticatedMotorista } from "@/lib/auth/guards";
 import { jsonError, jsonValidationError } from "@/lib/http";
 import { editarPerfilAlunoSchema } from "@/lib/validation/schemas";
+import { sincronizarMensalidadesVigencia } from "@/lib/mensalidade/mensalidade-transporte";
 
 /**
  * Atualiza o perfil de um aluno vinculado — dados pessoais (nascimento,
@@ -74,6 +75,19 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       return jsonError(400, "Não foi possível salvar — confira os dados informados.");
     }
     throw err;
+  }
+
+  // Item 13 do pedido: qualquer edição que mexa na vigência ou nos termos
+  // de pagamento já reflete de imediato no Painel, inclusive retroativo
+  // (mês passado que entrou na vigência) — não espera o próximo corte do
+  // cron (ver comentário em sincronizarMensalidadesVigencia).
+  if (
+    valorMensalidade !== undefined ||
+    diaPagamentoMensalidade !== undefined ||
+    vigenciaInicio !== undefined ||
+    vigenciaFim !== undefined
+  ) {
+    await sincronizarMensalidadesVigencia(id);
   }
 
   return NextResponse.json({ ok: true });

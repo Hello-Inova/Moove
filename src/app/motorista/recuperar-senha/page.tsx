@@ -6,7 +6,7 @@ import { RecuperarSenhaForm } from "@/components/auth/RecuperarSenhaForm";
 
 export default async function MotoristaRecuperarSenhaPage() {
   const motorista = await getAuthenticatedMotorista();
-  if (motorista) redirect("/motorista/dashboard");
+  if (motorista) redirect("/motorista/painel");
 
   return (
     <AuthCard

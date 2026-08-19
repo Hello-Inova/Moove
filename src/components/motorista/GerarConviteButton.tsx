@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { apiPostJson } from "@/lib/api-client";
 import { primaryButtonClass } from "@/components/ui/form-elements";
 
@@ -20,6 +21,7 @@ export function GerarConviteButton() {
       setError(result.error);
       return;
     }
+    toast.success("Convite gerado.");
     router.refresh();
   }
 

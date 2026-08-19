@@ -7,7 +7,7 @@ import { MapPin, CheckCircle2, Plus } from "lucide-react";
 import { apiGet, apiDelete } from "@/lib/api-client";
 import { secondaryButtonClass, primaryButtonClass, dangerButtonClass } from "@/components/ui/form-elements";
 import { EditarEnderecoAlunoModal } from "@/components/responsavel/EditarEnderecoAlunoModal";
-import { NovoAlunoModal } from "@/components/responsavel/NovoAlunoModal";
+import { NovoAlunoModal, type AlunoCriado } from "@/components/responsavel/NovoAlunoModal";
 import { useConfirm } from "@/components/ui/ConfirmProvider";
 import { Skeleton } from "@/components/ui/Skeleton";
 
@@ -27,6 +27,8 @@ type EnderecoAluno = {
 type Aluno = {
   id: string;
   nome: string;
+  dataNascimento: string | null;
+  genero: "MASCULINO" | "FEMININO" | "OUTRO" | null;
   vinculado: boolean;
   motoristaNome: string | null;
   escolaNome: string | null;
@@ -40,6 +42,14 @@ function resumoEndereco(e: EnderecoAluno): string | null {
     e.cidade && e.estado && `${e.cidade} - ${e.estado}`,
   ].filter(Boolean);
   return partes.length > 0 ? partes.join(" · ") : null;
+}
+
+// `dataNascimento` chega como "YYYY-MM-DD" puro (sem hora) — formata direto
+// da string, sem passar por `new Date(...)`, pra não correr risco nenhum de
+// fuso horário deslocar o dia (mesmo cuidado documentado no Painel).
+function formatarDataNascimento(iso: string): string {
+  const [ano, mes, dia] = iso.split("-");
+  return `${dia}/${mes}/${ano}`;
 }
 
 export function AlunosClient() {
@@ -115,6 +125,11 @@ export function AlunosClient() {
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
                     <p className="font-medium">{a.nome}</p>
+                    {a.dataNascimento && (
+                      <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                        Nascimento: {formatarDataNascimento(a.dataNascimento)}
+                      </p>
+                    )}
                     {a.vinculado ? (
                       <p className="text-neutral-500 dark:text-neutral-400">
                         Vinculado a {a.motoristaNome}
@@ -170,9 +185,23 @@ export function AlunosClient() {
       {novoAlunoAberto && (
         <NovoAlunoModal
           onClose={() => setNovoAlunoAberto(false)}
-          onCriado={() => {
+          onCriado={(aluno: AlunoCriado) => {
             setNovoAlunoAberto(false);
             void carregar();
+            // Alerta de confirmação de endereço logo após o cadastro (item
+            // 9): abre direto o mapa pra confirmar o pino, já que é o
+            // endereço que o motorista vai usar pra traçar a parada.
+            toast.message("Confirme o endereço de embarque/desembarque no mapa.");
+            setEditandoEnderecoDe({
+              id: aluno.id,
+              nome: aluno.nome,
+              dataNascimento: aluno.dataNascimento,
+              genero: aluno.genero,
+              vinculado: aluno.vinculado,
+              motoristaNome: aluno.motoristaNome,
+              escolaNome: aluno.escolaNome,
+              endereco: aluno.endereco,
+            });
           }}
         />
       )}

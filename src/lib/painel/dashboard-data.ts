@@ -67,6 +67,146 @@ export function formatarMesParam(data: Date): string {
   return `${data.getUTCFullYear()}-${String(data.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
+export type MesAnual = {
+  mes: number; // 1-12
+  entradaPrevista: number;
+  recebido: number;
+  pendente: number;
+  atrasado: number;
+  kmRodados: number;
+  gerado: boolean; // true = já tem MensalidadeTransporte gerada pelo cron; false = valor só projetado
+};
+
+export type PainelDataAnual = {
+  ano: number;
+  porMes: MesAnual[];
+  totalEntradaPrevista: number;
+  totalRecebido: number;
+  totalPendente: number;
+  totalAtrasado: number;
+  totalKmRodados: number;
+  alunosAtivos: number;
+  escolasAtivas: number;
+};
+
+/**
+ * Previsão anual do Painel (item 11 do pedido): soma os 12 meses do ano
+ * informado. Pros meses que o cron já gerou `MensalidadeTransporte`, usa os
+ * valores reais (mesmo critério "atrasado" de `getPainelData`). Pros meses
+ * ainda não gerados (mês corrente em diante), projeta a partir do
+ * `valorMensalidade` de cada vínculo cuja vigência (`vigenciaInicio`/
+ * `vigenciaFim`, cadastradas no perfil do aluno) cobre aquele mês — é isso
+ * que permite ver o ano inteiro mesmo pra meses futuros, e some
+ * automaticamente da previsão os meses depois do fim da vigência.
+ */
+export async function getPainelDataAnual(motoristaId: string, ano: number): Promise<PainelDataAnual> {
+  const inicioAno = new Date(Date.UTC(ano, 0, 1));
+  const fimAnoExclusivo = new Date(Date.UTC(ano + 1, 0, 1));
+
+  const hoje = new Date();
+  const hojeUTC = new Date(Date.UTC(hoje.getFullYear(), hoje.getMonth(), hoje.getDate()));
+
+  const [vinculos, mensalidades, percursos] = await Promise.all([
+    prisma.vinculo.findMany({
+      where: { motoristaId },
+      select: {
+        id: true,
+        status: true,
+        alunoId: true,
+        escolaId: true,
+        valorMensalidade: true,
+        diaPagamentoMensalidade: true,
+        vigenciaInicio: true,
+        vigenciaFim: true,
+      },
+    }),
+    prisma.mensalidadeTransporte.findMany({
+      where: { motoristaId, mesReferencia: { gte: inicioAno, lt: fimAnoExclusivo }, status: { not: "CANCELADO" } },
+      select: { valor: true, status: true, mesReferencia: true, vinculoId: true },
+    }),
+    prisma.percursoDia.findMany({
+      where: { motoristaId, data: { gte: inicioAno, lt: fimAnoExclusivo } },
+      select: { data: true, distanciaMetros: true },
+    }),
+  ]);
+
+  const porMes: MesAnual[] = [];
+
+  for (let mesIndiceZero = 0; mesIndiceZero < 12; mesIndiceZero++) {
+    const inicioMes = new Date(Date.UTC(ano, mesIndiceZero, 1));
+    const fimMesExclusivo = new Date(Date.UTC(ano, mesIndiceZero + 1, 1));
+    const ultimoDia = ultimoDiaDoMes(ano, mesIndiceZero);
+
+    const mensalidadesDoMes = mensalidades.filter((m) => m.mesReferencia.getTime() === inicioMes.getTime());
+
+    const kmDoMes = percursos
+      .filter((p) => p.data >= inicioMes && p.data < fimMesExclusivo)
+      .reduce((acc, p) => acc + (p.distanciaMetros ?? 0) / 1000, 0);
+
+    if (mensalidadesDoMes.length > 0) {
+      let recebido = 0;
+      let pendente = 0;
+      let atrasado = 0;
+      for (const m of mensalidadesDoMes) {
+        const valor = Number(m.valor);
+        if (m.status === "PAGO") {
+          recebido += valor;
+          continue;
+        }
+        const vinculo = vinculos.find((v) => v.id === m.vinculoId);
+        const diaVencimento = Math.min(vinculo?.diaPagamentoMensalidade ?? ultimoDia, ultimoDia);
+        const vencimento = new Date(Date.UTC(ano, mesIndiceZero, diaVencimento));
+        if (vencimento < hojeUTC) atrasado += valor;
+        else pendente += valor;
+      }
+      porMes.push({
+        mes: mesIndiceZero + 1,
+        entradaPrevista: recebido + pendente + atrasado,
+        recebido,
+        pendente,
+        atrasado,
+        kmRodados: kmDoMes,
+        gerado: true,
+      });
+    } else {
+      // Ainda não gerado pelo cron — projeta com base nos vínculos vigentes
+      // nesse mês (respeitando início/fim de vigência do perfil do aluno).
+      const previsto = vinculos
+        .filter((v) => v.status === "ATIVO" && v.valorMensalidade)
+        .filter((v) => {
+          const inicioVigencia = v.vigenciaInicio ?? null;
+          const fimVigencia = v.vigenciaFim ?? null;
+          if (inicioVigencia && inicioVigencia > fimMesExclusivo) return false;
+          if (fimVigencia && fimVigencia < inicioMes) return false;
+          return true;
+        })
+        .reduce((acc, v) => acc + Number(v.valorMensalidade ?? 0), 0);
+
+      porMes.push({
+        mes: mesIndiceZero + 1,
+        entradaPrevista: previsto,
+        recebido: 0,
+        pendente: 0,
+        atrasado: 0,
+        kmRodados: kmDoMes,
+        gerado: false,
+      });
+    }
+  }
+
+  return {
+    ano,
+    porMes,
+    totalEntradaPrevista: porMes.reduce((acc, m) => acc + m.entradaPrevista, 0),
+    totalRecebido: porMes.reduce((acc, m) => acc + m.recebido, 0),
+    totalPendente: porMes.reduce((acc, m) => acc + m.pendente, 0),
+    totalAtrasado: porMes.reduce((acc, m) => acc + m.atrasado, 0),
+    totalKmRodados: porMes.reduce((acc, m) => acc + m.kmRodados, 0),
+    alunosAtivos: new Set(vinculos.filter((v) => v.status === "ATIVO").map((v) => v.alunoId)).size,
+    escolasAtivas: new Set(vinculos.filter((v) => v.status === "ATIVO" && v.escolaId).map((v) => v.escolaId)).size,
+  };
+}
+
 /**
  * Agrega os dados do Painel (Dashboard financeiro/operacional do motorista)
  * para um mês de referência específico — todo card, incluindo "km

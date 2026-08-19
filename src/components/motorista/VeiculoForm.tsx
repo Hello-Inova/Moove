@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 import { apiPostForm } from "@/lib/api-client";
 import { FieldError, inputClass, primaryButtonClass } from "@/components/ui/form-elements";
@@ -32,6 +33,8 @@ export function VeiculoForm({ onSaved }: { onSaved?: () => void } = {}) {
 
     if (result.data.avisoDocumento) {
       setWarning(`Veículo cadastrado. ${result.data.avisoDocumento}`);
+    } else {
+      toast.success("Veículo cadastrado.");
     }
 
     event.currentTarget.reset();

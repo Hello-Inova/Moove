@@ -45,7 +45,7 @@ export function LoginForm({ role }: { role: Role }) {
           proposito="LOGIN"
           verifyUrl={`/api/auth/${role}/login/verificar`}
           onVerified={() => {
-            router.push(`/${role}/dashboard`);
+            router.push(role === "motorista" ? "/motorista/painel" : "/responsavel/dashboard");
             router.refresh();
           }}
         />
