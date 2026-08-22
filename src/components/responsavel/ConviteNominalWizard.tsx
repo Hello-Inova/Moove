@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { toast } from "sonner";
 import { CheckCircle2 } from "lucide-react";
 
@@ -290,7 +291,13 @@ export function ConviteNominalWizard({ codigo }: { codigo: string }) {
 
       <label className="flex items-start gap-2 text-sm text-neutral-700 dark:text-neutral-300">
         <input type="checkbox" className="mt-1" checked={aceitaLgpd} onChange={(e) => setAceitaLgpd(e.target.checked)} />
-        <span>Li e concordo com o tratamento dos meus dados pessoais e de localização (LGPD).</span>
+        <span>
+          Li e concordo com o tratamento dos meus dados pessoais e de localização conforme a{" "}
+          <Link href="/privacidade" className="underline" target="_blank">
+            Política de Privacidade (LGPD)
+          </Link>
+          .
+        </span>
       </label>
       <FieldError message={issues.aceitaLgpd?.[0]} />
 
