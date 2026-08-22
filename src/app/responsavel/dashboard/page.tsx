@@ -87,20 +87,28 @@ export default async function ResponsavelDashboardPage() {
                     {v.motorista.veiculos.map((ve) => `${ve.placa} · ${ve.modelo}`).join(", ") || "Sem veículo cadastrado"}
                   </p>
                 </div>
-                {v.status === "ATIVO" ? (
-                  v.motorista.veiculos[0] && (
-                    <Link
-                      href={`/responsavel/buscar?placa=${encodeURIComponent(v.motorista.veiculos[0].placa)}`}
-                      className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700"
-                    >
-                      Ver no mapa
-                    </Link>
-                  )
-                ) : (
-                  <span className="rounded-full bg-red-100 px-2.5 py-1 text-xs font-medium text-red-700">
-                    Vínculo revogado
-                  </span>
-                )}
+                <div className="flex flex-wrap items-center gap-2">
+                  <Link
+                    href={`/responsavel/vinculos/${v.id}`}
+                    className="rounded-lg border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-700 transition hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                  >
+                    Mensalidade e contrato
+                  </Link>
+                  {v.status === "ATIVO" ? (
+                    v.motorista.veiculos[0] && (
+                      <Link
+                        href={`/responsavel/buscar?placa=${encodeURIComponent(v.motorista.veiculos[0].placa)}`}
+                        className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700"
+                      >
+                        Ver no mapa
+                      </Link>
+                    )
+                  ) : (
+                    <span className="rounded-full bg-red-100 px-2.5 py-1 text-xs font-medium text-red-700">
+                      Vínculo revogado
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           ))}
