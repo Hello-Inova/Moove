@@ -39,6 +39,19 @@ enum StatusVinculo {
   @@map("status_vinculo")
 }
 
+// CODIGO = fluxo antigo (motorista gera um código de 8 caracteres e
+// compartilha por fora; o responsável já precisa ter conta própria pra
+// usá-lo). NOMINAL = fluxo novo (motorista já pré-cadastra os dados do
+// responsável e do aluno; o responsável só completa o próprio cadastro,
+// confirma o endereço e assina o contrato — o vínculo é criado sozinho na
+// assinatura, ver ContratoTransporte.assinadoEm).
+enum TipoConvite {
+  CODIGO
+  NOMINAL
+
+  @@map("tipo_convite")
+}
+
 enum CicloCobrancaAssinatura {
   MENSAL
   SEMESTRAL
@@ -399,12 +412,34 @@ model Convite {
   id          String        @id @default(cuid())
   codigo      String        @unique
   motoristaId String        @map("motorista_id")
+  tipo        TipoConvite   @default(CODIGO)
   status      StatusConvite @default(PENDENTE)
   criadoEm    DateTime      @default(now()) @map("criado_em")
   expiraEm    DateTime      @map("expira_em")
 
   usadoPorResponsavelId String?      @map("usado_por_responsavel_id")
   usadoEm               DateTime?    @map("usado_em")
+
+  // Preenchidos só quando `tipo = NOMINAL` — dados que o motorista já
+  // digitou sobre o responsável e o aluno (ver POST
+  // /api/motorista/convites/nominal), usados pra pré-preencher o cadastro
+  // do responsável e criar o vínculo automaticamente assim que ele assina o
+  // contrato (ver POST .../convites/nominal/[codigo]/assinar). `dadosAluno`
+  // guarda nome/nascimento/gênero/escola/período/mensalidade/prazo do
+  // contrato — mesmo formato usado por editarPerfilAlunoSchema, só que
+  // ainda não existe Aluno nem Vinculo nesse momento.
+  nomeResponsavel     String? @map("nome_responsavel")
+  emailResponsavel    String? @map("email_responsavel")
+  telefoneResponsavel String? @map("telefone_responsavel")
+  cpfResponsavel      String? @map("cpf_responsavel")
+  dadosAluno          Json?   @map("dados_aluno")
+
+  // Preenchido em .../nominal/[codigo]/verificar, quando a conta do
+  // responsável e o Aluno (a partir de `dadosAluno`) já foram criados, mas
+  // o contrato ainda não foi assinado — é a ponte entre esse passo e
+  // .../assinar, que cria o Vinculo de fato. Sem relação formal do Prisma de
+  // propósito (é só uma referência de aplicação, não precisa de join).
+  alunoIdNominal String? @map("aluno_id_nominal")
 
   motorista        Motorista    @relation(fields: [motoristaId], references: [id], onDelete: Cascade)
   usadoPorResponsavel Responsavel? @relation("ConviteUsadoPor", fields: [usadoPorResponsavelId], references: [id])
@@ -540,6 +575,24 @@ model ContratoTransporte {
   vigenciaInicio DateTime? @map("vigencia_inicio")
   vigenciaFim    DateTime? @map("vigencia_fim")
   criadoEm       DateTime  @default(now()) @map("criado_em")
+
+  // Prazo estruturado em meses (10 ou 24, ver fluxo de convite nominal) —
+  // null continua valendo pros contratos "texto livre" antigos, sem prazo
+  // definido.
+  prazoMeses Int? @map("prazo_meses")
+
+  // Assinatura eletrônica SIMPLES (aceite dentro do próprio app — checkbox +
+  // clique — sem provedor terceirizado de assinatura qualificada; decisão
+  // registrada no plano de implantação). `textoContrato` é o snapshot do
+  // texto exibido no momento da assinatura e `assinadoHash` é o SHA-256
+  // desse texto, só pra provar depois que ele não foi alterado após
+  // assinado. Todos nulos = contrato ainda não assinado (ou registro
+  // antigo, anterior a essa funcionalidade).
+  textoContrato     String?   @map("texto_contrato")
+  assinadoEm        DateTime? @map("assinado_em")
+  assinadoIp        String?   @map("assinado_ip")
+  assinadoUserAgent String?   @map("assinado_user_agent")
+  assinadoHash      String?   @map("assinado_hash")
 
   vinculo Vinculo @relation(fields: [vinculoId], references: [id], onDelete: Cascade)
 

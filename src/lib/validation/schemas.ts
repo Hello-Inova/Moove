@@ -145,6 +145,38 @@ export const gerarConviteSchema = z.object({
   observacao: z.string().trim().max(200).optional(),
 });
 
+// Convite nominal (motorista pré-cadastra responsável + aluno + termos do
+// contrato, ver POST /api/motorista/convites/nominal) — reaproveita os
+// mesmos campos/validações de responsável e aluno já usados no cadastro
+// normal, só que preenchidos pelo motorista em vez da própria família.
+export const criarConviteNominalSchema = z.object({
+  responsavel: z.object({
+    nome: z.string().trim().min(2, "Informe o nome completo."),
+    email: z.string().trim().toLowerCase().email("E-mail inválido."),
+    telefone,
+    cpf: cpfSchema,
+  }),
+  aluno: z.object({
+    nome: z.string().trim().min(2, "Informe o nome do aluno.").max(120),
+  }),
+  escolaId: z.string().trim().min(1, "Selecione a escola."),
+  periodo: z.enum(["MANHA", "TARDE", "INTEGRAL", "NOITE"]).optional().nullable(),
+  valorMensalidade: z.number().min(0, "Valor inválido.").max(1_000_000).optional().nullable(),
+  diaPagamentoMensalidade: z.number().int().min(1, "Dia inválido.").max(31, "Dia inválido.").optional().nullable(),
+  // null = contrato sem prazo definido.
+  prazoMeses: z.union([z.literal(10), z.literal(24)]).optional().nullable(),
+});
+
+// Passo final do convite nominal: o responsável já está autenticado (criou
+// a conta no passo anterior) e só confirma que leu o contrato — texto e
+// demais termos vêm do que o motorista já cadastrou (ver Convite.dadosAluno
+// e schema acima), não são reenviados pelo cliente.
+export const assinarContratoNominalSchema = z.object({
+  aceite: z.boolean().refine((v) => v === true, {
+    message: "É necessário ler e aceitar o contrato para continuar.",
+  }),
+});
+
 export const validarConviteSchema = z.object({
   codigo: z
     .string()

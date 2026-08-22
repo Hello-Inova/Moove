@@ -11,6 +11,13 @@ export interface Mailer {
     codigo: string;
     proposito: VerificationPurpose;
   }): Promise<void>;
+  sendConviteNominalEmail(params: {
+    to: string;
+    nomeResponsavel: string;
+    nomeMotorista: string;
+    nomeAluno: string;
+    link: string;
+  }): Promise<void>;
 }
 
 const ASSUNTO: Record<VerificationPurpose, string> = {
@@ -48,6 +55,33 @@ function renderHtml(nome: string, codigo: string, proposito: VerificationPurpose
   `;
 }
 
+function renderConviteNominalHtml(params: {
+  nomeResponsavel: string;
+  nomeMotorista: string;
+  nomeAluno: string;
+  link: string;
+}): string {
+  const { nomeResponsavel, nomeMotorista, nomeAluno, link } = params;
+  return `
+    <div style="font-family:Arial,Helvetica,sans-serif;max-width:460px;margin:0 auto;padding:24px;color:#1e293b;">
+      <p style="font-size:18px;font-weight:800;margin:0 0 24px;">Moove</p>
+      <h1 style="font-size:20px;margin:0 0 12px;">Contrato de transporte escolar</h1>
+      <p style="color:#404040;line-height:1.5;">
+        Olá, ${nomeResponsavel.split(" ")[0]}. ${nomeMotorista} preparou o contrato de transporte escolar de
+        ${nomeAluno} no Moove. Toque no botão abaixo pra completar seu cadastro e assinar.
+      </p>
+      <p style="text-align:center;margin:28px 0;">
+        <a href="${link}" style="display:inline-block;background:#1e293b;color:#fff;text-decoration:none;font-weight:700;padding:14px 28px;border-radius:12px;">
+          Completar cadastro e assinar
+        </a>
+      </p>
+      <p style="color:#737373;font-size:13px;line-height:1.5;">
+        Se você não esperava este e-mail, pode ignorá-lo com segurança.
+      </p>
+    </div>
+  `;
+}
+
 class ResendMailer implements Mailer {
   async sendVerificationEmail({
     to,
@@ -78,6 +112,33 @@ class ResendMailer implements Mailer {
       throw new EmailSendError(`Falha ao enviar e-mail de verificação (HTTP ${response.status}): ${body}`);
     }
   }
+
+  async sendConviteNominalEmail(
+    params: Parameters<Mailer["sendConviteNominalEmail"]>[0]
+  ): Promise<void> {
+    const apiKey = process.env.RESEND_API_KEY;
+    const from = process.env.EMAIL_FROM || "Moove <onboarding@resend.dev>";
+
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from,
+        to: params.to,
+        subject: `${params.nomeMotorista} enviou um contrato de transporte pra você assinar`,
+        html: renderConviteNominalHtml(params),
+      }),
+    });
+
+    if (!response.ok) {
+      const body = await response.text().catch(() => "");
+      console.error(`[email] Resend recusou o envio (HTTP ${response.status}): ${body}`);
+      throw new EmailSendError(`Falha ao enviar e-mail do convite (HTTP ${response.status}): ${body}`);
+    }
+  }
 }
 
 /**
@@ -94,6 +155,13 @@ class ConsoleMailer implements Mailer {
   }: Parameters<Mailer["sendVerificationEmail"]>[0]): Promise<void> {
     console.log(`[email:dev] código de ${proposito} para ${to}: ${codigo}`);
   }
+
+  async sendConviteNominalEmail({
+    to,
+    link,
+  }: Parameters<Mailer["sendConviteNominalEmail"]>[0]): Promise<void> {
+    console.log(`[email:dev] convite nominal para ${to}: ${link}`);
+  }
 }
 
 export function getMailer(): Mailer {
@@ -104,4 +172,10 @@ export async function sendVerificationEmail(
   params: Parameters<Mailer["sendVerificationEmail"]>[0]
 ): Promise<void> {
   return getMailer().sendVerificationEmail(params);
+}
+
+export async function sendConviteNominalEmail(
+  params: Parameters<Mailer["sendConviteNominalEmail"]>[0]
+): Promise<void> {
+  return getMailer().sendConviteNominalEmail(params);
 }

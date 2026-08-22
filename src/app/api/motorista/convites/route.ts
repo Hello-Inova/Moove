@@ -22,11 +22,13 @@ export async function GET() {
     convites.map((c) => ({
       id: c.id,
       codigo: c.codigo,
+      tipo: c.tipo,
       status: c.status,
       criadoEm: c.criadoEm,
       expiraEm: c.expiraEm,
       usadoEm: c.usadoEm,
       usadoPor: c.usadoPorResponsavel?.nome ?? null,
+      nomeResponsavel: c.nomeResponsavel,
     }))
   );
 }

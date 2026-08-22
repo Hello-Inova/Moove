@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { expirarConvitesVencidos } from "@/lib/convite";
 import { getAssinaturaAtual } from "@/lib/subscription/service";
 import { formatarBRL } from "@/lib/subscription/plans";
-import { GerarConviteButton } from "@/components/motorista/GerarConviteButton";
+import { CadastrarResponsavelForm } from "@/components/motorista/CadastrarResponsavelForm";
 import { RevogarButton } from "@/components/motorista/RevogarButton";
 import { CopyCodeButton } from "@/components/motorista/CopyCodeButton";
 import { GuideTour, type GuideStep } from "@/components/ui/GuideTour";
@@ -55,8 +55,8 @@ export default async function MotoristaConvitesPage() {
     },
     {
       targetId: "tour-convite-gerar",
-      title: "Gere um código para a família",
-      text: "Cada convite é de uso único e válido por 7 dias. Envie o código pro responsável — ele usa pra se cadastrar e vincular o filho à sua rota.",
+      title: "Cadastre o responsável e o contrato",
+      text: "Preencha os dados da família, do aluno e os termos da mensalidade. Enviamos um link (por e-mail e, se quiser, WhatsApp) pra ele completar o próprio cadastro e assinar o contrato — o vínculo é criado sozinho na assinatura, sem precisar de código.",
     },
     {
       targetId: "tour-convite-lista",
@@ -71,7 +71,7 @@ export default async function MotoristaConvitesPage() {
         <div>
           <h1 className="text-2xl font-semibold">Convites</h1>
           <p className="text-neutral-500 dark:text-neutral-400">
-            Gere um código, válido por 7 dias e de uso único, para cada família se vincular.
+            Cadastre o responsável e o contrato — enviamos o link pra ele completar o cadastro e assinar.
           </p>
         </div>
         <GuideTour steps={tourSteps} />
@@ -101,26 +101,32 @@ export default async function MotoristaConvitesPage() {
       </div>
 
       <div id="tour-convite-gerar">
-        <GerarConviteButton />
+        <CadastrarResponsavelForm />
       </div>
 
       <div id="tour-convite-lista" className="space-y-3">
         {convites.length === 0 && (
-          <p className="text-sm text-neutral-500 dark:text-neutral-400">Nenhum convite gerado ainda.</p>
+          <p className="text-sm text-neutral-500 dark:text-neutral-400">Nenhum convite cadastrado ainda.</p>
         )}
         {convites.map((c) => (
           <div
             key={c.id}
             className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-neutral-200 bg-white shadow-sm p-4 dark:bg-neutral-900 dark:border-neutral-700"
           >
-            <div className="flex items-center gap-3">
-              <CopyCodeButton codigo={c.codigo} />
+            <div className="flex flex-wrap items-center gap-3">
+              {c.tipo === "NOMINAL" ? (
+                <span className="font-medium">{c.nomeResponsavel}</span>
+              ) : (
+                <CopyCodeButton codigo={c.codigo} />
+              )}
               <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_CLASS[c.status]}`}>
                 {STATUS_LABEL[c.status]}
               </span>
             </div>
             <div className="text-sm text-neutral-500 dark:text-neutral-400">
-              {c.status === "PENDENTE" && <span>Expira em {c.expiraEm.toLocaleDateString("pt-BR")}</span>}
+              {c.status === "PENDENTE" && (
+                <span>{c.tipo === "NOMINAL" ? "Aguardando cadastro/assinatura — expira" : "Expira"} em {c.expiraEm.toLocaleDateString("pt-BR")}</span>
+              )}
               {c.status === "USADO" && <span>Usado por {c.usadoPorResponsavel?.nome}</span>}
             </div>
             {c.status === "PENDENTE" && (
