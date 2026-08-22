@@ -3,6 +3,7 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import { notificarPush } from "@/lib/push/notificar";
 import { formatarBRL } from "@/lib/subscription/plans";
+import { sendCobrancaMensalidadeEmail, EmailSendError } from "@/lib/email/mailer";
 
 function diasNoMes(ano: number, mesIndiceZero: number): number {
   return new Date(ano, mesIndiceZero + 1, 0).getDate();
@@ -30,6 +31,13 @@ function primeiroDiaDoMes(data: Date): Date {
  *   último dia do mês).
  * - Idempotente: `@@unique([vinculoId, mesReferencia])` garante que rodar o
  *   cron mais de uma vez no mesmo dia (ou mês) nunca duplica.
+ *
+ * Fase 4 do plano de implantação (fluxograma "Contrato, Cadastro e
+ * Conexão"): toda mensalidade nova gerada aqui já dispara automaticamente o
+ * lembrete de cobrança por PIX pro responsável (push + e-mail, com a chave
+ * PIX do motorista) — antes disso, o motorista precisava lembrar de clicar
+ * em "Cobrar" manualmente (ver PainelDashboard.tsx). O dinheiro continua
+ * indo direto pro motorista; a plataforma só automatiza o aviso.
  */
 export async function processarMensalidadesTransporteVencidas(
   agora: Date = new Date()
@@ -46,10 +54,14 @@ export async function processarMensalidadesTransporteVencidas(
     select: {
       id: true,
       motoristaId: true,
+      responsavelId: true,
       valorMensalidade: true,
       diaPagamentoMensalidade: true,
       vigenciaInicio: true,
       vigenciaFim: true,
+      aluno: { select: { nome: true } },
+      motorista: { select: { nome: true, chavePix: true } },
+      responsavel: { select: { nome: true, email: true } },
     },
   });
 
@@ -80,13 +92,27 @@ export async function processarMensalidadesTransporteVencidas(
 
     // upsert não diz se criou ou só encontrou — comparamos criadoEm com
     // "agora" (poucos ms de diferença) pra saber se foi criação nova nesta
-    // rodada, só pra decidir se soma no resumo do push.
+    // rodada, só pra decidir se soma no resumo do push e se dispara o
+    // lembrete pro responsável (não reenviar em rodadas seguintes do
+    // mesmo mês).
     if (Math.abs(resultado.criadoEm.getTime() - agora.getTime()) < 60_000) {
       mensalidadesGeradas++;
       const acumulado = geradasPorMotorista.get(vinculo.motoristaId) ?? { qtd: 0, total: 0 };
       acumulado.qtd++;
       acumulado.total += Number(vinculo.valorMensalidade);
       geradasPorMotorista.set(vinculo.motoristaId, acumulado);
+
+      await lembrarResponsavelPix({
+        responsavelId: vinculo.responsavelId,
+        responsavelNome: vinculo.responsavel.nome,
+        responsavelEmail: vinculo.responsavel.email,
+        motoristaNome: vinculo.motorista.nome,
+        motoristaChavePix: vinculo.motorista.chavePix,
+        alunoNome: vinculo.aluno.nome,
+        valor: Number(vinculo.valorMensalidade),
+        vencimento: mesReferenciaAtual,
+        diaPagamento: vinculo.diaPagamentoMensalidade,
+      });
     }
   }
 
@@ -105,6 +131,54 @@ export async function processarMensalidadesTransporteVencidas(
   }
 
   return { vinculosAvaliados: vinculos.length, mensalidadesGeradas };
+}
+
+/**
+ * Avisa o responsável (push + e-mail) que a mensalidade do mês foi gerada,
+ * já com a chave PIX do motorista — automação do lembrete que antes
+ * dependia do motorista clicar em "Cobrar" manualmente. Falha de envio
+ * (push sem inscrição, e-mail fora do ar) nunca impede a
+ * `MensalidadeTransporte` de existir — é só aviso, best-effort.
+ */
+async function lembrarResponsavelPix(params: {
+  responsavelId: string;
+  responsavelNome: string;
+  responsavelEmail: string;
+  motoristaNome: string;
+  motoristaChavePix: string | null;
+  alunoNome: string;
+  valor: number;
+  vencimento: Date;
+  diaPagamento: number;
+}): Promise<void> {
+  const { responsavelId, responsavelNome, responsavelEmail, motoristaNome, motoristaChavePix, alunoNome, valor, vencimento, diaPagamento } =
+    params;
+
+  await notificarPush(
+    { responsavelId },
+    {
+      title: "Mensalidade do transporte disponível",
+      body: motoristaChavePix
+        ? `${formatarBRL(valor)} — vence dia ${diaPagamento}. Pague via PIX: ${motoristaChavePix}`
+        : `${formatarBRL(valor)} — vence dia ${diaPagamento}. Combine o pagamento com ${motoristaNome}.`,
+      tag: `mensalidade-lembrete-${responsavelId}-${vencimento.toISOString().slice(0, 7)}`,
+    }
+  );
+
+  try {
+    await sendCobrancaMensalidadeEmail({
+      to: responsavelEmail,
+      nomeResponsavel: responsavelNome,
+      nomeAluno: alunoNome,
+      nomeMotorista: motoristaNome,
+      valor,
+      diaPagamento,
+      chavePix: motoristaChavePix,
+    });
+  } catch (err) {
+    if (!(err instanceof EmailSendError)) throw err;
+    console.error(`[mensalidade] falha ao enviar e-mail de lembrete pra ${responsavelEmail}`, err);
+  }
 }
 
 /**

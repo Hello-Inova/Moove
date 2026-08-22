@@ -1,5 +1,7 @@
 import "server-only";
 
+import { formatarBRL } from "@/lib/subscription/plans";
+
 export type VerificationPurpose = "CADASTRO" | "LOGIN" | "RECUPERAR_SENHA";
 
 export class EmailSendError extends Error {}
@@ -17,6 +19,15 @@ export interface Mailer {
     nomeMotorista: string;
     nomeAluno: string;
     link: string;
+  }): Promise<void>;
+  sendCobrancaMensalidadeEmail(params: {
+    to: string;
+    nomeResponsavel: string;
+    nomeAluno: string;
+    nomeMotorista: string;
+    valor: number;
+    diaPagamento: number;
+    chavePix: string | null;
   }): Promise<void>;
 }
 
@@ -82,6 +93,39 @@ function renderConviteNominalHtml(params: {
   `;
 }
 
+function renderCobrancaMensalidadeHtml(params: {
+  nomeResponsavel: string;
+  nomeAluno: string;
+  nomeMotorista: string;
+  valor: number;
+  diaPagamento: number;
+  chavePix: string | null;
+}): string {
+  const { nomeResponsavel, nomeAluno, nomeMotorista, valor, diaPagamento, chavePix } = params;
+  return `
+    <div style="font-family:Arial,Helvetica,sans-serif;max-width:440px;margin:0 auto;padding:24px;color:#1e293b;">
+      <p style="font-size:18px;font-weight:800;margin:0 0 24px;">Moove</p>
+      <h1 style="font-size:20px;margin:0 0 12px;">Mensalidade do transporte disponível</h1>
+      <p style="color:#404040;line-height:1.5;">
+        Olá, ${nomeResponsavel.split(" ")[0]}. A mensalidade do transporte de ${nomeAluno} com ${nomeMotorista}
+        vence dia ${diaPagamento}.
+      </p>
+      <p style="font-size:28px;font-weight:700;color:#1e293b;background:#f5f5f5;padding:16px 12px;border-radius:12px;text-align:center;margin:24px 0;">
+        ${formatarBRL(valor)}
+      </p>
+      ${
+        chavePix
+          ? `<p style="color:#404040;line-height:1.5;">Pague via PIX, direto pra ${nomeMotorista}, usando a chave:</p>
+             <p style="font-weight:700;background:#f5f5f5;padding:12px;border-radius:12px;text-align:center;word-break:break-all;">${chavePix}</p>`
+          : `<p style="color:#404040;line-height:1.5;">Combine a forma de pagamento diretamente com ${nomeMotorista}.</p>`
+      }
+      <p style="color:#737373;font-size:13px;line-height:1.5;">
+        O Moove só avisa — o pagamento é combinado direto entre você e o motorista, sem passar pela plataforma.
+      </p>
+    </div>
+  `;
+}
+
 class ResendMailer implements Mailer {
   async sendVerificationEmail({
     to,
@@ -139,6 +183,33 @@ class ResendMailer implements Mailer {
       throw new EmailSendError(`Falha ao enviar e-mail do convite (HTTP ${response.status}): ${body}`);
     }
   }
+
+  async sendCobrancaMensalidadeEmail(
+    params: Parameters<Mailer["sendCobrancaMensalidadeEmail"]>[0]
+  ): Promise<void> {
+    const apiKey = process.env.RESEND_API_KEY;
+    const from = process.env.EMAIL_FROM || "Moove <onboarding@resend.dev>";
+
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from,
+        to: params.to,
+        subject: `Mensalidade de ${params.nomeAluno} — ${formatarBRL(params.valor)}`,
+        html: renderCobrancaMensalidadeHtml(params),
+      }),
+    });
+
+    if (!response.ok) {
+      const body = await response.text().catch(() => "");
+      console.error(`[email] Resend recusou o envio (HTTP ${response.status}): ${body}`);
+      throw new EmailSendError(`Falha ao enviar e-mail de cobrança (HTTP ${response.status}): ${body}`);
+    }
+  }
 }
 
 /**
@@ -162,6 +233,14 @@ class ConsoleMailer implements Mailer {
   }: Parameters<Mailer["sendConviteNominalEmail"]>[0]): Promise<void> {
     console.log(`[email:dev] convite nominal para ${to}: ${link}`);
   }
+
+  async sendCobrancaMensalidadeEmail({
+    to,
+    valor,
+    chavePix,
+  }: Parameters<Mailer["sendCobrancaMensalidadeEmail"]>[0]): Promise<void> {
+    console.log(`[email:dev] cobrança de mensalidade pra ${to}: ${formatarBRL(valor)} (PIX: ${chavePix ?? "não informado"})`);
+  }
 }
 
 export function getMailer(): Mailer {
@@ -178,4 +257,10 @@ export async function sendConviteNominalEmail(
   params: Parameters<Mailer["sendConviteNominalEmail"]>[0]
 ): Promise<void> {
   return getMailer().sendConviteNominalEmail(params);
+}
+
+export async function sendCobrancaMensalidadeEmail(
+  params: Parameters<Mailer["sendCobrancaMensalidadeEmail"]>[0]
+): Promise<void> {
+  return getMailer().sendCobrancaMensalidadeEmail(params);
 }
