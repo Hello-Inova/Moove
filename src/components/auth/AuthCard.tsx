@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 
 import { Logo } from "@/components/ui/Logo";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { LoginAnimation } from "@/components/auth/LoginAnimation";
 
 function HomeIcon() {
   return (
@@ -31,7 +32,8 @@ export function AuthCard({
 }) {
   return (
     <main className="relative flex min-h-screen flex-1 flex-col items-center justify-center overflow-y-auto bg-gradient-to-b from-brand-orange-soft/40 to-white px-4 py-12 dark:from-neutral-900 dark:to-neutral-950">
-      <div className="absolute left-4 top-4">
+      <LoginAnimation />
+      <div className="absolute left-4 top-4 z-10">
         <Link
           href="/"
           aria-label="Voltar para a seleção de perfil"
@@ -40,10 +42,10 @@ export function AuthCard({
           <HomeIcon />
         </Link>
       </div>
-      <div className="absolute right-4 top-4">
+      <div className="absolute right-4 top-4 z-10">
         <ThemeToggle />
       </div>
-      <div className="w-full max-w-sm rounded-2xl border border-neutral-200 bg-white p-8 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 dark:border-neutral-700">
+      <div className="relative z-10 w-full max-w-sm rounded-2xl border border-neutral-200 bg-white p-8 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 dark:border-neutral-700">
         <Link href="/" className="inline-block">
           <Logo height={24} />
         </Link>
