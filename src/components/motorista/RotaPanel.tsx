@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Navigation, X } from "lucide-react";
+import { toast } from "sonner";
 
 import { apiGet, apiPatchJson, apiPostJson } from "@/lib/api-client";
 import { inputClass, primaryButtonClass, secondaryButtonClass, dangerButtonClass } from "@/components/ui/form-elements";
@@ -153,9 +154,19 @@ export function RotaPanel() {
   // avaliando todos os vínculos ativos pela config do motorista (ver
   // /api/motorista/localizacao), não só o que está em foco aqui —
   // escolher "Ir" não muda quem recebe alerta.
-  function irParaAluno(vinculoId: string) {
+  async function irParaAluno(vinculoId: string) {
     setDestinoManual({ tipo: "aluno", id: vinculoId });
     void carregar({ tipo: "aluno", id: vinculoId }, sentido);
+    // O aviso é complementar à navegação: se o push estiver indisponível,
+    // a rota continua funcionando normalmente.
+    const aviso = await apiPostJson<{ etaMinutos: number }>(`/api/motorista/vinculos/${vinculoId}/a-caminho`, {});
+    if (aviso.ok) {
+      toast.success(`Responsável avisado: chegada estimada em ${aviso.data.etaMinutos} min.`);
+    } else if (aviso.status === 429) {
+      toast.info("O responsável já foi avisado recentemente.");
+    } else {
+      toast.error(aviso.error);
+    }
   }
 
   function voltarRotaNormal() {
@@ -418,7 +429,7 @@ export function RotaPanel() {
                         celular sem forçar scroll horizontal. */}
                     <div className="flex flex-nowrap gap-2">
                       <button
-                        onClick={() => (emFoco ? voltarRotaNormal() : irParaAluno(p.vinculoId))}
+                        onClick={() => (emFoco ? voltarRotaNormal() : void irParaAluno(p.vinculoId))}
                         className={
                           emFoco
                             ? secondaryButtonClass + " inline-flex w-24 shrink-0 items-center justify-center gap-1 px-2 py-1.5 text-xs"
@@ -433,7 +444,7 @@ export function RotaPanel() {
                           <X className="h-3.5 w-3.5" />
                         ) : (
                           <>
-                            <Navigation className="h-3.5 w-3.5" /> Ir
+                            <Navigation className="h-3.5 w-3.5" /> Ir e avisar
                           </>
                         )}
                       </button>

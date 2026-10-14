@@ -3,11 +3,11 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import {
   calcularExpiraEmAssinatura,
-  calcularTesteExpiraEm,
   calcularValorAssinaturaMotorista,
   contaEmTeste,
   formatarBRL,
 } from "@/lib/subscription/plans";
+import { calcularTesteExpiraEmConfigurado } from "@/lib/subscription/configuracao";
 import { buscarPlanoPorCodigo } from "@/lib/subscription/planos-service";
 import { createAsaasCheckout, getAsaasPayment } from "@/lib/payment/asaas";
 import { notificarPush } from "@/lib/push/notificar";
@@ -109,7 +109,7 @@ export async function criarAssinaturaComCheckout(params: {
       // pelo cron de cobrança (src/lib/subscription/cobranca-aluno.ts).
       alunosGratis: plano.alunosGratis,
       valorPorAlunoExcedente: plano.valorPorAlunoExcedente,
-      testeExpiraEm: calcularTesteExpiraEm(),
+      testeExpiraEm: await calcularTesteExpiraEmConfigurado(),
     },
   });
 

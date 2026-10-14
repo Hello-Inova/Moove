@@ -52,6 +52,18 @@ button:disabled,
   cursor: not-allowed;
 }
 
+/* O Leaflet altera a posição com transform. A transição suaviza cada ponto
+   novo de GPS, deixando a van deslizar pelo mapa em vez de "pular". */
+.leaflet-marker-icon.van-marker {
+  display: grid !important;
+  place-items: center;
+  border: 0 !important;
+  background: transparent !important;
+  font-size: 30px;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.35));
+  transition: transform 0.8s linear;
+}
+
 /* Alerta de "encerrar compartilhamento": borda pulsando com sombra em
    degradê vermelho, para sinalizar claramente uma ação destrutiva. */
 @keyframes stop-sharing-pulse {

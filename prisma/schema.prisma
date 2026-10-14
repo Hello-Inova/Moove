@@ -993,3 +993,13 @@ model LogAuditoria {
   @@index([entidade, entidadeId])
   @@map("logs_auditoria")
 }
+
+// Configuração global do produto. Há sempre uma única linha, com id fixo
+// "global", atualizada exclusivamente pelo painel de administração.
+model ConfiguracaoSistema {
+  id                String   @id
+  periodoTesteDias  Int      @default(7) @map("periodo_teste_dias")
+  atualizadoEm      DateTime @updatedAt @map("atualizado_em")
+
+  @@map("configuracoes_sistema")
+}

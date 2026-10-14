@@ -11,14 +11,12 @@ import { useMapaExpandido } from "@/contexts/MapaExpandidoContext";
 
 // Os ícones padrão do Leaflet referenciam URLs relativas ao pacote que não
 // resolvem no bundler do Next.js. Servimos as mesmas imagens via /public.
-const vehicleIcon = L.icon({
-  iconUrl: "/leaflet/marker-icon.png",
-  iconRetinaUrl: "/leaflet/marker-icon-2x.png",
-  shadowUrl: "/leaflet/marker-shadow.png",
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41],
+const vehicleIcon = L.divIcon({
+  className: "van-marker",
+  html: '<span role="img" aria-label="Van escolar">🚌</span>',
+  iconSize: [38, 38],
+  iconAnchor: [19, 19],
+  popupAnchor: [0, -18],
 });
 
 // Ícone diferente pro destino (endereço do responsável) — verde, pra não

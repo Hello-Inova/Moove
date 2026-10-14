@@ -225,7 +225,7 @@ export function RegisterForm({ role }: { role: Role }) {
           onChange={(e) => setAceitaLgpd(e.target.checked)}
         />
         <span>
-          Li e concordo com o tratamento dos meus dados pessoais e de localização conforme a{" "}
+          Li e concordo com os <Link href="/termos" className="underline" target="_blank">Termos de Uso</Link> e com o tratamento dos meus dados pessoais e de localização conforme a{" "}
           <Link href="/privacidade" className="underline" target="_blank">
             Política de Privacidade (LGPD)
           </Link>

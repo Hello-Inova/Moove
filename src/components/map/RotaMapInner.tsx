@@ -10,14 +10,12 @@ import { FullscreenButton, InvalidateOnResize, useFecharComEsc } from "@/compone
 import { useDesvioTrail } from "@/lib/geo/useDesvioTrail";
 import { useMapaExpandido } from "@/contexts/MapaExpandidoContext";
 
-const motoristaIcon = L.icon({
-  iconUrl: "/leaflet/marker-icon.png",
-  iconRetinaUrl: "/leaflet/marker-icon-2x.png",
-  shadowUrl: "/leaflet/marker-shadow.png",
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41],
+const motoristaIcon = L.divIcon({
+  className: "van-marker",
+  html: '<span role="img" aria-label="Van escolar">🚌</span>',
+  iconSize: [38, 38],
+  iconAnchor: [19, 19],
+  popupAnchor: [0, -18],
 });
 
 /** "Levi Brune" -> "LB", "Joca" -> "JO" (nome de uma palavra só, sem

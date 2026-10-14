@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Toaster } from "sonner";
 import { ConfirmProvider } from "@/components/ui/ConfirmProvider";
+import { CookieConsent } from "@/components/legal/CookieConsent";
 
 /**
  * Providers globais montados uma vez, no layout raiz — ConfirmProvider
@@ -29,6 +30,7 @@ export function Providers({ children }: { children: ReactNode }) {
     <ConfirmProvider>
       {children}
       <Toaster richColors position="top-center" theme={tema} closeButton />
+      <CookieConsent />
     </ConfirmProvider>
   );
 }

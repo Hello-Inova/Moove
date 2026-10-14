@@ -88,6 +88,21 @@ export default function PrivacidadePage() {
             disponibilizados no aplicativo.
           </p>
         </section>
+        <section>
+          <h2 className="text-xl font-semibold">8. Cookies e preferências</h2>
+          <p>
+            Usamos armazenamento essencial para segurança, sessão e preferências. Recursos opcionais
+            dependem de escolha livre e podem ser recusados. Veja os detalhes na{" "}
+            <Link href="/cookies" className="underline">Política de Cookies</Link>.
+          </p>
+        </section>
+        <section>
+          <h2 className="text-xl font-semibold">9. Termos do serviço</h2>
+          <p>
+            As regras de uso, responsabilidades e limites das estimativas de localização estão nos{" "}
+            <Link href="/termos" className="underline">Termos de Uso</Link>.
+          </p>
+        </section>
       </div>
     </main>
   );

@@ -6,7 +6,7 @@ import { createSession } from "@/lib/auth/session";
 import { verificarCodigoSchema } from "@/lib/validation/schemas";
 import { jsonError, jsonValidationError } from "@/lib/http";
 import { verifyCode } from "@/lib/email/verification";
-import { calcularTesteExpiraEm } from "@/lib/subscription/plans";
+import { calcularTesteExpiraEmConfigurado } from "@/lib/subscription/configuracao";
 import type { DadosAlunoConviteNominal } from "@/lib/convite";
 
 /**
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           senhaHash: payload.senhaHash,
           consentimentoLgpdAceitoEm: new Date(payload.consentimentoLgpdAceitoEm),
           emailVerificadoEm: agora,
-          testeExpiraEm: calcularTesteExpiraEm(agora),
+          testeExpiraEm: await calcularTesteExpiraEmConfigurado(agora),
         },
       });
 

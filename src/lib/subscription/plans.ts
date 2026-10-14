@@ -93,9 +93,9 @@ export function calcularExpiraEmAssinatura(
   return d;
 }
 
-export function calcularTesteExpiraEm(from: Date = new Date()): Date {
+export function calcularTesteExpiraEm(from: Date = new Date(), dias = TESTE_DIAS): Date {
   const d = new Date(from);
-  d.setUTCDate(d.getUTCDate() + TESTE_DIAS);
+  d.setUTCDate(d.getUTCDate() + dias);
   return d;
 }
 

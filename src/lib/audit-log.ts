@@ -22,7 +22,8 @@ export type AcaoAuditoria =
   | "ATUALIZAR_PLANO"
   | "ATIVAR_PLANO"
   | "DESATIVAR_PLANO"
-  | "EXCLUIR_PLANO";
+  | "EXCLUIR_PLANO"
+  | "ATUALIZAR_PERIODO_TESTE";
 
 /**
  * Registra uma ação no log de auditoria. Nunca lança — se a gravação falhar
