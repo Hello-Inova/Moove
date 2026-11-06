@@ -1,16 +1,3 @@
 {
-  "crons": [
-    {
-      "path": "/api/cron/limpeza",
-      "schedule": "0 7 * * *"
-    },
-    {
-      "path": "/api/cron/cobrancas-aluno",
-      "schedule": "0 6 * * *"
-    },
-    {
-      "path": "/api/cron/mensalidades",
-      "schedule": "0 6 * * *"
-    }
-  ]
+  "buildCommand": "next build"
 }
