@@ -20,7 +20,13 @@ function configurar() {
   if (configurado) return;
   const publicKey = process.env.VAPID_PUBLIC_KEY;
   const privateKey = process.env.VAPID_PRIVATE_KEY;
-  const subject = process.env.VAPID_SUBJECT || "mailto:contato@moove.app";
+  const subjectConfigurado = process.env.VAPID_SUBJECT || "mailto:contato@moove.app";
+  // O web-push exige um endereço mailto: ou uma URL HTTPS. Aceitamos o
+  // e-mail simples da configuração e o normalizamos para que um detalhe no
+  // painel de hospedagem não desative todos os alertas do sistema.
+  const subject = /^(mailto:|https:\/\/)/i.test(subjectConfigurado)
+    ? subjectConfigurado
+    : `mailto:${subjectConfigurado}`;
 
   if (!publicKey || !privateKey) {
     throw new PushNaoConfiguradoError();
