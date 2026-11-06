@@ -18,14 +18,17 @@ export function EscolaCard({ escola, onChanged }: { escola: EscolaListagem; onCh
   const [editando, setEditando] = useState(false);
 
   if (editando) {
+    const concluirEdicao = () => {
+      setEditando(false);
+      onChanged?.();
+    };
+
     return (
       <div className="rounded-2xl border border-neutral-200 bg-white shadow-sm p-4 dark:bg-neutral-900 dark:border-neutral-700">
         <EscolaForm
           escola={escola}
-          onSaved={() => {
-            setEditando(false);
-            onChanged?.();
-          }}
+          onSaved={concluirEdicao}
+          onEnderecoConfirmado={concluirEdicao}
           onCancel={() => setEditando(false)}
         />
       </div>

@@ -28,18 +28,26 @@ export function CollapsibleSection({
   title,
   children,
   defaultAberto = false,
+  aberto: abertoControlado,
+  onAbertoChange,
 }: {
   title: string;
   children: ReactNode;
   defaultAberto?: boolean;
+  aberto?: boolean;
+  onAbertoChange?: (aberto: boolean) => void;
 }) {
-  const [aberto, setAberto] = useState(defaultAberto);
+  const [abertoInterno, setAbertoInterno] = useState(defaultAberto);
+  const aberto = abertoControlado ?? abertoInterno;
 
   return (
     <section className="rounded-2xl border border-neutral-200 bg-white shadow-sm dark:bg-neutral-900 dark:border-neutral-700">
       <button
         type="button"
-        onClick={() => setAberto((a) => !a)}
+        onClick={() => {
+          if (abertoControlado === undefined) setAbertoInterno(!aberto);
+          onAbertoChange?.(!aberto);
+        }}
         aria-expanded={aberto}
         className="flex w-full items-center justify-between gap-3 p-5 text-left"
       >

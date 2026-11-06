@@ -60,6 +60,7 @@ export function EditarEnderecoAlunoModal({
           enderecoTextoEncontrado={enderecoTextoEncontrado}
           enderecoConfirmado={enderecoConfirmado}
           enderecoPrecisaoBaixa={enderecoPrecisaoBaixa}
+          onEnderecoConfirmado={onClose}
         />
       </div>
     </div>

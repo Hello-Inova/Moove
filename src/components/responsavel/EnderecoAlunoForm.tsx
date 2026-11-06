@@ -1,5 +1,7 @@
 "use client";
 
+import { toast } from "sonner";
+
 import { useCallback, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
@@ -37,6 +39,7 @@ export function EnderecoAlunoForm({
   enderecoConfirmado,
   enderecoPrecisaoBaixa,
   onSaved,
+  onEnderecoConfirmado,
 }: {
   alunoId: string;
   defaultValues: Partial<EnderecoValores>;
@@ -47,6 +50,7 @@ export function EnderecoAlunoForm({
   enderecoConfirmado?: boolean;
   enderecoPrecisaoBaixa?: boolean;
   onSaved?: () => void;
+  onEnderecoConfirmado?: () => void;
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -147,6 +151,8 @@ export function EnderecoAlunoForm({
     setConfirmado(true);
     setPrecisaoBaixa(false);
     router.refresh();
+    toast.success("Endereço confirmado.");
+    onEnderecoConfirmado?.();
   }
 
   return (

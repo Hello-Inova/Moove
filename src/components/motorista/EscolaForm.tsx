@@ -45,7 +45,12 @@ type SalvarResposta = {
  * apontando pro lugar errado sem ninguém perceber até o motorista já estar
  * na rota.
  */
-export function EscolaForm({ escola, onSaved, onCancel }: { escola?: EscolaEditavel; onSaved?: () => void; onCancel?: () => void }) {
+export function EscolaForm({ escola, onSaved, onCancel, onEnderecoConfirmado }: {
+  escola?: EscolaEditavel;
+  onSaved?: () => void;
+  onCancel?: () => void;
+  onEnderecoConfirmado?: () => void;
+}) {
   const router = useRouter();
   const editando = Boolean(escola);
   const [loading, setLoading] = useState(false);
@@ -159,6 +164,8 @@ export function EscolaForm({ escola, onSaved, onCancel }: { escola?: EscolaEdita
     setConfirmado(true);
     setPrecisaoBaixa(false);
     router.refresh();
+    toast.success("Endereço confirmado.");
+    onEnderecoConfirmado?.();
   }
 
   return (

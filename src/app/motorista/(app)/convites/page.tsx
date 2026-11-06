@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { CircleDollarSign } from "lucide-react";
+import { CircleDollarSign, Plus } from "lucide-react";
 
 import { getAuthenticatedMotorista } from "@/lib/auth/guards";
 import { prisma } from "@/lib/prisma";
@@ -57,7 +57,7 @@ export default async function MotoristaConvitesPage() {
     {
       targetId: "tour-convite-gerar",
       title: "Cadastre o responsável e o contrato",
-      text: "Preencha os dados da família, do aluno e os termos da mensalidade. Enviamos um link (por e-mail e, se quiser, WhatsApp) pra ele completar o próprio cadastro e assinar o contrato — o vínculo é criado sozinho na assinatura, sem precisar de código.",
+      text: "Clique em Novo para abrir o formulário e preencher os dados da família, do aluno e os termos da mensalidade. Enviamos um link (por e-mail e, se quiser, WhatsApp) pra ele completar o próprio cadastro e assinar o contrato — o vínculo é criado sozinho na assinatura, sem precisar de código.",
     },
     {
       targetId: "tour-convite-lista",
@@ -101,9 +101,19 @@ export default async function MotoristaConvitesPage() {
         </p>
       </div>
 
-      <div id="tour-convite-gerar">
-        <CadastrarResponsavelForm />
-      </div>
+      <details className="group">
+        <summary
+          id="tour-convite-gerar"
+          className="inline-flex cursor-pointer list-none items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 [&::-webkit-details-marker]:hidden"
+        >
+          <Plus className="h-4 w-4 group-open:rotate-45" aria-hidden="true" />
+          <span className="group-open:hidden">Novo</span>
+          <span className="hidden group-open:inline">Fechar formulário</span>
+        </summary>
+        <div className="mt-4">
+          <CadastrarResponsavelForm />
+        </div>
+      </details>
 
       <GerarConviteResponsavelExistente />
 

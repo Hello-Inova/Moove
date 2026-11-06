@@ -32,6 +32,7 @@ export type EscolaListagem = {
  */
 export function EscolasClient({ escolasIniciais }: { escolasIniciais: EscolaListagem[] }) {
   const [escolas, setEscolas] = useState<EscolaListagem[]>(escolasIniciais);
+  const [cadastroAberto, setCadastroAberto] = useState(escolasIniciais.length === 0);
 
   const recarregar = useCallback(async () => {
     const result = await apiGet<EscolaListagem[]>("/api/motorista/escolas");
@@ -70,8 +71,18 @@ export function EscolasClient({ escolasIniciais }: { escolasIniciais: EscolaList
       </div>
 
       <div id="tour-escolas-form">
-        <CollapsibleSection title="Cadastrar nova escola" defaultAberto={escolas.length === 0}>
-          <EscolaForm onSaved={recarregar} />
+        <CollapsibleSection
+          title="Cadastrar nova escola"
+          aberto={cadastroAberto}
+          onAbertoChange={setCadastroAberto}
+        >
+          <EscolaForm
+            onSaved={recarregar}
+            onEnderecoConfirmado={() => {
+              setCadastroAberto(false);
+              void recarregar();
+            }}
+          />
         </CollapsibleSection>
       </div>
     </div>
