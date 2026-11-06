@@ -9,11 +9,11 @@ import { PushToggle } from "@/components/ui/PushToggle";
 export function PushAlertaToggle() {
   return (
     <PushToggle
-      title="Alerta sonoro de chegada"
-      description="Receba um aviso sonoro quando o motorista estiver perto do seu endereço — funciona mesmo com o app em segundo plano."
+      title="Notificações da rota"
+      description="Ative para receber no celular o aviso quando o motorista clicar em Ir e avisar e as atualizações da previsão de chegada a cada minuto. Também inclui o alerta de proximidade."
       subscribeUrl="/api/responsavel/push/subscribe"
       unsubscribeUrl="/api/responsavel/push/unsubscribe"
-      ativarLabel="Ativar alerta sonoro"
+      ativarLabel="Ativar notificações da rota"
     />
   );
 }

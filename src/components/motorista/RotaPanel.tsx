@@ -173,9 +173,22 @@ export function RotaPanel() {
     void carregar({ tipo: "aluno", id: vinculoId }, sentido);
     // O aviso é complementar à navegação: se o push estiver indisponível,
     // a rota continua funcionando normalmente.
-    const aviso = await apiPostJson<{ etaMinutos: number }>(`/api/motorista/vinculos/${vinculoId}/a-caminho`, {});
+    const aviso = await apiPostJson<{
+      etaMinutos: number;
+      dispositivosInscritos: number;
+      entregasConfirmadas: number;
+      configuracaoAusente: boolean;
+    }>(`/api/motorista/vinculos/${vinculoId}/a-caminho`, {});
     if (aviso.ok) {
-      toast.success(`Responsável avisado: chegada estimada em ${aviso.data.etaMinutos} min.`);
+      if (aviso.data.configuracaoAusente) {
+        toast.error("As notificações do Moove ainda não estão configuradas. Avise o suporte.");
+      } else if (aviso.data.dispositivosInscritos === 0) {
+        toast.info("O responsável ainda não ativou as notificações no celular dele.");
+      } else if (aviso.data.entregasConfirmadas === 0) {
+        toast.error("Não foi possível entregar a notificação ao responsável agora.");
+      } else {
+        toast.success(`Responsável avisado: chegada estimada em ${aviso.data.etaMinutos} min.`);
+      }
     } else if (aviso.status === 429) {
       toast.info("O responsável já foi avisado recentemente.");
     } else {

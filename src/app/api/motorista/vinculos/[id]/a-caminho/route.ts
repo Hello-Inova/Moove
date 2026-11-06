@@ -14,7 +14,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!motorista) return jsonError(401, "Não autenticado.");
 
   const { id } = await params;
-  const limite = await checarRateLimit(`a-caminho:vinculo:${id}`, { max: 1, janelaMinutos: 1 });
+  // A atualização é agendada no navegador a cada 60 segundos. Uma janela
+  // ligeiramente menor evita rejeitar o próximo aviso por alguns ms de
+  // diferença entre o timer do cliente e o registro no servidor.
+  const limite = await checarRateLimit(`a-caminho:vinculo:${id}`, { max: 1, janelaMinutos: 0.8 });
   if (!limite.ok) return jsonRateLimited(limite.retryAfterSegundos);
   const limiteIp = await checarRateLimit(`a-caminho:ip:${clientIp(request)}`, { max: 30, janelaMinutos: 15 });
   if (!limiteIp.ok) return jsonRateLimited(limiteIp.retryAfterSegundos);
@@ -49,7 +52,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       )
     )
   );
-  await notificarPush(
+  const entrega = await notificarPush(
     { responsavelId: vinculo.responsavelId },
     {
       title: "O motorista está a caminho",
@@ -57,5 +60,5 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       tag: `a-caminho-${id}`,
     }
   );
-  return NextResponse.json({ etaMinutos });
+  return NextResponse.json({ etaMinutos, ...entrega });
 }

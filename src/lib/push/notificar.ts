@@ -14,26 +14,34 @@ import { enviarNotificacaoPush, PushNaoConfiguradoError, PushSubscriptionInvalid
 export async function notificarPush(
   alvo: { motoristaId: string } | { responsavelId: string },
   payload: { title: string; body: string; tag?: string }
-): Promise<void> {
+): Promise<{ dispositivosInscritos: number; entregasConfirmadas: number; configuracaoAusente: boolean }> {
   const subscriptions = await prisma.pushSubscription.findMany({
     where: "motoristaId" in alvo ? { motoristaId: alvo.motoristaId } : { responsavelId: alvo.responsavelId },
   });
 
-  await Promise.all(
+  const resultados = await Promise.all(
     subscriptions.map(async (sub) => {
       try {
         await enviarNotificacaoPush(sub, payload);
+        return { entregue: true, configuracaoAusente: false };
       } catch (err) {
         if (err instanceof PushSubscriptionInvalidaError) {
           await prisma.pushSubscription.delete({ where: { id: sub.id } }).catch(() => {});
-          return;
+          return { entregue: false, configuracaoAusente: false };
         }
         if (err instanceof PushNaoConfiguradoError) {
           console.warn("[push]", err.message);
-          return;
+          return { entregue: false, configuracaoAusente: true };
         }
         console.error("[push] falha ao enviar", err);
+        return { entregue: false, configuracaoAusente: false };
       }
     })
   );
+
+  return {
+    dispositivosInscritos: subscriptions.length,
+    entregasConfirmadas: resultados.filter((resultado) => resultado.entregue).length,
+    configuracaoAusente: resultados.some((resultado) => resultado.configuracaoAusente),
+  };
 }
