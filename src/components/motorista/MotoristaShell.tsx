@@ -5,6 +5,7 @@ import { AppHeader, type NavItem } from "@/components/layout/AppHeader";
 import { AccessGate } from "@/components/layout/AccessGate";
 import { TrialBanner } from "@/components/layout/TrialBanner";
 import { GuiaMotoristaDownloadPrompt } from "@/components/motorista/GuiaMotoristaDownloadPrompt";
+import { InstalarAppMotoristaPrompt } from "@/components/motorista/InstalarAppMotoristaPrompt";
 import { LocationSharingProvider } from "@/contexts/LocationSharingContext";
 import { MapaExpandidoProvider } from "@/contexts/MapaExpandidoContext";
 import { getAuthenticatedMotorista } from "@/lib/auth/guards";
@@ -55,6 +56,7 @@ export async function MotoristaShell({ children }: { children: ReactNode }) {
               <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6">{children}</main>
             </AccessGate>
             {motorista && <GuiaMotoristaDownloadPrompt motoristaId={motorista.id} />}
+            {motorista && <InstalarAppMotoristaPrompt />}
           </div>
         </div>
       </MapaExpandidoProvider>
