@@ -4,7 +4,7 @@ import { Download, FileText } from "lucide-react";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 
-const GUIDE_URL = "/guias/guia-de-uso-do-motorista-moove.pdf";
+const GUIDE_URL = "/guias/guia-de-uso-do-motorista-moove.pdf?v=2026-11";
 
 function storageKey(motoristaId: string) {
   return `moove:guia-motorista:nao-exibir:${motoristaId}`;
@@ -58,7 +58,7 @@ export function GuiaMotoristaDownloadPrompt({ motoristaId }: { motoristaId: stri
               Guia de uso do motorista
             </h2>
             <p className="mt-1 text-sm leading-5 text-neutral-600 dark:text-neutral-300">
-              Baixe o guia com as abas, formulários e funções do Moove para consultar quando precisar.
+              Baixe a versão atualizada com rota, avisos à família, pagamentos, quilometragem, instalação do app e planos.
             </p>
           </div>
         </div>
