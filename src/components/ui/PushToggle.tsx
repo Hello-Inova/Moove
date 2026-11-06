@@ -51,13 +51,25 @@ export function PushToggle({
       try {
         const registration = await navigator.serviceWorker.getRegistration("/sw-push.js");
         const subscription = await registration?.pushManager.getSubscription();
-        setEstado(subscription ? "ativo" : "inativo");
+        if (!subscription) {
+          setEstado("inativo");
+          return;
+        }
+
+        // Uma inscrição pode continuar ativa no navegador mesmo que tenha
+        // sido removida do banco (por exemplo, após uma falha anterior ou
+        // limpeza de uma inscrição expirada). Reenvie-a ao abrir o painel:
+        // assim "Ativado neste dispositivo" só é exibido quando o servidor
+        // também conhece o celular que deve receber os avisos.
+        const json = subscription.toJSON();
+        const result = await apiPostJson(subscribeUrl, { endpoint: json.endpoint, keys: json.keys });
+        setEstado(result.ok ? "ativo" : "inativo");
       } catch {
         setEstado("inativo");
       }
     }
     void checar();
-  }, []);
+  }, [subscribeUrl]);
 
   async function ativar() {
     const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
