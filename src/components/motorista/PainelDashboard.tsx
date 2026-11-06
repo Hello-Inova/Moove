@@ -511,11 +511,11 @@ function ListaAlunos({ itens }: { itens: AlunoResumo[] }) {
     <ul className="space-y-2">
       {itens.map((a) => (
         <li key={a.id} className="rounded-xl border border-neutral-200 p-3 dark:border-neutral-700">
-          <p className="font-medium">{a.nome}</p>
-          <p className="text-sm text-neutral-500 dark:text-neutral-400">{a.escolaNome ?? "Sem escola definida"}</p>
-          <div className="mt-2">
+          <div className="flex items-start justify-between gap-2">
+            <p className="min-w-0 truncate font-medium">{a.nome}</p>
             <VerDetalhesAlunoButton vinculoId={a.id} nomeAluno={a.nome} />
           </div>
+          <p className="text-sm text-neutral-500 dark:text-neutral-400">{a.escolaNome ?? "Sem escola definida"}</p>
         </li>
       ))}
     </ul>
