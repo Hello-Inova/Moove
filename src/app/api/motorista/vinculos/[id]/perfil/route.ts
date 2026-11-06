@@ -7,6 +7,38 @@ import { jsonError, jsonValidationError } from "@/lib/http";
 import { editarPerfilAlunoSchema } from "@/lib/validation/schemas";
 import { sincronizarMensalidadesVigencia } from "@/lib/mensalidade/mensalidade-transporte";
 
+export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const motorista = await getAuthenticatedMotorista();
+  if (!motorista) return jsonError(401, "Não autenticado.");
+
+  const { id } = await params;
+  const vinculo = await prisma.vinculo.findFirst({
+    where: { id, motoristaId: motorista.id },
+    select: {
+      periodo: true,
+      escolaId: true,
+      valorMensalidade: true,
+      diaPagamentoMensalidade: true,
+      vigenciaInicio: true,
+      vigenciaFim: true,
+      aluno: { select: { dataNascimento: true, genero: true } },
+    },
+  });
+  if (!vinculo) return jsonError(404, "Vínculo não encontrado.");
+
+  const dataCalendario = (data: Date | null) => (data ? data.toISOString().slice(0, 10) : null);
+  return NextResponse.json({
+    dataNascimento: dataCalendario(vinculo.aluno.dataNascimento),
+    genero: vinculo.aluno.genero,
+    periodo: vinculo.periodo,
+    escolaId: vinculo.escolaId,
+    valorMensalidade: vinculo.valorMensalidade === null ? null : Number(vinculo.valorMensalidade),
+    diaPagamentoMensalidade: vinculo.diaPagamentoMensalidade,
+    vigenciaInicio: dataCalendario(vinculo.vigenciaInicio),
+    vigenciaFim: dataCalendario(vinculo.vigenciaFim),
+  });
+}
+
 /**
  * Atualiza o perfil de um aluno vinculado — dados pessoais (nascimento,
  * gênero, no model Aluno) e dados escolares/de pagamento (período, escola,

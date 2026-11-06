@@ -245,6 +245,19 @@ export async function sincronizarMensalidadesVigencia(vinculoId: string, agora: 
     cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
   }
 
+  // Se a vigência for ampliada retroativamente, mensalidades que tinham
+  // sido canceladas só por estarem fora da janela voltam a valer. Mantemos
+  // `PAGO` intacto e restauramos apenas as canceladas; se o vencimento já
+  // passou, a UI as classifica automaticamente como atrasadas.
+  await prisma.mensalidadeTransporte.updateMany({
+    where: {
+      vinculoId: vinculo.id,
+      status: "CANCELADO",
+      mesReferencia: { gte: inicioJanela, lte: fimJanela },
+    },
+    data: { status: "PENDENTE" },
+  });
+
   // Cancela mensalidades pendentes que ficaram fora da vigência atual —
   // antes do novo início ou depois do novo fim (quando definido).
   await prisma.mensalidadeTransporte.updateMany({

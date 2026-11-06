@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Link2, Users, Ticket, MapPin } from "lucide-react";
+import { Link2, Users, Ticket, MapPin, Search } from "lucide-react";
 
 import { AppHeader, type NavItem } from "@/components/layout/AppHeader";
 import { getAuthenticatedResponsavel } from "@/lib/auth/guards";
@@ -13,6 +13,7 @@ const NAV: NavItem[] = [
   { href: "/responsavel/dashboard", label: "Meus vínculos", icon: <Link2 className={ICON_CLASS} aria-hidden="true" /> },
   { href: "/responsavel/alunos", label: "Meus alunos", icon: <Users className={ICON_CLASS} aria-hidden="true" /> },
   { href: "/responsavel/vincular", label: "Usar convite", icon: <Ticket className={ICON_CLASS} aria-hidden="true" /> },
+  { href: "/responsavel/motoristas", label: "Encontrar motorista", icon: <Search className={ICON_CLASS} aria-hidden="true" /> },
   { href: "/responsavel/buscar", label: "Ver localização", icon: <MapPin className={ICON_CLASS} aria-hidden="true" /> },
 ];
 

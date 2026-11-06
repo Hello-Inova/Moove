@@ -66,6 +66,7 @@ export function EditarPerfilAlunoModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [issues, setIssues] = useState<Record<string, string[] | undefined>>({});
+  const [carregandoDados, setCarregandoDados] = useState(true);
 
   const [escolas, setEscolas] = useState<Escola[] | null>(null);
 
@@ -98,6 +99,33 @@ export function EditarPerfilAlunoModal({
       ativo = false;
     };
   }, []);
+
+  // Busca o perfil no momento em que o modal abre. Assim, o formulário não
+  // fica com dados antigos depois de uma alteração em outra tela/aba.
+  useEffect(() => {
+    let ativo = true;
+    apiGet<PerfilAlunoInicial>(`/api/motorista/vinculos/${vinculoId}/perfil`).then((result) => {
+      if (!ativo) return;
+      if (result.ok) {
+        setDataNascimento(result.data.dataNascimento ?? "");
+        setGenero(result.data.genero ?? "");
+        setPeriodo(result.data.periodo ?? "");
+        setEscolaId(result.data.escolaId ?? "");
+        setValorMensalidade(result.data.valorMensalidade !== null ? String(result.data.valorMensalidade) : "");
+        setDiaPagamento(result.data.diaPagamentoMensalidade !== null ? String(result.data.diaPagamentoMensalidade) : "5");
+        const inicio = paraMesAno(result.data.vigenciaInicio);
+        const fim = paraMesAno(result.data.vigenciaFim);
+        setMesInicio(inicio?.mes ?? new Date().getMonth() + 1);
+        setAnoInicio(inicio?.ano ?? new Date().getFullYear());
+        setMesFim(fim?.mes ?? "");
+        setAnoFim(fim?.ano ?? new Date().getFullYear());
+      }
+      setCarregandoDados(false);
+    });
+    return () => {
+      ativo = false;
+    };
+  }, [vinculoId]);
 
   useEffect(() => {
     function handleEsc(e: KeyboardEvent) {
@@ -169,6 +197,9 @@ export function EditarPerfilAlunoModal({
           </button>
         </div>
 
+        {carregandoDados ? (
+          <p className="py-12 text-center text-sm text-neutral-500 dark:text-neutral-400">Carregando dados atuais do aluno…</p>
+        ) : <>
         <div className="mb-5 flex items-center justify-center gap-2">
           {PASSOS.map((p, i) => (
             <div key={p.key} className="flex items-center gap-2">
@@ -369,6 +400,7 @@ export function EditarPerfilAlunoModal({
             </div>
           </div>
         )}
+        </>}
       </div>
     </div>
   );

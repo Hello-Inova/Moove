@@ -141,6 +141,20 @@ export function RotaPanel() {
     return () => clearInterval(tetoInterval);
   }, [isSharing, carregar]);
 
+  // Enquanto o motorista estiver seguindo a rota até um aluno específico,
+  // atualiza o responsável a cada minuto. O intervalo some imediatamente ao
+  // voltar à rota normal, trocar de destino ou encerrar o compartilhamento.
+  useEffect(() => {
+    if (!isSharing || destinoManual?.tipo !== "aluno") return;
+
+    const vinculoId = destinoManual.id;
+    const intervalo = setInterval(() => {
+      void apiPostJson(`/api/motorista/vinculos/${vinculoId}/a-caminho`, {});
+    }, 60_000);
+
+    return () => clearInterval(intervalo);
+  }, [isSharing, destinoManual]);
+
   function irParaEscola() {
     if (!escolaSelecionada) return;
     setDestinoManual({ tipo: "escola", id: escolaSelecionada });

@@ -7,16 +7,16 @@ import { checarRateLimit, clientIp, registrarTentativa } from "@/lib/rate-limit"
 import { haversineMetros, estimarEtaMinutos } from "@/lib/geo/distancia";
 import { notificarPush } from "@/lib/push/notificar";
 
-/** Notifica o responsável quando o motorista escolhe este aluno como próximo destino.
- * O limite por vínculo evita que cliques repetidos virem spam. */
+/** Notifica o responsável quando o motorista segue para este aluno.
+ * A rota ativa atualiza o aviso a cada minuto com uma nova estimativa. */
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const motorista = await getAuthenticatedMotorista();
   if (!motorista) return jsonError(401, "Não autenticado.");
 
   const { id } = await params;
-  const limite = await checarRateLimit(`a-caminho:vinculo:${id}`, { max: 1, janelaMinutos: 5 });
+  const limite = await checarRateLimit(`a-caminho:vinculo:${id}`, { max: 1, janelaMinutos: 1 });
   if (!limite.ok) return jsonRateLimited(limite.retryAfterSegundos);
-  const limiteIp = await checarRateLimit(`a-caminho:ip:${clientIp(request)}`, { max: 12, janelaMinutos: 15 });
+  const limiteIp = await checarRateLimit(`a-caminho:ip:${clientIp(request)}`, { max: 30, janelaMinutos: 15 });
   if (!limiteIp.ok) return jsonRateLimited(limiteIp.retryAfterSegundos);
 
   const vinculo = await prisma.vinculo.findFirst({
