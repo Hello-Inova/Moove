@@ -262,6 +262,10 @@ export const escolaSchema = z.object({
 export const atualizarLocalizacaoSchema = z.object({
   latitude: z.number().min(-90).max(90),
   longitude: z.number().min(-180).max(180),
+  // Metadados opcionais do GPS, usados exclusivamente para não contar
+  // oscilações de posição como quilometragem percorrida.
+  velocidade: z.number().min(0).max(100).nullable().optional(),
+  precisao: z.number().min(0).max(5_000).nullable().optional(),
 });
 
 export const pushSubscriptionSchema = z.object({
