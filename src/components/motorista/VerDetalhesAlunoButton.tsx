@@ -14,7 +14,7 @@ export function VerDetalhesAlunoButton({
 }: {
   vinculoId: string;
   nomeAluno: string;
-  inicial: PerfilAlunoInicial;
+  inicial?: PerfilAlunoInicial;
 }) {
   const [aberto, setAberto] = useState(false);
 
@@ -24,7 +24,25 @@ export function VerDetalhesAlunoButton({
         <Eye className="h-3.5 w-3.5" aria-hidden="true" />
         Ver detalhes
       </button>
-      {aberto && <EditarPerfilAlunoModal vinculoId={vinculoId} nomeAluno={nomeAluno} inicial={inicial} onClose={() => setAberto(false)} />}
+      {aberto && (
+        <EditarPerfilAlunoModal
+          vinculoId={vinculoId}
+          nomeAluno={nomeAluno}
+          inicial={
+            inicial ?? {
+              dataNascimento: null,
+              genero: null,
+              periodo: null,
+              escolaId: null,
+              valorMensalidade: null,
+              diaPagamentoMensalidade: null,
+              vigenciaInicio: null,
+              vigenciaFim: null,
+            }
+          }
+          onClose={() => setAberto(false)}
+        />
+      )}
     </>
   );
 }
