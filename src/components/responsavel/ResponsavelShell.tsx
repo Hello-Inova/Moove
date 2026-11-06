@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Link2, Users, Ticket, MapPin, Search } from "lucide-react";
 
 import { AppHeader, type NavItem } from "@/components/layout/AppHeader";
+import { InstalarAppMotoristaPrompt } from "@/components/motorista/InstalarAppMotoristaPrompt";
 import { getAuthenticatedResponsavel } from "@/lib/auth/guards";
 import { MapaExpandidoProvider } from "@/contexts/MapaExpandidoContext";
 
@@ -38,6 +39,7 @@ export async function ResponsavelShell({ children }: { children: ReactNode }) {
         />
         <div className="flex min-w-0 flex-1 flex-col">
           <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6">{children}</main>
+          {responsavel && <InstalarAppMotoristaPrompt />}
         </div>
       </div>
     </MapaExpandidoProvider>
