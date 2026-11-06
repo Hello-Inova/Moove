@@ -21,6 +21,8 @@ import {
 } from "lucide-react";
 
 import { secondaryButtonClass } from "@/components/ui/form-elements";
+import { MarcarMensalidadePagaButton } from "@/components/motorista/MarcarMensalidadePagaButton";
+import { MarcarMensalidadePendenteButton } from "@/components/motorista/MarcarMensalidadePendenteButton";
 import { formatarBRL } from "@/lib/subscription/plans";
 import { linkWhatsApp } from "@/lib/whatsapp";
 import type {
@@ -439,7 +441,7 @@ function DetalheModal({
     },
     recebidos: {
       titulo: "Pagamentos recebidos",
-      corpo: <ListaMensalidades itens={dados.pagamentosRecebidos.detalhes} mostrarPagoEm />,
+      corpo: <ListaMensalidades itens={dados.pagamentosRecebidos.detalhes} mostrarPagoEm mostrarDesfazerPagamento />,
     },
     pendentes: {
       titulo: "Pagamentos pendentes",
@@ -453,6 +455,7 @@ function DetalheModal({
           mostrarVencimento
           destaqueAtraso
           motoristaChavePix={motoristaChavePix}
+          mostrarMarcarPaga
         />
       ),
     },
@@ -556,6 +559,8 @@ function ListaMensalidades({
   mostrarVencimento,
   destaqueAtraso,
   motoristaChavePix,
+  mostrarMarcarPaga,
+  mostrarDesfazerPagamento,
 }: {
   itens: MensalidadeResumo[];
   mostrarStatus?: boolean;
@@ -563,6 +568,8 @@ function ListaMensalidades({
   mostrarVencimento?: boolean;
   destaqueAtraso?: boolean;
   motoristaChavePix?: string | null;
+  mostrarMarcarPaga?: boolean;
+  mostrarDesfazerPagamento?: boolean;
 }) {
   if (itens.length === 0) return <EstadoVazio texto="Nada por aqui nesse mês." />;
 
@@ -618,6 +625,12 @@ function ListaMensalidades({
                   Sem telefone do responsável cadastrado pra cobrar por WhatsApp.
                 </p>
               ))}
+            {(mostrarMarcarPaga || mostrarDesfazerPagamento) && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {mostrarMarcarPaga && <MarcarMensalidadePagaButton mensalidadeId={m.id} />}
+                {mostrarDesfazerPagamento && <MarcarMensalidadePendenteButton mensalidadeId={m.id} />}
+              </div>
+            )}
           </li>
         );
       })}
