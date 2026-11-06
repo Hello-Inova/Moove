@@ -1,12 +1,11 @@
 import { Suspense } from "react";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { CheckCircle2, XCircle, Gift, CircleDollarSign, Clock, Sun, AlertCircle } from "lucide-react";
 
 import { getAuthenticatedMotorista } from "@/lib/auth/guards";
 import { getAssinaturaAtual } from "@/lib/subscription/service";
 import { prisma } from "@/lib/prisma";
-import { cardClass, secondaryButtonClass } from "@/components/ui/form-elements";
+import { cardClass } from "@/components/ui/form-elements";
 import { Badge } from "@/components/ui/Badge";
 import { PixKeyForm } from "@/components/motorista/PixKeyForm";
 import { PushToggle } from "@/components/ui/PushToggle";
@@ -16,6 +15,7 @@ import { PagarCobrancasPendentesButton } from "@/components/motorista/PagarCobra
 import { CobrancaAlunoSync } from "@/components/motorista/CobrancaAlunoSync";
 import { VALOR_MINIMO_ASAAS } from "@/lib/subscription/cobranca-aluno-pagamento";
 import { GuideTour, type GuideStep } from "@/components/ui/GuideTour";
+import { VerDetalhesAlunoButton } from "@/components/motorista/VerDetalhesAlunoButton";
 
 function formatarData(data: Date): string {
   return data.toLocaleDateString("pt-BR");
@@ -25,6 +25,10 @@ const PERIODO_LABEL: Record<string, string> = { MANHA: "Manhã", TARDE: "Tarde",
 
 function formatarValor(valor: number): string {
   return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function paraDataInput(data: Date | null): string | null {
+  return data?.toISOString().slice(0, 10) ?? null;
 }
 
 export default async function MotoristaVinculosPage() {
@@ -38,7 +42,7 @@ export default async function MotoristaVinculosPage() {
       orderBy: { criadoEm: "desc" },
       include: {
         responsavel: { select: { nome: true, email: true, telefone: true } },
-        aluno: { select: { nome: true } },
+        aluno: { select: { nome: true, dataNascimento: true, genero: true } },
         escola: { select: { nome: true } },
         cobrancas: { where: { status: "PENDENTE" }, orderBy: { criadoEm: "asc" } },
       },
@@ -191,9 +195,20 @@ export default async function MotoristaVinculosPage() {
               )}
 
               <div className="mt-auto flex flex-wrap gap-2 pt-1">
-                <Link href={`/motorista/vinculos/${v.id}`} className={secondaryButtonClass + " w-auto px-3 py-1.5 text-sm"}>
-                  Ver perfil
-                </Link>
+                <VerDetalhesAlunoButton
+                  vinculoId={v.id}
+                  nomeAluno={v.aluno.nome}
+                  inicial={{
+                    dataNascimento: paraDataInput(v.aluno.dataNascimento),
+                    genero: v.aluno.genero,
+                    periodo: v.periodo,
+                    escolaId: v.escolaId,
+                    valorMensalidade: v.valorMensalidade === null ? null : Number(v.valorMensalidade),
+                    diaPagamentoMensalidade: v.diaPagamentoMensalidade,
+                    vigenciaInicio: paraDataInput(v.vigenciaInicio),
+                    vigenciaFim: paraDataInput(v.vigenciaFim),
+                  }}
+                />
                 {v.status === "ATIVO" ? (
                   <RevogarButton
                     url={`/api/motorista/vinculos/${v.id}/revogar`}
