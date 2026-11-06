@@ -7,6 +7,7 @@ import { expirarConvitesVencidos } from "@/lib/convite";
 import { getAssinaturaAtual } from "@/lib/subscription/service";
 import { formatarBRL } from "@/lib/subscription/plans";
 import { CadastrarResponsavelForm } from "@/components/motorista/CadastrarResponsavelForm";
+import { GerarConviteResponsavelExistente } from "@/components/motorista/GerarConviteResponsavelExistente";
 import { RevogarButton } from "@/components/motorista/RevogarButton";
 import { CopyCodeButton } from "@/components/motorista/CopyCodeButton";
 import { GuideTour, type GuideStep } from "@/components/ui/GuideTour";
@@ -103,6 +104,8 @@ export default async function MotoristaConvitesPage() {
       <div id="tour-convite-gerar">
         <CadastrarResponsavelForm />
       </div>
+
+      <GerarConviteResponsavelExistente />
 
       <div id="tour-convite-lista" className="space-y-3">
         {convites.length === 0 && (
