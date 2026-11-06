@@ -52,7 +52,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
 
       {pending && (
         <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center"
+          className="fixed inset-0 z-[3000] flex items-end justify-center bg-black/40 p-4 sm:items-center"
           onClick={() => responder(false)}
           role="presentation"
         >
