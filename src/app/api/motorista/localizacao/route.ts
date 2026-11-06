@@ -16,7 +16,7 @@ import { notificarPush } from "@/lib/push/notificar";
  * "Iniciar rota" através do fluxo novo). */
 async function registrarPontoPercurso(
   motoristaId: string,
-  posicao: { latitude: number; longitude: number }
+  posicao: { latitude: number; longitude: number; velocidade?: number | null; precisao?: number | null }
 ) {
   const aberto = await prisma.percursoDia.findFirst({
     where: { motoristaId, encerradoEm: null },
@@ -25,6 +25,43 @@ async function registrarPontoPercurso(
   });
   if (!aberto) return;
 
+  // Leituras pouco precisas (muito comuns dentro de garagem, prédios ou
+  // quando o veículo está parado) podem variar dezenas de metros sem que a
+  // van tenha se movido. Elas continuam atualizando o mapa, mas não entram
+  // no percurso nem na quilometragem.
+  if (posicao.precisao !== null && posicao.precisao !== undefined && posicao.precisao > 50) return;
+
+  const ultimoPonto = await prisma.percursoPonto.findFirst({
+    where: { percursoId: aberto.id },
+    orderBy: { criadoEm: "desc" },
+    select: { latitude: true, longitude: true, criadoEm: true },
+  });
+
+  if (ultimoPonto) {
+    const intervaloSegundos = Math.max(1, (Date.now() - ultimoPonto.criadoEm.getTime()) / 1000);
+    const distanciaMetros = haversineMetros(ultimoPonto, posicao);
+    const velocidadeCalculada = distanciaMetros / intervaloSegundos;
+    const velocidadeInformada = posicao.velocidade ?? velocidadeCalculada;
+
+    // Só registra quando os dois sinais apontam para deslocamento real:
+    // pelo menos 20 m entre leituras, GPS/posição a cerca de 1 m/s (3,6
+    // km/h) e sem salto impossível. Depois de uma parada longa, cria uma
+    // nova base sem somar a distância acumulada durante a espera.
+    if (intervaloSegundos > 90) {
+      if (velocidadeInformada >= 1) {
+        await prisma.percursoPonto.create({
+          data: { percursoId: aberto.id, latitude: posicao.latitude, longitude: posicao.longitude },
+        });
+      }
+      return;
+    }
+
+    if (distanciaMetros < 20 || velocidadeInformada < 1 || velocidadeCalculada < 0.8 || velocidadeCalculada > 50) return;
+  }
+
+  // O primeiro ponto serve só de referência; ele não soma distância. Isso
+  // também permite calcular o deslocamento em aparelhos que não expõem a
+  // velocidade do GPS e exigem a comparação entre duas leituras.
   await prisma.percursoPonto.create({
     data: { percursoId: aberto.id, latitude: posicao.latitude, longitude: posicao.longitude },
   });
@@ -125,7 +162,7 @@ export async function POST(request: NextRequest) {
   const parsed = atualizarLocalizacaoSchema.safeParse(body);
   if (!parsed.success) return jsonValidationError(parsed.error);
 
-  const { latitude, longitude } = parsed.data;
+  const { latitude, longitude, velocidade, precisao } = parsed.data;
 
   await prisma.localizacao.upsert({
     where: { motoristaId: motorista.id },
@@ -136,7 +173,7 @@ export async function POST(request: NextRequest) {
   // Nem o alerta de proximidade nem o registro do trajeto podem derrubar a
   // atualização de GPS em si, que é o que mais importa.
   try {
-    await registrarPontoPercurso(motorista.id, { latitude, longitude });
+    await registrarPontoPercurso(motorista.id, { latitude, longitude, velocidade, precisao });
   } catch (err) {
     console.error("[percurso] erro ao registrar ponto", err);
   }
