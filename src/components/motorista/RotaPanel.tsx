@@ -247,6 +247,16 @@ export function RotaPanel() {
       return;
     }
 
+    // Ao confirmar que o aluno embarcou ou está ausente, a etapa de busca
+    // dele foi concluída. Se ele era o destino em foco, voltamos à rota
+    // normal: isso desmonta imediatamente o intervalo de avisos “a caminho”
+    // daquele vínculo, inclusive no sentido de volta.
+    if (status !== null && destinoManual?.tipo === "aluno" && destinoManual.id === vinculoId) {
+      setDestinoManual(null);
+      void carregar(undefined, sentido);
+      return;
+    }
+
     // No sentido VOLTA, marcar/desmarcar "Embarcou" muda a FASE desse aluno
     // (buscar na escola -> levar pra casa, e vice-versa se desfizer — ver
     // rotaAteVinculo/listaVolta no backend) — recarrega o destino em foco
