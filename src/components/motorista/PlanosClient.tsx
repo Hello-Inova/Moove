@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { X } from "lucide-react";
 
 import { apiGet, apiPostJson } from "@/lib/api-client";
 import { primaryButtonClass, secondaryButtonClass } from "@/components/ui/form-elements";
@@ -113,6 +114,13 @@ export function PlanosClient({
     window.location.href = result.data.checkoutUrl;
   }
 
+  function fecharAssinatura() {
+    if (loading) return;
+    setSelecionado(null);
+    setAnosAdicionais(0);
+    setError(null);
+  }
+
   if (loadError) {
     return <p className="text-sm text-red-600">{loadError}</p>;
   }
@@ -176,11 +184,28 @@ export function PlanosClient({
       </div>
 
       {plano && resumo && (
-        <section
-          id="tour-planos-resumo"
-          className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm dark:border-neutral-700 dark:bg-neutral-900"
-        >
-          <h2 className="text-lg font-semibold text-brand-navy dark:text-white">Assinar plano {plano.label}</h2>
+        <div className="fixed inset-0 z-[220] flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="assinar-plano-titulo">
+          <button
+            type="button"
+            onClick={fecharAssinatura}
+            disabled={loading}
+            className="absolute inset-0 cursor-default"
+            aria-label="Cancelar assinatura"
+          />
+          <section
+            id="tour-planos-resumo"
+            className="relative max-h-[calc(100vh-2rem)] w-full max-w-xl overflow-y-auto rounded-2xl border border-neutral-200 bg-white p-6 shadow-2xl dark:border-neutral-700 dark:bg-neutral-900"
+          >
+            <button
+              type="button"
+              onClick={fecharAssinatura}
+              disabled={loading}
+              className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-lg text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-neutral-800 dark:hover:text-white"
+              aria-label="Fechar formulário de assinatura"
+            >
+              <X className="h-5 w-5" aria-hidden="true" />
+            </button>
+          <h2 id="assinar-plano-titulo" className="text-lg font-semibold text-brand-navy dark:text-white">Assinar plano {plano.label}</h2>
           <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
             Valor fixo da plataforma abaixo. A cobrança por aluno excedente (ver detalhes no card do plano) é
             separada — gerada automaticamente a cada 30 dias de vínculo ativo, e paga por você direto pela Asaas
@@ -236,10 +261,16 @@ export function PlanosClient({
 
           {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
 
-          <button onClick={handleCheckout} disabled={loading} className={primaryButtonClass + " mt-4"}>
-            {loading ? "Preparando pagamento…" : "Ir para pagamento"}
-          </button>
-        </section>
+          <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <button type="button" onClick={fecharAssinatura} disabled={loading} className={secondaryButtonClass + " px-4 py-2 disabled:cursor-not-allowed disabled:opacity-50"}>
+              Cancelar
+            </button>
+            <button type="button" onClick={handleCheckout} disabled={loading} className={primaryButtonClass + " px-4 py-2"}>
+              {loading ? "Preparando pagamento…" : "Ir para pagamento"}
+            </button>
+          </div>
+          </section>
+        </div>
       )}
     </div>
   );
