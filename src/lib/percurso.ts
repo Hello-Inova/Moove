@@ -28,12 +28,29 @@ export async function fecharPercurso(percursoId: string, encerradoEm: Date = new
   const pontos = await prisma.percursoPonto.findMany({
     where: { percursoId },
     orderBy: { criadoEm: "asc" },
-    select: { latitude: true, longitude: true },
+    select: { latitude: true, longitude: true, criadoEm: true },
   });
 
   let distanciaMetros = 0;
   for (let i = 1; i < pontos.length; i++) {
-    distanciaMetros += haversineMetros(pontos[i - 1], pontos[i]);
+    const anterior = pontos[i - 1];
+    const atual = pontos[i];
+    const intervaloSegundos = Math.max(1, (atual.criadoEm.getTime() - anterior.criadoEm.getTime()) / 1000);
+    const distanciaSegmento = haversineMetros(anterior, atual);
+    const velocidadeCalculada = distanciaSegmento / intervaloSegundos;
+
+    // Segunda barreira contra ruído: trajetos antigos, ou uma leitura que
+    // escapou do filtro de entrada, não podem somar km se houve uma parada
+    // longa, deslocamento muito curto, velocidade incompatível com veículo
+    // em movimento ou um salto impossível de GPS.
+    if (
+      intervaloSegundos <= 90 &&
+      distanciaSegmento >= 20 &&
+      velocidadeCalculada >= 0.8 &&
+      velocidadeCalculada <= 50
+    ) {
+      distanciaMetros += distanciaSegmento;
+    }
   }
 
   // `sentido: "IDA"` — o resumo do percurso sempre refletiu só a rota de
