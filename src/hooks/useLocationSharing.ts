@@ -63,6 +63,8 @@ export function useLocationSharing() {
     const result = await apiPostJson("/api/motorista/localizacao", {
       latitude: pos.coords.latitude,
       longitude: pos.coords.longitude,
+      velocidade: Number.isFinite(pos.coords.speed) ? pos.coords.speed : null,
+      precisao: Number.isFinite(pos.coords.accuracy) ? pos.coords.accuracy : null,
     });
 
     sendingRef.current = false;
