@@ -23,6 +23,7 @@ import {
 import { secondaryButtonClass } from "@/components/ui/form-elements";
 import { MarcarMensalidadePagaButton } from "@/components/motorista/MarcarMensalidadePagaButton";
 import { MarcarMensalidadePendenteButton } from "@/components/motorista/MarcarMensalidadePendenteButton";
+import { VerDetalhesAlunoButton } from "@/components/motorista/VerDetalhesAlunoButton";
 import { formatarBRL } from "@/lib/subscription/plans";
 import { linkWhatsApp } from "@/lib/whatsapp";
 import type {
@@ -512,6 +513,9 @@ function ListaAlunos({ itens }: { itens: AlunoResumo[] }) {
         <li key={a.id} className="rounded-xl border border-neutral-200 p-3 dark:border-neutral-700">
           <p className="font-medium">{a.nome}</p>
           <p className="text-sm text-neutral-500 dark:text-neutral-400">{a.escolaNome ?? "Sem escola definida"}</p>
+          <div className="mt-2">
+            <VerDetalhesAlunoButton vinculoId={a.id} nomeAluno={a.nome} />
+          </div>
         </li>
       ))}
     </ul>
