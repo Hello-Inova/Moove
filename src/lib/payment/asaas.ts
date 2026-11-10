@@ -141,6 +141,7 @@ export async function createAsaasCheckout(params: {
 
   const appUrl = getAppUrl();
   const backUrlPath = params.backUrlPath ?? "/motorista/planos";
+  const successUrl = `${appUrl}${backUrlPath}${backUrlPath.includes("?") ? "&" : "?"}pagamento=sucesso`;
 
   const customerId = await findOrCreateAsaasCustomer({
     nome: params.payerNome,
@@ -162,7 +163,7 @@ export async function createAsaasCheckout(params: {
       description: params.titulo,
       externalReference: params.externalReference,
       callback: {
-        successUrl: `${appUrl}${backUrlPath}?pagamento=sucesso`,
+        successUrl,
         autoRedirect: true,
       },
     }),
