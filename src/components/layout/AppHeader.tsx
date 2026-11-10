@@ -28,6 +28,23 @@ function MenuIcon() {
   );
 }
 
+const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "dev";
+
+function AppBrand({ height }: { height: number }) {
+  return (
+    <>
+      <Logo height={height} />
+      <span
+        className="rounded-full border border-neutral-200 bg-neutral-50 px-1.5 py-0.5 font-mono text-[10px] font-medium text-neutral-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400"
+        title={`Versão do aplicativo: ${APP_VERSION}`}
+        aria-label={`Versão do aplicativo: ${APP_VERSION}`}
+      >
+        v{APP_VERSION}
+      </span>
+    </>
+  );
+}
+
 function CloseIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
@@ -85,7 +102,7 @@ export function AppHeader({
   const sidebarConteudo = (
     <div className="flex h-full flex-col">
       <Link href={homeHref} className="flex items-center gap-2 px-4 py-4" onClick={handleNavClick}>
-        <Logo height={26} />
+        <AppBrand height={26} />
       </Link>
 
       {nomeAtual && (
@@ -144,7 +161,7 @@ export function AppHeader({
           {/* Barra superior + gaveta — abaixo de md */}
           <header className="sticky top-0 z-30 flex items-center justify-between border-b border-neutral-200 bg-white/90 px-4 py-2.5 backdrop-blur supports-[backdrop-filter]:bg-white/70 md:hidden dark:border-neutral-800 dark:bg-neutral-950/90 dark:supports-[backdrop-filter]:bg-neutral-950/70">
             <Link href={homeHref} className="flex items-center gap-2" onClick={handleNavClick}>
-              <Logo height={24} />
+              <AppBrand height={24} />
             </Link>
             <div className="flex items-center gap-2">
               <ThemeToggle />
