@@ -100,6 +100,8 @@ export async function createAsaasCheckout(params: {
    * cadastra cliente nem gera cobrança sem CPF. */
   payerCpf?: string | null;
   backUrlPath?: string;
+  /** Origem do app que iniciou o checkout, para o retorno manter a sessão. */
+  appUrl?: string;
 }): Promise<AsaasCheckout> {
   if (!params.payerCpf) {
     throw new AsaasPayerSemCpfError(
@@ -107,7 +109,7 @@ export async function createAsaasCheckout(params: {
     );
   }
 
-  const appUrl = getAppUrl();
+  const appUrl = params.appUrl?.replace(/\/$/, "") || getAppUrl();
   const backUrlPath = params.backUrlPath ?? "/motorista/planos";
 
   const customerId = await findOrCreateAsaasCustomer({
