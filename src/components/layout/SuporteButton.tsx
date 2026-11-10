@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Headphones, X } from "lucide-react";
 
 type Chamado = { id: string; numero: number; status: "ABERTO" | "RECEBIDO" | "ENCERRADO"; criadoEm: string };
@@ -38,9 +39,9 @@ export function SuporteButton({ nome: nomeCadastrado, whatsapp: whatsappCadastra
     <button type="button" onClick={() => setAberto(true)} className="flex h-10 w-10 items-center justify-center rounded-lg text-red-600 transition hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30" aria-label="Abrir suporte" title="Suporte">
       <Headphones className="h-5 w-5" aria-hidden="true" />
     </button>
-    {aberto && <div className="fixed inset-0 z-[240] flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="suporte-titulo">
+    {aberto && createPortal(<div className="fixed inset-0 z-[9999] flex items-center justify-center overflow-y-auto bg-black/50 p-3 sm:p-4" role="dialog" aria-modal="true" aria-labelledby="suporte-titulo">
       <button className="absolute inset-0" aria-label="Cancelar" onClick={() => setAberto(false)} />
-      <section className="relative w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl dark:bg-neutral-900">
+      <section className="relative my-auto max-h-[calc(100dvh-1.5rem)] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl sm:p-6 dark:bg-neutral-900">
         <button type="button" className="absolute right-4 top-4 text-neutral-500" aria-label="Fechar" onClick={() => setAberto(false)}><X className="h-5 w-5" /></button>
         <h2 id="suporte-titulo" className="text-lg font-semibold">Falar com o suporte</h2>
         <p className="mt-1 text-sm text-neutral-500">Descreva o que aconteceu. Acompanhe o status abaixo.</p>
@@ -53,6 +54,6 @@ export function SuporteButton({ nome: nomeCadastrado, whatsapp: whatsappCadastra
         </div>
         {chamados.length > 0 && <div className="mt-5 border-t pt-4"><h3 className="text-sm font-semibold">Meus chamados</h3><ul className="mt-2 space-y-2">{chamados.map((c) => <li key={c.id} className="flex justify-between text-sm"><span>#{c.numero} · {new Date(c.criadoEm).toLocaleDateString("pt-BR")}</span><span className="font-medium">{STATUS[c.status]}</span></li>)}</ul></div>}
       </section>
-    </div>}
+    </div>, document.body)}
   </>;
 }
