@@ -1,0 +1,9 @@
+"use client";
+import { useState } from "react";
+type Chamado={id:string;numero:number;nome:string;whatsapp:string;descricao:string;status:"ABERTO"|"RECEBIDO"|"ENCERRADO";criadoEm:string;tipo:string};
+const rotulos={ABERTO:"Aberto",RECEBIDO:"Recebido",ENCERRADO:"Encerrado"};
+export function ChamadosAdmin({iniciais}:{iniciais:Chamado[]}) {
+ const [chamados,setChamados]=useState(iniciais);
+ async function atualizar(id:string,status:Chamado["status"]){const r=await fetch("/api/admin/chamados/"+id,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({status})});if(r.ok)setChamados(cs=>cs.map(c=>c.id===id?{...c,status}:c));}
+ return <div className="space-y-3">{chamados.map(c=><details key={c.id} className="rounded-xl border bg-white p-4 dark:bg-neutral-900"><summary className="flex cursor-pointer list-none items-center justify-between gap-3"><span className="font-medium">#{c.numero} · {c.nome}</span><span className="text-sm">{rotulos[c.status]}</span></summary><div className="mt-4 space-y-3 border-t pt-3 text-sm"><p><b>Tipo:</b> {c.tipo}</p><p><b>Aberto em:</b> {new Date(c.criadoEm).toLocaleString("pt-BR")}</p><p><b>WhatsApp:</b> <a className="text-brand-orange underline" target="_blank" href={"https://wa.me/"+c.whatsapp.replace(/\D/g,"")}>Abrir conversa · {c.whatsapp}</a></p><p><b>Motivo:</b><br />{c.descricao}</p><label className="block font-medium">Status<select value={c.status} onChange={e=>atualizar(c.id,e.target.value as Chamado["status"])} className="ml-2 rounded border p-1 font-normal"><option value="ABERTO">Aberto</option><option value="RECEBIDO">Recebido</option><option value="ENCERRADO">Encerrado</option></select></label></div></details>)}</div>;
+}
