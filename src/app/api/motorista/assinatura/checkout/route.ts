@@ -36,6 +36,9 @@ export async function POST(request: NextRequest) {
       motoristaCpf: motorista.cpf,
       tipoPlano,
       anosAdicionais,
+      // O retorno deve usar exatamente a mesma origem da sessão atual. Isso
+      // evita que a Asaas leve o motorista a outro domínio e pareça deslogá-lo.
+      appUrl: request.nextUrl.origin,
     });
 
     return NextResponse.json({ checkoutUrl }, { status: 201 });
