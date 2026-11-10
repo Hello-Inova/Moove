@@ -1,5 +1,6 @@
 import "server-only";
 
+import { timingSafeEqual, createHmac } from "crypto";
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 
@@ -78,27 +79,31 @@ export async function getSession(role: Role): Promise<SessionPayload | null> {
 }
 
 /**
- * Token temporário para recuperar a sessão depois de um checkout externo.
- * Não é a sessão do navegador e só vale para o retorno à tela de planos.
+ * Estado curto e autenticado para o retorno do checkout. A Asaas limita a
+ * URL de callback a 255 caracteres; por isso não usamos um JWT completo.
+ * O id do Pagamento é aleatório e a assinatura HMAC impede adulteração.
  */
-export async function createCheckoutReturnToken(motoristaId: string): Promise<string> {
-  return new SignJWT({ role: "motorista", checkoutReturn: true })
-    .setProtectedHeader({ alg: "HS256" })
-    .setSubject(motoristaId)
-    .setIssuedAt()
-    .setExpirationTime("30m")
-    .sign(getSecret("motorista"));
+function assinaturaCheckoutReturn(pagamentoId: string): string {
+  return createHmac("sha256", getSecret("motorista"))
+    .update(`checkout-return:${pagamentoId}`)
+    .digest("base64url")
+    .slice(0, 22);
 }
 
-export async function getMotoristaIdFromCheckoutReturnToken(token: string): Promise<string | null> {
-  try {
-    const { payload } = await jwtVerify(token, getSecret("motorista"));
-    return payload.role === "motorista" && payload.checkoutReturn === true && typeof payload.sub === "string"
-      ? payload.sub
-      : null;
-  } catch {
-    return null;
-  }
+export function createCheckoutReturnState(pagamentoId: string): string {
+  return `${pagamentoId}.${assinaturaCheckoutReturn(pagamentoId)}`;
+}
+
+export function getPagamentoIdFromCheckoutReturnState(state: string): string | null {
+  const [pagamentoId, assinatura, ...resto] = state.split(".");
+  if (!pagamentoId || !assinatura || resto.length > 0) return null;
+
+  const esperada = assinaturaCheckoutReturn(pagamentoId);
+  const recebida = Buffer.from(assinatura);
+  const esperadaBuffer = Buffer.from(esperada);
+  if (recebida.length !== esperadaBuffer.length || !timingSafeEqual(recebida, esperadaBuffer)) return null;
+
+  return pagamentoId;
 }
 
 export function sessionCookieName(role: Role): string {
