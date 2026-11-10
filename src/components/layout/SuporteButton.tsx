@@ -47,8 +47,8 @@ export function SuporteButton() {
         <h2 id="suporte-titulo" className="text-lg font-semibold">Falar com o suporte</h2>
         <p className="mt-1 text-sm text-neutral-500">Descreva o que aconteceu. Acompanhe o status abaixo.</p>
         <div className="mt-4 space-y-3">
-          <label className="block text-sm font-medium">Nome<input value={nome} onChange={(e) => setNome(e.target.value)} className="mt-1 w-full rounded-lg border p-2" /></label>
-          <label className="block text-sm font-medium">WhatsApp para contato<input value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className="mt-1 w-full rounded-lg border p-2" /></label>
+          <label className="block text-sm font-medium">Nome<input value={nome} readOnly className="mt-1 w-full rounded-lg border bg-neutral-100 p-2 text-neutral-600 dark:bg-neutral-800" /></label>
+          <label className="block text-sm font-medium">WhatsApp para contato<input value={whatsapp} readOnly className="mt-1 w-full rounded-lg border bg-neutral-100 p-2 text-neutral-600 dark:bg-neutral-800" /></label>
           <label className="block text-sm font-medium">Motivo do contato<textarea value={descricao} onChange={(e) => setDescricao(e.target.value)} rows={4} className="mt-1 w-full rounded-lg border p-2" /></label>
           {erro && <p className="text-sm text-red-600">{erro}</p>}
           <div className="flex justify-end gap-2"><button type="button" onClick={() => setAberto(false)} className="rounded-lg border px-4 py-2">Cancelar</button><button type="button" disabled={enviando} onClick={enviar} className="rounded-lg bg-brand-orange px-4 py-2 text-white disabled:opacity-60">{enviando ? "Enviando…" : "Enviar chamado"}</button></div>
