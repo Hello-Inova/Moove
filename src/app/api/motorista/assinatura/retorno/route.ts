@@ -1,18 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import {
-  createSession,
-  getMotoristaIdFromCheckoutReturnToken,
-} from "@/lib/auth/session";
+import { createSession, getPagamentoIdFromCheckoutReturnState } from "@/lib/auth/session";
+import { prisma } from "@/lib/prisma";
 
 /**
  * A Asaas volta de outro domínio e alguns navegadores não reenviam a sessão
- * original. Este endpoint recebe um token curto e assinado, restaura a sessão
- * do próprio motorista e segue para a tela de Planos com a confirmação.
+ * original. O estado curto identifica uma tentativa de pagamento e tem HMAC,
+ * permitindo restaurar exclusivamente a sessão do motorista dono dela.
  */
 export async function GET(request: NextRequest) {
   const state = request.nextUrl.searchParams.get("state");
-  const motoristaId = state ? await getMotoristaIdFromCheckoutReturnToken(state) : null;
+  const pagamentoId = state ? getPagamentoIdFromCheckoutReturnState(state) : null;
+
+  const pagamento = pagamentoId
+    ? await prisma.pagamento.findUnique({
+        where: { id: pagamentoId },
+        include: { assinatura: { select: { motoristaId: true } } },
+      })
+    : null;
+  const motoristaId = pagamento?.assinatura?.motoristaId ?? null;
 
   if (!motoristaId) {
     return NextResponse.redirect(new URL("/motorista/login", request.url));
@@ -23,7 +29,7 @@ export async function GET(request: NextRequest) {
   const response = NextResponse.redirect(
     new URL("/motorista/planos?pagamento=sucesso", request.url)
   );
-  // Evita que o token temporário apareça como referrer em recursos seguintes.
+  // Evita que o identificador temporário apareça como referrer em recursos seguintes.
   response.headers.set("Referrer-Policy", "no-referrer");
   return response;
 }
