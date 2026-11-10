@@ -26,10 +26,12 @@ export default async function MotoristaPlanosPage() {
   const assinatura = await getAssinaturaAtual(motorista.id);
   const tipoPlanoAtual: string | null = assinatura?.status === "ATIVA" ? assinatura.tipoPlano : null;
 
-  const assinaturaInfo = contaEmTeste(motorista.testeExpiraEm)
-    ? { situacao: "TESTE" as const, planoLabel: null, expiraEm: motorista.testeExpiraEm }
-    : assinatura?.status === "ATIVA"
-      ? { situacao: "ATIVA" as const, planoLabel: assinatura.planoLabel, expiraEm: assinatura.expiraEm }
+  // Um plano já aprovado sempre prevalece visualmente sobre o período de
+  // teste: o motorista precisa ver a expiração real do plano que assinou.
+  const assinaturaInfo = assinatura?.status === "ATIVA"
+    ? { situacao: "ATIVA" as const, planoLabel: assinatura.planoLabel, expiraEm: assinatura.expiraEm }
+    : contaEmTeste(motorista.testeExpiraEm)
+      ? { situacao: "TESTE" as const, planoLabel: null, expiraEm: motorista.testeExpiraEm }
       : { situacao: "EXPIRADA" as const, planoLabel: assinatura?.planoLabel ?? null, expiraEm: null };
 
   return (
