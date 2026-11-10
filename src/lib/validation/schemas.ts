@@ -373,3 +373,13 @@ export const planoAdminSchema = z.object({
 export const planoAtivoSchema = z.object({
   ativo: z.boolean(),
 });
+
+export const criarChamadoSuporteSchema = z.object({
+  nome: z.string().trim().min(2, "Informe seu nome.").max(120),
+  whatsapp: z.string().trim().min(8, "Informe um WhatsApp válido.").max(20),
+  descricao: z.string().trim().min(10, "Descreva o motivo do contato.").max(4000),
+});
+
+export const atualizarStatusChamadoSchema = z.object({
+  status: z.enum(["ABERTO", "RECEBIDO", "ENCERRADO"]),
+});
