@@ -8,6 +8,7 @@ import { Logo } from "@/components/ui/Logo";
 import { LogoutButton } from "@/components/auth/LogoutButton";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { EditProfileModal } from "@/components/ui/EditProfileModal";
+import { SuporteButton } from "@/components/layout/SuporteButton";
 import { useMapaExpandido } from "@/contexts/MapaExpandidoContext";
 
 // `icon` é um elemento já renderizado (ReactNode), não o componente em si —
@@ -144,7 +145,7 @@ export function AppHeader({
 
       <div className="flex items-center justify-between gap-2 border-t border-neutral-200 px-4 py-3 dark:border-neutral-700">
         <ThemeToggle />
-        <LogoutButton role={role} />
+        <div className="flex items-center gap-1"><SuporteButton /><LogoutButton role={role} /></div>
       </div>
     </div>
   );
