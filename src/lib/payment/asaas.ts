@@ -27,7 +27,13 @@ function getAppUrl(): string {
       "NEXT_PUBLIC_APP_URL não configurada — necessária para montar a URL de retorno após o pagamento."
     );
   }
-  return url.replace(/\/$/, "");
+
+  const origin = new URL(url).origin;
+  // O domínio raiz hospeda o site institucional. Todo retorno de pagamento
+  // precisa voltar ao app, onde existe a sessão autenticada do motorista.
+  return new URL(origin).hostname === "mooveraster.com.br"
+    ? "https://app.mooveraster.com.br"
+    : origin;
 }
 
 /**
@@ -126,8 +132,6 @@ export async function createAsaasCheckout(params: {
    * cadastra cliente nem gera cobrança sem CPF. */
   payerCpf?: string | null;
   backUrlPath?: string;
-  /** Origem do app que iniciou o checkout, para o retorno manter a sessão. */
-  appUrl?: string;
 }): Promise<AsaasCheckout> {
   if (!params.payerCpf) {
     throw new AsaasPayerSemCpfError(
@@ -135,7 +139,7 @@ export async function createAsaasCheckout(params: {
     );
   }
 
-  const appUrl = params.appUrl?.replace(/\/$/, "") || getAppUrl();
+  const appUrl = getAppUrl();
   const backUrlPath = params.backUrlPath ?? "/motorista/planos";
 
   const customerId = await findOrCreateAsaasCustomer({
