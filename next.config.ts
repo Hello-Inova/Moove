@@ -1,12 +1,13 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 
-const deployCommit = process.env.VERCEL_GIT_COMMIT_SHA ?? process.env.GITHUB_SHA;
+// Versão visível no aplicativo. A cada publicação incrementamos este
+// número e o comunicamos na confirmação do deploy.
+const APP_VERSION = "1.0.1";
 
 const nextConfig: NextConfig = {
-  // Valor incorporado no bundle de cada deploy para exibição ao lado do logo.
   env: {
-    NEXT_PUBLIC_APP_VERSION: deployCommit ? deployCommit.slice(0, 7) : "dev",
+    NEXT_PUBLIC_APP_VERSION: APP_VERSION,
   },
   async headers() {
     return [
