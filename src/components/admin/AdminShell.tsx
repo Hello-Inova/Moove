@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
-import { Users, UserRound, Sparkles, ShieldCheck, Gauge, Settings, X, Menu, type LucideIcon } from "lucide-react";
+import { Users, UserRound, Sparkles, ShieldCheck, Gauge, Settings, X, Menu, Headphones, type LucideIcon } from "lucide-react";
 
 import { Logo } from "@/components/ui/Logo";
 import { AdminLogoutButton } from "@/components/admin/AdminLogoutButton";
@@ -17,6 +17,7 @@ const NAV: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/admin/responsaveis", label: "Responsáveis", icon: UserRound },
   { href: "/admin/planos", label: "Planos", icon: Sparkles },
   { href: "/admin/auditoria", label: "Auditoria", icon: ShieldCheck },
+  { href: "/admin/chamados", label: "Chamados", icon: Headphones },
   { href: "/admin/uso-google", label: "Uso Google", icon: Gauge },
   { href: "/admin/configuracoes", label: "Configurações", icon: Settings },
 ];
