@@ -28,14 +28,14 @@ function MenuIcon() {
   );
 }
 
-const APP_VERSION = "1.0.2";
+const APP_VERSION = "1.0.3";
 
 function AppBrand({ height }: { height: number }) {
   return (
     <span className="inline-flex items-center gap-2">
       <Logo height={height} />
       <span
-        className="shrink-0 rounded-md bg-brand-navy px-1.5 py-0.5 font-mono text-[11px] font-bold leading-none text-white"
+        className="shrink-0 font-mono text-[11px] font-semibold leading-none text-neutral-500 dark:text-neutral-400"
         title={`Versão do aplicativo: ${APP_VERSION}`}
         aria-label={`Versão do aplicativo: ${APP_VERSION}`}
       >
