@@ -47,7 +47,11 @@ export async function POST(request: NextRequest) {
       return jsonError(400, "Complete seu CPF no cadastro antes de assinar um plano.");
     }
     if (err instanceof AsaasApiError) {
-      return jsonError(502, "Não foi possível criar o pagamento na Asaas agora. Tente novamente em instantes.");
+      // A mensagem da integração não contém credenciais e permite que o
+      // motorista/suporte identifique se a Asaas recusou o cliente, CPF ou
+      // a própria cobrança, em vez de receber um 502 genérico.
+      console.error("[checkout assinatura] Asaas recusou a criação", err);
+      return jsonError(502, err.message);
     }
     if (err instanceof PlanoInexistenteError) {
       return jsonError(404, err.message);
