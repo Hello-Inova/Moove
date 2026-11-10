@@ -1,7 +1,13 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 
+const deployCommit = process.env.VERCEL_GIT_COMMIT_SHA ?? process.env.GITHUB_SHA;
+
 const nextConfig: NextConfig = {
+  // Valor incorporado no bundle de cada deploy para exibição ao lado do logo.
+  env: {
+    NEXT_PUBLIC_APP_VERSION: deployCommit ? deployCommit.slice(0, 7) : "dev",
+  },
   async headers() {
     return [
       {
