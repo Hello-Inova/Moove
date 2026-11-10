@@ -23,18 +23,36 @@ export class PlanoInexistenteError extends Error {}
  * passaram da data, o status é corrigido para EXPIRADA na primeira leitura.
  */
 export async function getAssinaturaAtual(motoristaId: string): Promise<Assinatura | null> {
+  const agora = Date.now();
+
+  // Criar um novo checkout registra uma assinatura em TESTE enquanto o
+  // pagamento está pendente. Ela não pode ocultar um plano ATIVO já pago:
+  // priorizamos sempre o plano pago ainda vigente, mesmo que seja mais antigo.
+  const assinaturaAtiva = await prisma.assinatura.findFirst({
+    where: { motoristaId, status: "ATIVA" },
+    orderBy: [{ inicioEm: "desc" }, { criadoEm: "desc" }],
+  });
+
+  if (assinaturaAtiva) {
+    if (!assinaturaAtiva.expiraEm || assinaturaAtiva.expiraEm.getTime() >= agora) {
+      return assinaturaAtiva;
+    }
+
+    await prisma.assinatura.update({
+      where: { id: assinaturaAtiva.id },
+      data: { status: "EXPIRADA" },
+    });
+  }
+
+  // Sem plano pago vigente, a assinatura mais recente determina se há
+  // checkout pendente/teste ou se a conta já está expirada.
   const assinatura = await prisma.assinatura.findFirst({
     where: { motoristaId },
     orderBy: { criadoEm: "desc" },
   });
   if (!assinatura) return null;
 
-  const agora = Date.now();
-
   if (assinatura.status === "TESTE" && assinatura.testeExpiraEm.getTime() < agora) {
-    return prisma.assinatura.update({ where: { id: assinatura.id }, data: { status: "EXPIRADA" } });
-  }
-  if (assinatura.status === "ATIVA" && assinatura.expiraEm && assinatura.expiraEm.getTime() < agora) {
     return prisma.assinatura.update({ where: { id: assinatura.id }, data: { status: "EXPIRADA" } });
   }
 
