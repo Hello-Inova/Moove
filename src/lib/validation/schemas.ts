@@ -375,9 +375,11 @@ export const planoAtivoSchema = z.object({
 });
 
 export const criarChamadoSuporteSchema = z.object({
-  nome: z.string().trim().min(2, "Informe seu nome.").max(120),
-  whatsapp: z.string().trim().min(8, "Informe um WhatsApp válido.").max(20),
-  descricao: z.string().trim().min(10, "Descreva o motivo do contato.").max(4000),
+  // Nome e WhatsApp são ignorados no servidor e carregados da conta
+  // autenticada; ficam opcionais para o formulário não depender deles.
+  nome: z.string().optional(),
+  whatsapp: z.string().optional(),
+  descricao: z.string().trim().min(1, "Descreva o motivo do contato.").max(4000),
 });
 
 export const atualizarStatusChamadoSchema = z.object({
