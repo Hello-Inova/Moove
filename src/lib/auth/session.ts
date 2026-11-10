@@ -77,6 +77,30 @@ export async function getSession(role: Role): Promise<SessionPayload | null> {
   }
 }
 
+/**
+ * Token temporário para recuperar a sessão depois de um checkout externo.
+ * Não é a sessão do navegador e só vale para o retorno à tela de planos.
+ */
+export async function createCheckoutReturnToken(motoristaId: string): Promise<string> {
+  return new SignJWT({ role: "motorista", checkoutReturn: true })
+    .setProtectedHeader({ alg: "HS256" })
+    .setSubject(motoristaId)
+    .setIssuedAt()
+    .setExpirationTime("30m")
+    .sign(getSecret("motorista"));
+}
+
+export async function getMotoristaIdFromCheckoutReturnToken(token: string): Promise<string | null> {
+  try {
+    const { payload } = await jwtVerify(token, getSecret("motorista"));
+    return payload.role === "motorista" && payload.checkoutReturn === true && typeof payload.sub === "string"
+      ? payload.sub
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 export function sessionCookieName(role: Role): string {
   return COOKIE_NAMES[role];
 }
