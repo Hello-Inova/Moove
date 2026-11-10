@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-type Chamado={id:string;numero:number;nome:string;whatsapp:string;descricao:string;status:"ABERTO"|"RECEBIDO"|"ENCERRADO";criadoEm:string;tipo:string};
+type Chamado={id:string;numero:number;nome:string;whatsapp:string;descricao:string;status:"ABERTO"|"RECEBIDO"|"ENCERRADO";criadoEm:Date|string;tipo:string};
 const rotulos={ABERTO:"Aberto",RECEBIDO:"Recebido",ENCERRADO:"Encerrado"};
 export function ChamadosAdmin({iniciais}:{iniciais:Chamado[]}) {
  const [chamados,setChamados]=useState(iniciais);
