@@ -29,7 +29,7 @@ function MenuIcon() {
   );
 }
 
-const APP_VERSION = "1.0.7";
+const APP_VERSION = "1.0.8";
 
 function AppBrand({ height }: { height: number }) {
   return (
