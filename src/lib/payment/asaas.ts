@@ -113,6 +113,25 @@ async function findOrCreateAsaasCustomer(params: { nome: string; cpf: string; em
   return criado.id;
 }
 
+const ASAAS_DESCRIPTION_MAX_LENGTH = 500;
+
+/**
+ * A Asaas rejeita emojis e alguns símbolos em `description`. O nome do plano
+ * continua intacto no Moove; só a cópia enviada ao gateway é reduzida ao
+ * conjunto de caracteres aceito pela integração.
+ */
+export function sanitizarDescricaoAsaas(value: string): string {
+  const sanitizada = value
+    .normalize("NFKC")
+    .replace(/[^\p{L}\p{N} .,;:!?()/_+\-]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, ASAAS_DESCRIPTION_MAX_LENGTH)
+    .trim();
+
+  return sanitizada || "Cobranca Moove";
+}
+
 export type AsaasCheckout = { id: string; initPoint: string };
 
 /**
@@ -160,7 +179,7 @@ export async function createAsaasCheckout(params: {
       billingType: "UNDEFINED",
       value: Number(params.valor.toFixed(2)),
       dueDate: hoje,
-      description: params.titulo,
+      description: sanitizarDescricaoAsaas(params.titulo),
       externalReference: params.externalReference,
       callback: {
         successUrl,
