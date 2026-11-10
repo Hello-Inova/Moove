@@ -78,6 +78,14 @@ enum StatusPagamento {
   @@map("status_pagamento")
 }
 
+enum StatusChamadoSuporte {
+  ABERTO
+  RECEBIDO
+  ENCERRADO
+
+  @@map("status_chamado_suporte")
+}
+
 enum PublicoPlano {
   MOTORISTA
   RESPONSAVEL
@@ -208,6 +216,7 @@ model Motorista {
   cobrancasAluno       CobrancaAluno[]
   pushSubscriptions    PushSubscription[]
   mensalidadesTransporte MensalidadeTransporte[]
+  chamadosSuporte      ChamadoSuporte[]
 
   @@map("motoristas")
 }
@@ -266,10 +275,36 @@ model Responsavel {
   convitesUsados  Convite[] @relation("ConviteUsadoPor")
   alunos          Aluno[]
   pushSubscriptions PushSubscription[]
+  chamadosSuporte   ChamadoSuporte[]
 
   @@map("responsaveis")
 }
 
+// ---------------------------------------------------------------------------
+// ChamadoSuporte — aberto por motorista ou responsável autenticado. O
+// telefone é uma cópia informada no contato para preservar o histórico.
+model ChamadoSuporte {
+  id            String                @id @default(cuid())
+  numero        Int                   @unique @default(autoincrement())
+  motoristaId   String?               @map("motorista_id")
+  responsavelId String?               @map("responsavel_id")
+  nome          String
+  whatsapp      String
+  descricao     String
+  status        StatusChamadoSuporte  @default(ABERTO)
+  criadoEm      DateTime              @default(now()) @map("criado_em")
+  atualizadoEm  DateTime              @updatedAt @map("atualizado_em")
+
+  motorista   Motorista?   @relation(fields: [motoristaId], references: [id], onDelete: Cascade)
+  responsavel Responsavel? @relation(fields: [responsavelId], references: [id], onDelete: Cascade)
+
+  @@index([motoristaId, criadoEm])
+  @@index([responsavelId, criadoEm])
+  @@index([status, criadoEm])
+  @@map("chamados_suporte")
+}
+
+// ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 // PushSubscription — inscrição de push (Web Push API) de um navegador/
 // dispositivo do responsável, usada pro alerta sonoro de proximidade. Um
