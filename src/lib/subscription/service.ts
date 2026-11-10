@@ -81,8 +81,6 @@ export async function criarAssinaturaComCheckout(params: {
   motoristaCpf?: string | null;
   tipoPlano: string;
   anosAdicionais?: number;
-  /** Origem do app que abriu o checkout, usada no callback da Asaas. */
-  appUrl?: string;
 }) {
   const plano = await buscarPlanoPorCodigo(params.tipoPlano);
   if (!plano || !plano.ativo) {
@@ -127,7 +125,6 @@ export async function criarAssinaturaComCheckout(params: {
     payerEmail: params.motoristaEmail,
     payerNome: params.motoristaNome,
     payerCpf: params.motoristaCpf,
-    appUrl: params.appUrl,
   });
 
   await prisma.pagamento.update({
