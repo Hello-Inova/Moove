@@ -34,10 +34,12 @@ export default async function MotoristaPainelPage({
   // Resumo da assinatura pro card de "Plano" no Painel (ver item 4 do
   // pedido do motorista: controle da data de expiração direto no
   // dashboard, além da aba Planos).
-  const assinaturaInfo = contaEmTeste(motorista.testeExpiraEm)
-    ? { situacao: "TESTE" as const, planoLabel: null, expiraEm: motorista.testeExpiraEm }
-    : assinatura?.status === "ATIVA"
-      ? { situacao: "ATIVA" as const, planoLabel: assinatura.planoLabel, expiraEm: assinatura.expiraEm }
+  // Um plano já aprovado sempre prevalece visualmente sobre o período de
+  // teste: o motorista precisa ver a expiração real do plano que assinou.
+  const assinaturaInfo = assinatura?.status === "ATIVA"
+    ? { situacao: "ATIVA" as const, planoLabel: assinatura.planoLabel, expiraEm: assinatura.expiraEm }
+    : contaEmTeste(motorista.testeExpiraEm)
+      ? { situacao: "TESTE" as const, planoLabel: null, expiraEm: motorista.testeExpiraEm }
       : { situacao: "EXPIRADA" as const, planoLabel: assinatura?.planoLabel ?? null, expiraEm: null };
 
   return <PainelDashboard dados={dados} motoristaChavePix={motorista.chavePix} assinaturaInfo={assinaturaInfo} />;
