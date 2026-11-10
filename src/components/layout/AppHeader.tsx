@@ -28,20 +28,20 @@ function MenuIcon() {
   );
 }
 
-const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "dev";
+const APP_VERSION = "1.0.2";
 
 function AppBrand({ height }: { height: number }) {
   return (
-    <>
+    <span className="inline-flex items-center gap-2">
       <Logo height={height} />
       <span
-        className="rounded-full border border-neutral-200 bg-neutral-50 px-1.5 py-0.5 font-mono text-[10px] font-medium text-neutral-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400"
+        className="shrink-0 rounded-md bg-brand-navy px-1.5 py-0.5 font-mono text-[11px] font-bold leading-none text-white"
         title={`Versão do aplicativo: ${APP_VERSION}`}
         aria-label={`Versão do aplicativo: ${APP_VERSION}`}
       >
         v{APP_VERSION}
       </span>
-    </>
+    </span>
   );
 }
 
