@@ -99,8 +99,8 @@ export async function criarAssinaturaComCheckout(params: {
   motoristaCpf?: string | null;
   tipoPlano: string;
   anosAdicionais?: number;
-  /** Caminho de retorno após pagamento, assinado pela sessão do motorista. */
-  backUrlPath?: string;
+  /** Caminho de retorno após pagamento. Recebe o id da tentativa criada. */
+  backUrlPath?: string | ((pagamentoId: string) => string);
 }) {
   const plano = await buscarPlanoPorCodigo(params.tipoPlano);
   if (!plano || !plano.ativo) {
@@ -138,6 +138,9 @@ export async function criarAssinaturaComCheckout(params: {
   });
 
   const anosLabel = resumo.anosAdicionais > 0 ? ` + ${resumo.anosAdicionais} ano(s) extra` : "";
+  const backUrlPath = typeof params.backUrlPath === "function"
+    ? params.backUrlPath(pagamento.id)
+    : params.backUrlPath;
   const checkout = await createAsaasCheckout({
     titulo: `Moove — Plano ${plano.label} (${plano.cicloLabel.toLowerCase()}${anosLabel})`,
     valor: resumo.valorTotal,
@@ -145,7 +148,7 @@ export async function criarAssinaturaComCheckout(params: {
     payerEmail: params.motoristaEmail,
     payerNome: params.motoristaNome,
     payerCpf: params.motoristaCpf,
-    backUrlPath: params.backUrlPath,
+    backUrlPath,
   });
 
   await prisma.pagamento.update({
