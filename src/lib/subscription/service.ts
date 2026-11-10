@@ -81,6 +81,8 @@ export async function criarAssinaturaComCheckout(params: {
   motoristaCpf?: string | null;
   tipoPlano: string;
   anosAdicionais?: number;
+  /** Caminho de retorno após pagamento, assinado pela sessão do motorista. */
+  backUrlPath?: string;
 }) {
   const plano = await buscarPlanoPorCodigo(params.tipoPlano);
   if (!plano || !plano.ativo) {
@@ -125,6 +127,7 @@ export async function criarAssinaturaComCheckout(params: {
     payerEmail: params.motoristaEmail,
     payerNome: params.motoristaNome,
     payerCpf: params.motoristaCpf,
+    backUrlPath: params.backUrlPath,
   });
 
   await prisma.pagamento.update({
