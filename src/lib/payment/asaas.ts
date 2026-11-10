@@ -53,15 +53,20 @@ async function asaasFetch(path: string, init?: RequestInit): Promise<Response> {
  * a Asaas não aceita cadastrar cliente sem `cpfCnpj`.
  */
 async function desabilitarMensageriaAsaas(customerId: string): Promise<void> {
-  const response = await asaasFetch(`/customers/${encodeURIComponent(customerId)}`, {
-    method: "PUT",
-    body: JSON.stringify({ notificationDisabled: true }),
-  });
+  try {
+    const response = await asaasFetch(`/customers/${encodeURIComponent(customerId)}`, {
+      method: "PUT",
+      body: JSON.stringify({ notificationDisabled: true }),
+    });
 
-  if (!response.ok) {
-    const body = await response.text().catch(() => "");
-    console.error(`[asaas] Falha ao desabilitar mensageria do cliente (HTTP ${response.status}): ${body}`);
-    throw new AsaasApiError(`Falha ao desabilitar mensageria da Asaas (HTTP ${response.status}).`);
+    if (!response.ok) {
+      const body = await response.text().catch(() => "");
+      // A mensageria é uma configuração de custo, não pode impedir o
+      // motorista de concluir o pagamento quando a Asaas estiver instável.
+      console.error(`[asaas] Falha ao desabilitar mensageria do cliente (HTTP ${response.status}): ${body}`);
+    }
+  } catch (err) {
+    console.error("[asaas] Falha inesperada ao desabilitar mensageria do cliente", err);
   }
 }
 
