@@ -3,7 +3,7 @@ import { withSentryConfig } from "@sentry/nextjs";
 
 // Versão visível no aplicativo. A cada publicação incrementamos este
 // número e o comunicamos na confirmação do deploy.
-const APP_VERSION = "1.0.5";
+const APP_VERSION = "1.0.6";
 
 const nextConfig: NextConfig = {
   env: {
