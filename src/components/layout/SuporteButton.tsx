@@ -7,10 +7,10 @@ type Chamado = { id: string; numero: number; status: "ABERTO" | "RECEBIDO" | "EN
 
 const STATUS = { ABERTO: "Aberto", RECEBIDO: "Recebido", ENCERRADO: "Encerrado" };
 
-export function SuporteButton() {
+export function SuporteButton({ nome: nomeCadastrado, whatsapp: whatsappCadastrado }: { nome: string; whatsapp: string }) {
   const [aberto, setAberto] = useState(false);
-  const [nome, setNome] = useState("");
-  const [whatsapp, setWhatsapp] = useState("");
+  const [nome] = useState(nomeCadastrado);
+  const [whatsapp] = useState(whatsappCadastrado);
   const [descricao, setDescricao] = useState("");
   const [chamados, setChamados] = useState<Chamado[]>([]);
   const [erro, setErro] = useState("");
@@ -20,8 +20,6 @@ export function SuporteButton() {
     if (!aberto) return;
     fetch("/api/suporte/chamados").then((r) => r.ok ? r.json() : null).then((data) => {
       if (!data) return;
-      setNome(data.perfil?.nome ?? "");
-      setWhatsapp(data.perfil?.telefone ?? "");
       setChamados(data.chamados ?? []);
     });
   }, [aberto]);
