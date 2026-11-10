@@ -52,6 +52,19 @@ async function asaasFetch(path: string, init?: RequestInit): Promise<Response> {
  * motorista a cada nova cobrança) ou cria um novo. CPF é obrigatório aqui —
  * a Asaas não aceita cadastrar cliente sem `cpfCnpj`.
  */
+async function desabilitarMensageriaAsaas(customerId: string): Promise<void> {
+  const response = await asaasFetch(`/customers/${encodeURIComponent(customerId)}`, {
+    method: "PUT",
+    body: JSON.stringify({ notificationDisabled: true }),
+  });
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    console.error(`[asaas] Falha ao desabilitar mensageria do cliente (HTTP ${response.status}): ${body}`);
+    throw new AsaasApiError(`Falha ao desabilitar mensageria da Asaas (HTTP ${response.status}).`);
+  }
+}
+
 async function findOrCreateAsaasCustomer(params: { nome: string; cpf: string; email: string }): Promise<string> {
   const cpfDigitos = params.cpf.replace(/\D/g, "");
 
@@ -59,7 +72,12 @@ async function findOrCreateAsaasCustomer(params: { nome: string; cpf: string; em
   if (buscaResponse.ok) {
     const busca = await buscaResponse.json();
     const existente = busca?.data?.[0]?.id;
-    if (existente) return existente;
+    if (existente) {
+      // Clientes que já existiam também precisam ficar sem as notificações
+      // de cobrança da Asaas, que podem gerar tarifas por mensagem.
+      await desabilitarMensageriaAsaas(existente);
+      return existente;
+    }
   }
 
   const criaResponse = await asaasFetch("/customers", {
@@ -68,6 +86,9 @@ async function findOrCreateAsaasCustomer(params: { nome: string; cpf: string; em
       name: params.nome,
       cpfCnpj: cpfDigitos,
       email: params.email,
+      // Desativa e-mail, SMS, WhatsApp e demais cobranças de mensageria da
+      // Asaas. Os avisos próprios do Moove não passam por esse serviço.
+      notificationDisabled: true,
     }),
   });
 
