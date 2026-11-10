@@ -66,12 +66,14 @@ export function AppHeader({
   homeHref,
   nav,
   userName,
+  userPhone,
 }: {
   role: "motorista" | "responsavel";
   roleLabel: string;
   homeHref: string;
   nav: NavItem[];
   userName?: string | null;
+  userPhone?: string | null;
 }) {
   const [open, setOpen] = useState(false);
   const [perfilAberto, setPerfilAberto] = useState(false);
@@ -145,7 +147,7 @@ export function AppHeader({
 
       <div className="flex items-center justify-between gap-2 border-t border-neutral-200 px-4 py-3 dark:border-neutral-700">
         <ThemeToggle />
-        <div className="flex items-center gap-1"><SuporteButton /><LogoutButton role={role} /></div>
+        <div className="flex items-center gap-1"><SuporteButton nome={nomeAtual} whatsapp={userPhone ?? ""} /><LogoutButton role={role} /></div>
       </div>
     </div>
   );
