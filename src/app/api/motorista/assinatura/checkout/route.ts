@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { getAuthenticatedMotorista } from "@/lib/auth/guards";
+import { createCheckoutReturnToken } from "@/lib/auth/session";
 import { jsonError, jsonValidationError } from "@/lib/http";
 import { criarCheckoutAssinaturaSchema } from "@/lib/validation/schemas";
 import { criarAssinaturaComCheckout, PlanoInexistenteError } from "@/lib/subscription/service";
@@ -29,6 +30,9 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const returnToken = await createCheckoutReturnToken(motorista.id);
+    const backUrlPath = `/api/motorista/assinatura/retorno?state=${encodeURIComponent(returnToken)}`;
+
     const { checkoutUrl } = await criarAssinaturaComCheckout({
       motoristaId: motorista.id,
       motoristaNome: motorista.nome,
@@ -36,6 +40,7 @@ export async function POST(request: NextRequest) {
       motoristaCpf: motorista.cpf,
       tipoPlano,
       anosAdicionais,
+      backUrlPath,
     });
 
     return NextResponse.json({ checkoutUrl }, { status: 201 });
